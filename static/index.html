@@ -362,26 +362,87 @@
 
   .side-reopen {
     position: fixed; top: 14px; left: 14px; z-index: 60; display: none;
-    width: 42px; height: 42px; border-radius: 11px; font-size: 18px; cursor: pointer;
+    align-items: center; gap: 8px; height: 42px; padding: 0 15px;
+    border-radius: 11px; font-size: 14px; font-weight: 700; cursor: pointer;
     color: #fff; background: linear-gradient(180deg, var(--card-2), var(--card));
     border: 1px solid var(--line-2); box-shadow: 0 8px 22px rgba(0,0,0,.4);
   }
-  body.sidebar-collapsed .side-reopen { display: block; }
+  .side-reopen:hover { border-color: var(--accent); }
+  body.sidebar-collapsed .side-reopen { display: inline-flex; }
+
+  /* ---- History panel: one row per processed video ---- */
+  .side-video {
+    display: flex; gap: 11px; align-items: center; padding: 9px; cursor: pointer;
+    background: var(--card); border: 1px solid var(--line); border-radius: 11px; transition: .12s;
+  }
+  .side-video:hover { border-color: var(--accent); background: var(--card-2); }
+  .side-video .vthumb {
+    position: relative; width: 48px; height: 72px; flex: none; border-radius: 8px;
+    overflow: hidden; background: #000; display: grid; place-items: center;
+  }
+  .side-video .vthumb video { width: 100%; height: 100%; object-fit: cover; }
+  .side-video .vthumb .vcount {
+    position: absolute; bottom: 3px; right: 3px; padding: 1px 6px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; color: #fff; background: rgba(0,0,0,.7);
+  }
+  .side-video .vinfo { flex: 1; min-width: 0; }
+  .side-video .vname {
+    font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .side-video .vsub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .side-video .vchev { color: var(--muted-2); font-size: 16px; flex: none; }
+
+  /* ---- Clips view (per-video "page") ---- */
+  .clips-view {
+    position: fixed; inset: 0; z-index: 80; overflow-y: auto;
+    background:
+      radial-gradient(1100px 560px at 50% -12%, #1d2236 0%, rgba(13,16,23,0) 60%),
+      var(--bg);
+  }
+  .cv-head {
+    position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 14px;
+    flex-wrap: wrap; padding: 16px 22px; border-bottom: 1px solid var(--line);
+    background: rgba(11,13,19,.86); backdrop-filter: blur(8px);
+  }
+  .cv-back {
+    display: inline-flex; align-items: center; gap: 7px; padding: 10px 15px; cursor: pointer;
+    font-size: 14px; font-weight: 700; color: var(--text);
+    background: var(--card-2); border: 1px solid var(--line); border-radius: 11px; transition: .12s;
+  }
+  .cv-back:hover { border-color: var(--accent); }
+  .cv-titlebox { flex: 1; min-width: 180px; }
+  .cv-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted-2); }
+  .cv-title {
+    font-size: 18px; font-weight: 800; margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60vw;
+  }
+  .cv-switch { display: flex; align-items: center; gap: 9px; }
+  .cv-switch label { font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+  .cv-switch select.dropdown { width: auto; min-width: 200px; max-width: 320px; padding: 11px 40px 11px 14px; }
+  .cv-body { max-width: 1100px; margin: 0 auto; padding: 26px 22px 80px; }
+  .cv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px; }
+  .cv-empty { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 14px; }
+  .clip.gone { opacity: .55; }
+  .clip.gone .clipcard-vid::after {
+    content: "File removed"; position: absolute; inset: 0; display: grid; place-items: center;
+    color: var(--muted); font-size: 12px; background: rgba(0,0,0,.55); z-index: 3;
+  }
 </style>
 </head>
-<body>
+<body class="sidebar-collapsed">
 <aside class="sidebar" id="sidebar">
   <div class="side-head">
-    <span class="side-title">📹 Video clips</span>
+    <span class="side-title">🕘 History</span>
     <div class="side-head-btns">
       <button id="sideRefresh" class="side-icon" title="Refresh">⟳</button>
       <button id="sideCollapse" class="side-icon" title="Hide panel">‹</button>
     </div>
   </div>
-  <div id="sideEmpty" class="side-empty hidden">No clips yet — generate some and they'll appear here.</div>
+  <div id="sideEmpty" class="side-empty hidden">No history yet — generate clips and your videos will appear here.</div>
   <div id="sideList" class="side-list"></div>
 </aside>
-<button id="sideReopen" class="side-reopen" title="Show clips">📹</button>
+<button id="sideReopen" class="side-reopen" title="Show processed videos"><span>🕘</span><span>History</span></button>
 <main class="main">
 <div class="wrap">
   <div class="hero">
@@ -495,6 +556,25 @@
 </div>
 </main>
 
+<!-- Per-video clips "page": opened from the History panel -->
+<section id="clipsView" class="clips-view hidden">
+  <div class="cv-head">
+    <button class="cv-back" id="cvBack">← Back</button>
+    <div class="cv-titlebox">
+      <div class="cv-eyebrow">Clips for</div>
+      <div class="cv-title" id="cvTitle">—</div>
+    </div>
+    <div class="cv-switch">
+      <label for="videoSwitcher">Change video</label>
+      <select id="videoSwitcher" class="dropdown"></select>
+    </div>
+  </div>
+  <div class="cv-body">
+    <div id="cvGrid" class="cv-grid"></div>
+    <div id="cvEmpty" class="cv-empty hidden">This video's clips are no longer on disk.</div>
+  </div>
+</section>
+
 <script>
 const STAGES = [
   { key: "downloading", label: "Download" },
@@ -517,6 +597,9 @@ const state = {
   presets: [],
   evtSource: null,
   renderedCount: 0,
+  uploadName: null,       // original filename of an uploaded video (for history label)
+  history: [],            // cached /api/history entries (one per processed video)
+  currentVideo: null,     // clip_id of the video open in the clips view
 };
 
 // ---- Toggles ----
@@ -578,6 +661,7 @@ function uploadFile(file) {
     try { d = JSON.parse(xhr.responseText); } catch (e) {}
     if (xhr.status === 200 && d.upload_id) {
       state.upload_id = d.upload_id;
+      state.uploadName = d.filename || file.name;
       dropzone.classList.add("loaded");
       setUpStatus("ready", `Ready: ${d.filename} — uploaded`);
     } else {
@@ -755,6 +839,7 @@ function updatePreviewFrame() {
 
 function removeUpload() {
   state.upload_id = null;
+  state.uploadName = null;
   fileInput.value = "";
   document.getElementById("dzMain").textContent = "Click to choose a video — or drag & drop";
   dropzone.classList.remove("loaded");
@@ -973,6 +1058,7 @@ btn.addEventListener("click", async () => {
   if (state.source === "upload") {
     if (!state.upload_id) { showError("Please upload a video file first (wait for it to finish)."); return; }
     payload.upload_id = state.upload_id;
+    payload.upload_name = state.uploadName;
   } else {
     const url = document.getElementById("url").value.trim();
     if (!url) { showError("Please paste a video URL first."); return; }
@@ -1110,37 +1196,59 @@ function wireClipMenu(root, ref, video, onRemove) {
   }));
 }
 
-function buildSidebarClip(clip) {
-  const ref = { clip_id: clip.clip_id, index: clip.index };
+// A friendly display name for a processed video (history entry).
+function deriveName(entry) {
+  if (entry.source_type === "upload") return entry.source || "Uploaded video";
+  const url = entry.source || "";
+  let m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (m) return "YouTube · " + m[1];
+  m = url.match(/vimeo\.com\/(\d+)/);
+  if (m) return "Vimeo · " + m[1];
+  try { const u = new URL(url); return u.hostname.replace(/^www\./, "") + u.pathname; } catch (e) {}
+  return url || "Video";
+}
+
+function timeAgo(iso) {
+  const then = new Date(iso).getTime();
+  if (isNaN(then)) return "";
+  const s = Math.max(0, (Date.now() - then) / 1000);
+  if (s < 60) return "just now";
+  const m = s / 60; if (m < 60) return Math.floor(m) + "m ago";
+  const h = m / 60; if (h < 24) return Math.floor(h) + "h ago";
+  const d = h / 24; if (d < 7) return Math.floor(d) + "d ago";
+  return new Date(then).toLocaleDateString();
+}
+
+// Copy-to-clipboard wiring shared by every clip card.
+function wireCopyBtn(btn) {
+  btn.onclick = (e) => {
+    const full = location.origin + btn.dataset.url;
+    navigator.clipboard.writeText(full).then(() => {
+      const old = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = old; }, 1400);
+    });
+  };
+}
+
+// One row per processed video in the History panel.
+function buildVideoRow(entry) {
+  const clips = entry.clips || [];
+  const first = clips.find(c => c.exists !== false) || clips[0];
+  const icon = entry.source_type === "upload" ? "⬆" : "🔗";
   const row = document.createElement("div");
-  row.className = "side-clip" + (clip.exists === false ? " gone" : "");
-  const dur = (clip.end != null && clip.start != null) ? (clip.end - clip.start).toFixed(1) + "s" : "";
+  row.className = "side-video";
   row.innerHTML = `
-    <div class="side-thumb">
-      <video src="${clip.url}" preload="metadata" muted playsinline loop></video>
-      <span class="side-play">▶</span>
+    <div class="vthumb">
+      ${first ? `<video src="${first.url}" preload="metadata" muted></video>` : ""}
+      <span class="vcount">${clips.length}</span>
     </div>
-    <div class="side-info">
-      <div class="side-name">${escapeHtml(clip.title || ("Clip " + (clip.index + 1)))}</div>
-      <div class="side-sub">${dur}</div>
+    <div class="vinfo">
+      <div class="vname"><span>${icon}</span><span>${escapeHtml(deriveName(entry))}</span></div>
+      <div class="vsub">${clips.length} clip${clips.length === 1 ? "" : "s"} · ${timeAgo(entry.created)}</div>
     </div>
-    <button class="dots" title="Options">⋮</button>
-    <div class="menu hidden">
-      <button data-act="play">▶ Play / Pause</button>
-      <button data-act="folder">📁 Open in folder</button>
-      <button data-act="remove" class="danger">🗑 Remove clip</button>
-    </div>`;
-  const video = row.querySelector("video");
-  const play = row.querySelector(".side-play");
-  const toggle = () => { video.paused ? video.play().catch(() => {}) : video.pause(); };
-  row.querySelector(".side-thumb").addEventListener("click", toggle);
-  video.addEventListener("play", () => play.classList.add("hidden"));
-  video.addEventListener("pause", () => play.classList.remove("hidden"));
-  wireClipMenu(row, ref, video, () => {
-    row.remove();
-    if (!document.querySelectorAll("#sideList .side-clip").length)
-      document.getElementById("sideEmpty").classList.remove("hidden");
-  });
+    <span class="vchev">›</span>`;
+  row.addEventListener("click", () => openClipsView(entry.clip_id));
   return row;
 }
 
@@ -1150,17 +1258,103 @@ async function loadSidebar() {
   try {
     const res = await fetch("/api/history");
     const entries = await res.json();
-    const clips = [];
-    entries.forEach(e => (e.clips || []).forEach(c => clips.push({ ...c, clip_id: e.clip_id })));
+    state.history = Array.isArray(entries) ? entries : [];
     list.innerHTML = "";
-    if (!clips.length) { empty.classList.remove("hidden"); return; }
-    empty.classList.add("hidden");
-    clips.forEach(c => list.appendChild(buildSidebarClip(c)));
+    if (!state.history.length) {
+      empty.textContent = "No history yet — generate clips and your videos will appear here.";
+      empty.classList.remove("hidden");
+    } else {
+      empty.classList.add("hidden");
+      state.history.forEach(e => list.appendChild(buildVideoRow(e)));
+    }
+    // If the clips view is open (e.g. just generated more), keep it in sync.
+    if (!document.getElementById("clipsView").classList.contains("hidden") && state.currentVideo) {
+      if (state.history.some(e => e.clip_id === state.currentVideo)) openClipsView(state.currentVideo);
+      else closeClipsView();
+    }
   } catch (e) {
-    empty.textContent = "Could not load clips: " + e.message;
+    empty.textContent = "Could not load history: " + e.message;
     empty.classList.remove("hidden");
   }
 }
+
+// ---- Per-video clips view ("page" with a video switcher) ----
+function buildHistoryClipCard(clipId, c) {
+  const gone = c.exists === false;
+  const dur = (c.end - c.start).toFixed(1);
+  const card = document.createElement("div");
+  card.className = "clip" + (gone ? " gone" : "");
+  card.innerHTML = `
+    <div class="clipcard-vid">
+      <video src="${c.url}" controls preload="metadata"></video>
+      <button class="dots" title="Options">⋮</button>
+      <div class="menu hidden">
+        <button data-act="folder">📁 Open in folder</button>
+        <button data-act="remove" class="danger">🗑 Remove clip</button>
+      </div>
+    </div>
+    <div class="meta">
+      <h3>${escapeHtml(c.title || ("Clip " + (c.index + 1)))}</h3>
+      <div class="sub">${dur}s · ${(+c.start).toFixed(1)}–${(+c.end).toFixed(1)}s</div>
+      <div class="actions">
+        <a href="${c.url}" download>⤓ Download</a>
+        <button class="copy" data-url="${c.url}">Copy link</button>
+      </div>
+    </div>`;
+  wireCopyBtn(card.querySelector(".copy"));
+  wireClipMenu(
+    card.querySelector(".clipcard-vid"),
+    { clip_id: clipId, index: c.index },
+    card.querySelector("video"),
+    () => loadSidebar(),  // re-fetch history → re-renders the panel and this view
+  );
+  return card;
+}
+
+function openClipsView(clipId) {
+  const entry = state.history.find(e => e.clip_id === clipId);
+  if (!entry) return;
+  state.currentVideo = clipId;
+
+  document.getElementById("cvTitle").textContent = deriveName(entry);
+
+  // Populate the "Change video" switcher with every processed video.
+  const sel = document.getElementById("videoSwitcher");
+  sel.innerHTML = "";
+  state.history.forEach(e => {
+    const opt = document.createElement("option");
+    opt.value = e.clip_id;
+    opt.textContent = `${deriveName(e)} (${(e.clips || []).length})`;
+    if (e.clip_id === clipId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  const grid = document.getElementById("cvGrid");
+  const empty = document.getElementById("cvEmpty");
+  grid.innerHTML = "";
+  const clips = entry.clips || [];
+  if (!clips.length) {
+    empty.classList.remove("hidden");
+  } else {
+    empty.classList.add("hidden");
+    clips.forEach(c => grid.appendChild(buildHistoryClipCard(clipId, c)));
+  }
+
+  document.getElementById("clipsView").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeClipsView() {
+  document.getElementById("clipsView").classList.add("hidden");
+  document.body.style.overflow = "";
+  state.currentVideo = null;
+}
+
+document.getElementById("videoSwitcher").addEventListener("change", (e) => openClipsView(e.target.value));
+document.getElementById("cvBack").addEventListener("click", closeClipsView);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.getElementById("clipsView").classList.contains("hidden")) closeClipsView();
+});
 
 document.getElementById("sideRefresh").addEventListener("click", loadSidebar);
 document.getElementById("sideCollapse").addEventListener("click", () => document.body.classList.add("sidebar-collapsed"));

@@ -66,6 +66,10 @@ class GenerateRequest(BaseModel):
         default=None,
         description="Reference to a previously uploaded file (from /api/upload).",
     )
+    upload_name: Optional[str] = Field(
+        default=None,
+        description="Original filename of the uploaded video (display label only).",
+    )
     aspect_ratio: AspectRatio = AspectRatio.NINE_16
     fit_mode: FitMode = FitMode.CROP
     bar_text: Optional[str] = Field(

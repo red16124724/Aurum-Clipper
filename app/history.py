@@ -63,12 +63,23 @@ def _save(entries: list) -> None:
         logger.warning("Could not write history.json: %s", exc)
 
 
-def add_entry(clip_id: str, source: str, settings: dict, clips: List[dict]) -> None:
-    """Record one finished generation (a job and the clips it produced)."""
+def add_entry(
+    clip_id: str,
+    source: str,
+    settings: dict,
+    clips: List[dict],
+    source_type: str = "url",
+) -> None:
+    """Record one finished generation (a job and the clips it produced).
+
+    ``source`` is a human label (the URL, or an uploaded file's name) and
+    ``source_type`` is "url" or "upload" so the UI can show the right icon.
+    """
     entry = {
         "clip_id": clip_id,
         "created": datetime.now().isoformat(timespec="seconds"),
         "source": source,
+        "source_type": source_type,
         "settings": settings,
         "clips": clips,
     }

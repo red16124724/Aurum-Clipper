@@ -260,11 +260,19 @@ def _run_pipeline(job: Job) -> None:
         job.finish(results)
         logger.info("[%s] pipeline complete: %d clips", job.id, len(results))
 
-        # Persist to history so the "Video clips" panel survives restarts.
+        # Persist to history so the History panel survives restarts. Use a
+        # meaningful label: the uploaded file's name, or the source URL.
+        if req.upload_id:
+            source_label = req.upload_name or "Uploaded file"
+            source_type = "upload"
+        else:
+            source_label = req.video_url or "Unknown source"
+            source_type = "url"
         try:
             history.add_entry(
                 clip_id=clip_id,
-                source=(req.video_url or "Uploaded file"),
+                source=source_label,
+                source_type=source_type,
                 settings={
                     "aspect_ratio": req.aspect_ratio.value,
                     "fit_mode": req.fit_mode.value,
