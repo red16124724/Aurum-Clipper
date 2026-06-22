@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+pydantic>=2
+yt-dlp
+faster-whisper
+requests
