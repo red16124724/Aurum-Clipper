@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # --------------------------------------------------------------------------- #
@@ -26,26 +26,51 @@ class AspectRatio(str, Enum):
 class FitMode(str, Enum):
     """How the source is fitted into the target frame.
 
-    - crop: scale to *cover* the target, then center-crop (fills the frame).
-    - pad:  scale to *fit* inside the target, then pad with black bars.
+    - crop:   scale to *cover* the chosen aspect ratio, then center-crop (fills it).
+    - square: force a 1:1 square frame and center-crop to fill it. The chosen
+              aspect_ratio is IGNORED in this mode.
     """
 
     CROP = "crop"
-    PAD = "pad"
+    SQUARE = "square"
+
+
+class Device(str, Enum):
+    """Which compute device runs the local Whisper transcription.
+
+    - auto: prefer the GPU (CUDA) when available, otherwise the CPU.
+    - cuda: force the NVIDIA GPU (errors clearly if it cannot be used).
+    - cpu:  force the CPU (slower on 'medium' but works everywhere).
+    """
+
+    AUTO = "auto"
+    CUDA = "cuda"
+    CPU = "cpu"
 
 
 # --------------------------------------------------------------------------- #
 # Request / response schemas
 # --------------------------------------------------------------------------- #
 class GenerateRequest(BaseModel):
-    """Body for POST /api/generate."""
+    """Body for POST /api/generate.
 
-    video_url: str = Field(..., description="Source video URL (e.g. YouTube).")
+    The source is EITHER a ``video_url`` (fetched with yt-dlp) OR an ``upload_id``
+    returned by ``POST /api/upload`` (a file the user uploaded). Exactly one is
+    required; ``upload_id`` takes precedence if both are somehow supplied.
+    """
+
+    video_url: Optional[str] = Field(
+        default=None, description="Source video URL (e.g. YouTube)."
+    )
+    upload_id: Optional[str] = Field(
+        default=None,
+        description="Reference to a previously uploaded file (from /api/upload).",
+    )
     aspect_ratio: AspectRatio = AspectRatio.NINE_16
     fit_mode: FitMode = FitMode.CROP
     bar_text: Optional[str] = Field(
         default=None,
-        description="Text drawn on the top bar. Only used when fit_mode='pad'.",
+        description="Title text drawn over the top of the frame (square mode).",
     )
     num_clips: int = Field(
         default=3, ge=1, le=10, description="How many clips to generate (1-10)."
@@ -53,6 +78,20 @@ class GenerateRequest(BaseModel):
     caption_style: str = Field(
         default="bold_white", description="Caption style preset id."
     )
+    device: Device = Field(
+        default=Device.AUTO,
+        description="Compute device for transcription: auto, cuda (GPU), or cpu.",
+    )
+
+    @model_validator(mode="after")
+    def _require_a_source(self) -> "GenerateRequest":
+        has_url = bool(self.video_url and self.video_url.strip())
+        has_upload = bool(self.upload_id and self.upload_id.strip())
+        if not has_url and not has_upload:
+            raise ValueError(
+                "Provide either a video URL or an uploaded file."
+            )
+        return self
 
 
 class ClipResult(BaseModel):

@@ -1,9 +1,13 @@
 """Cut, reframe, and burn captions with ffmpeg.
 
 Each clip is re-encoded (libx264 + aac) so cuts are frame-accurate and the ASS
-captions are burned into the pixels. Reframing either fills the target frame
-(crop) or fits with black bars (pad); in pad mode an optional top-bar text can
-be drawn on the top band.
+captions are burned into the pixels.
+
+``crop`` scales to *cover* the chosen aspect ratio (9:16 / 16:9) and center-crops
+to fill it. ``square`` renders a 9:16 canvas with the source cropped to a 1:1
+square, given **soft rounded corners**, and centered on black — with an optional
+title drawn above it (the "rounded square reel" look). The aspect ratio is
+ignored in square mode (the canvas is always 9:16).
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ from pathlib import Path
 from typing import Optional
 
 from .models import AspectRatio, ClipGenerationError, FitMode
-from .paths import CLIPS_DIR, FONTS_DIR
+from .paths import CLIPS_DIR, FONTS_DIR, MASKS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +29,60 @@ _TARGETS = {
     AspectRatio.NINE_16: (1080, 1920),
     AspectRatio.SIXTEEN_9: (1920, 1080),
 }
+
+# Square ("rounded reel") mode: a 9:16 canvas with a centered, rounded 1:1 square.
+_SQUARE_CANVAS = (1080, 1920)   # output frame (aspect ratio is ignored)
+_SQUARE_INNER = 1020            # side of the centered square
+_SQUARE_RADIUS = 60             # corner radius of that square (soft, anti-aliased)
+
+
+def target_size(aspect_ratio: AspectRatio, fit_mode: FitMode) -> tuple[int, int]:
+    """Output (width, height): 9:16 canvas for square mode, else the aspect size."""
+    if fit_mode == FitMode.SQUARE:
+        return _SQUARE_CANVAS
+    return _TARGETS[aspect_ratio]
+
+
+def ensure_rounded_mask(size: int = _SQUARE_INNER, radius: int = _SQUARE_RADIUS) -> Path:
+    """Create (once) and cache a grayscale rounded-rectangle mask via ffmpeg.
+
+    White inside the rounded square, black outside; used by ``alphamerge`` to
+    give the centered square its soft corners. Generated with ffmpeg's ``geq``
+    so we need no extra image library.
+    """
+    path = MASKS_DIR / f"rounded_{size}_{radius}.png"
+    if path.exists():
+        return path
+    MASKS_DIR.mkdir(parents=True, exist_ok=True)
+
+    edge = size - 1 - radius
+    # Distance from each pixel to the inner rectangle's edge (the rounded-rect SDF);
+    # a ~1.5px soft ramp around `radius` anti-aliases the corners (smooth, not jaggy).
+    # alpha = 255 inside, 0 outside. Commas are escaped for the filtergraph.
+    expr = (
+        f"255*clip(0.5+({radius}-hypot("
+        f"max(0\\,{radius}-X)+max(0\\,X-{edge})\\,"
+        f"max(0\\,{radius}-Y)+max(0\\,Y-{edge})))/1.5\\,0\\,1)"
+    )
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", f"color=c=black:s={size}x{size}:d=0.1",
+        "-vf", f"geq=lum='{expr}':cb=128:cr=128",
+        "-frames:v", "1", str(path),
+    ]
+    try:
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True, encoding="utf-8", errors="replace")
+    except FileNotFoundError as exc:
+        raise ClipGenerationError(
+            "ffmpeg was not found on PATH (needed to build the rounded mask)."
+        ) from exc
+    if proc.returncode != 0 or not path.exists():
+        tail = (proc.stderr or "").strip().splitlines()[-8:]
+        raise ClipGenerationError(
+            "Could not generate the rounded-corner mask:\n" + "\n".join(tail)
+        )
+    return path
 
 _BAR_FONT = FONTS_DIR / "Roboto-Bold.ttf"
 
@@ -65,48 +123,69 @@ def _escape_drawtext(text: str) -> str:
     )
 
 
-def _build_filter(opts: ClipOptions, width: int, height: int, work_dir: Path) -> str:
-    """Construct the full -vf filtergraph: reframe -> (bar text) -> captions.
-
-    `work_dir` is the ffmpeg cwd; in-filtergraph paths are made relative to it.
-    """
-    if opts.fit_mode == FitMode.CROP:
-        # Scale to cover the target, then center-crop to exactly WxH.
-        reframe = (
-            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-            f"crop={width}:{height}"
-        )
-    else:
-        # Scale to fit inside the target, then pad with black bars to WxH.
-        reframe = (
-            f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
-            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black"
-        )
-
-    parts = [reframe]
-
-    # Top-bar text only makes sense with pad (there is a real top bar there).
-    if opts.fit_mode == FitMode.PAD and opts.bar_text and opts.bar_text.strip():
-        font_size = max(18, int(round(height * 0.035)))
-        y = int(round(height * 0.04))
-        drawtext = (
-            f"drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:"
-            f"text='{_escape_drawtext(opts.bar_text.strip())}':"
-            f"fontcolor=white:fontsize={font_size}:"
-            f"x=(w-text_w)/2:y={y}:"
-            f"box=1:boxcolor=black@0.5:boxborderw=20"
-        )
-        parts.append(drawtext)
-
-    # Burn the styled captions last so they sit on top of everything. Relative
-    # paths (cwd = work_dir) keep the drive colon and spaces out of the graph.
-    ass = (
+def _ass_filter(opts: ClipOptions, work_dir: Path) -> str:
+    """The caption-burn filter. Relative paths keep the drive colon/spaces out."""
+    return (
         f"ass={_rel_for_filter(opts.ass_path, work_dir)}:"
         f"fontsdir={_rel_for_filter(FONTS_DIR, work_dir)}"
     )
-    parts.append(ass)
 
-    return ",".join(parts)
+
+def _build_crop_filter(width: int, height: int, opts: ClipOptions, work_dir: Path) -> str:
+    """-vf graph for crop mode: cover+crop to WxH, then burn captions."""
+    reframe = (
+        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"crop={width}:{height}"
+    )
+    return f"{reframe},{_ass_filter(opts, work_dir)}"
+
+
+def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
+    """-filter_complex graph for square mode.
+
+    Input 0 = source video, input 1 = the rounded mask. We split the source: one
+    branch becomes a 9:16 black canvas (so the canvas shares the video's fps and
+    timing), the other is cropped to a square and rounded via ``alphamerge``. The
+    rounded square is then ``overlay``-composited onto the black canvas — doing
+    the compositing explicitly (rather than ``pad`` + dropping the alpha at encode)
+    is what makes the soft corners actually survive into the rendered pixels.
+    """
+    s = _SQUARE_INNER
+    w, h = _SQUARE_CANVAS
+    mx, my = (w - s) // 2, (h - s) // 2
+
+    stages = [
+        "[0:v]split[base][fg]",
+        f"[base]scale={w}:{h}:force_original_aspect_ratio=increase,"
+        f"crop={w}:{h},drawbox=0:0:iw:ih:black:t=fill[bg]",
+        f"[fg]scale={s}:{s}:force_original_aspect_ratio=increase,"
+        f"crop={s}:{s},format=yuva420p[sq]",
+        f"[1:v]format=gray,scale={s}:{s}[m]",
+        "[sq][m]alphamerge[r]",
+        f"[bg][r]overlay={mx}:{my}[ov]",
+    ]
+    last = "ov"
+
+    if opts.bar_text and opts.bar_text.strip():
+        font_size = max(28, int(round(h * 0.040)))
+        y = max(20, my - font_size - 40)  # sits in the black band just above the square
+        stages.append(
+            f"[{last}]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:"
+            f"text='{_escape_drawtext(opts.bar_text.strip())}':"
+            f"fontcolor=white:fontsize={font_size}:x=(w-text_w)/2:y={y}:"
+            f"borderw=3:bordercolor=black@0.85[titled]"
+        )
+        last = "titled"
+
+    stages.append(f"[{last}]{_ass_filter(opts, work_dir)}[outv]")
+    return ";".join(stages)
+
+
+# Shared output-encoding args (everything after the filter graph).
+_ENCODE_ARGS = [
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+    "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
+]
 
 
 def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions) -> Path:
@@ -115,34 +194,41 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions)
     Raises:
         ClipGenerationError: if ffmpeg is missing or fails.
     """
-    width, height = _TARGETS[opts.aspect_ratio]
     duration = max(0.1, end - start)
 
     out_dir = (CLIPS_DIR / opts.clip_id).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{opts.index}.mp4"
 
-    # ffmpeg runs with cwd = out_dir so the in-filtergraph paths can be relative
-    # (no Windows drive colon / spaces to escape). Input and output are passed as
-    # absolute paths since they are plain argv, not part of the filtergraph.
-    vf = _build_filter(opts, width, height, out_dir)
+    src = str(Path(source_mp4).resolve())
 
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-ss", f"{start:.3f}",
-        "-i", str(Path(source_mp4).resolve()),
-        "-t", f"{duration:.3f}",
-        "-vf", vf,
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "20",
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac",
-        "-b:a", "128k",
-        "-movflags", "+faststart",
-        str(out_path),
-    ]
+    # ffmpeg runs with cwd = out_dir so in-filtergraph paths can be relative (no
+    # Windows drive colon / spaces). Inputs/outputs are absolute argv, which is fine.
+    if opts.fit_mode == FitMode.SQUARE:
+        mask = ensure_rounded_mask()
+        fc = _build_square_filter_complex(opts, out_dir)
+        cmd = [
+            "ffmpeg", "-y",
+            "-ss", f"{start:.3f}", "-i", src,
+            "-loop", "1", "-i", str(mask.resolve()),
+            "-t", f"{duration:.3f}",
+            "-filter_complex", fc,
+            "-map", "[outv]", "-map", "0:a?",
+            *_ENCODE_ARGS,
+            "-shortest",
+            str(out_path),
+        ]
+    else:
+        width, height = target_size(opts.aspect_ratio, opts.fit_mode)
+        vf = _build_crop_filter(width, height, opts, out_dir)
+        cmd = [
+            "ffmpeg", "-y",
+            "-ss", f"{start:.3f}", "-i", src,
+            "-t", f"{duration:.3f}",
+            "-vf", vf,
+            *_ENCODE_ARGS,
+            str(out_path),
+        ]
 
     logger.info("Rendering clip %d (cwd=%s): %s", opts.index, out_dir, " ".join(cmd))
 

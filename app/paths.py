@@ -17,6 +17,7 @@ TRANSCRIPTS_DIR = ROOT_DIR / "transcripts"
 CLIPS_DIR = ROOT_DIR / "clips"
 ASSETS_DIR = ROOT_DIR / "assets"
 FONTS_DIR = ASSETS_DIR / "fonts"
+MASKS_DIR = ASSETS_DIR / "masks"
 STATIC_DIR = ROOT_DIR / "static"
 
 
@@ -28,6 +29,7 @@ def ensure_dirs() -> None:
         CLIPS_DIR,
         ASSETS_DIR,
         FONTS_DIR,
+        MASKS_DIR,
         STATIC_DIR,
     ):
         directory.mkdir(parents=True, exist_ok=True)

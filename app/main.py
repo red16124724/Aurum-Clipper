@@ -12,15 +12,18 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import subprocess
+import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
-from . import captions, jobs, transcriber
-from .models import GenerateRequest
+from . import captions, history, jobs, transcriber, uploads
+from .models import Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
 from .fonts import ensure_fonts
 from .paths import CLIPS_DIR, STATIC_DIR, ensure_dirs
 
@@ -68,6 +71,101 @@ def health() -> dict:
 def caption_styles() -> list[dict]:
     """Return the caption style presets for the UI (chips + live preview)."""
     return captions.get_presets_for_api()
+
+
+@app.get("/api/devices")
+def devices() -> dict:
+    """Report compute devices the UI may offer for transcription.
+
+    Lets the frontend enable/disable the GPU option and show the active device.
+    """
+    return {
+        "devices": transcriber.available_devices(),
+        "default": transcriber.get_device(),
+        "cuda_available": transcriber.cuda_available(),
+    }
+
+
+@app.post("/api/warmup")
+def warmup(device: Device = Device.AUTO) -> dict:
+    """Load the Whisper model on the chosen device and report readiness.
+
+    The frontend calls this when the user changes the Compute dropdown so it can
+    show a live "loading / ready / failed" status. Loads are cached per device,
+    so re-selecting a warm device returns instantly.
+    """
+    already = device.value != "auto" and transcriber.is_loaded(device.value)
+    try:
+        transcriber.load_model(device.value)
+        return {
+            "status": "ready",
+            "device": transcriber.get_device(),
+            "cached": already,
+        }
+    except TranscriptionError as exc:
+        return {"status": "error", "device": device.value, "message": str(exc)}
+
+
+@app.post("/api/upload")
+def upload(file: UploadFile = File(...)) -> dict:
+    """Accept a video file from the user's machine and return an upload reference.
+
+    The returned ``upload_id`` is then passed to ``POST /api/generate`` instead of
+    a ``video_url``. Runs in the threadpool (sync def) so streaming a large file
+    to disk doesn't block the event loop.
+    """
+    try:
+        info = uploads.save_upload(file.filename, file.file)
+    except InvalidVideoURLError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    finally:
+        file.file.close()
+    return {"status": "ok", **info}
+
+
+class ClipRef(BaseModel):
+    """Reference to one generated clip."""
+
+    clip_id: str
+    index: int
+
+
+@app.get("/api/history")
+def get_history() -> list:
+    """All past generations and their clips, newest first (for the Clips panel)."""
+    return history.list_entries()
+
+
+@app.delete("/api/clip/{clip_id}/{index}")
+def delete_clip(clip_id: str, index: int) -> dict:
+    """Remove one generated clip (deletes the file and drops it from history)."""
+    if history.clip_path(clip_id, index) is None:
+        raise HTTPException(status_code=400, detail="Invalid clip reference.")
+    deleted = history.remove_clip(clip_id, index)
+    return {"status": "ok", "deleted": deleted}
+
+
+@app.post("/api/reveal")
+def reveal_clip(ref: ClipRef) -> dict:
+    """Open the clip's folder in the OS file manager with the file selected.
+
+    Local-only convenience (this app runs on the user's own machine). The path is
+    validated to live under the clips directory before anything is launched.
+    """
+    path = history.clip_path(ref.clip_id, ref.index)
+    if path is None or not path.exists():
+        raise HTTPException(status_code=404, detail="Clip not found on disk.")
+    try:
+        if sys.platform.startswith("win"):
+            # explorer returns a non-zero exit code even on success — ignore it.
+            subprocess.run(["explorer", "/select,", str(path)], check=False)
+        elif sys.platform == "darwin":
+            subprocess.run(["open", "-R", str(path)], check=False)
+        else:
+            subprocess.run(["xdg-open", str(path.parent)], check=False)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Could not open the folder: {exc}")
+    return {"status": "ok"}
 
 
 @app.get("/")

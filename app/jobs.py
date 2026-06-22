@@ -17,8 +17,8 @@ import threading
 import uuid
 from typing import Dict, List, Optional
 
-from . import captions, downloader, selector, transcriber
-from .clipper import ClipOptions, generate_clip
+from . import captions, downloader, history, selector, transcriber, uploads
+from .clipper import ClipOptions, generate_clip, target_size
 from .models import (
     ClipGenerationError,
     GenerateRequest,
@@ -158,35 +158,45 @@ def _run_pipeline(job: Job) -> None:
     logger.info("[%s] starting pipeline: %s", job.id, req.model_dump())
 
     try:
-        # 1) Download (network: yt-dlp only).
-        job.set_stage("downloading", 0.0, "Starting download...")
+        # 1) Get the source video: a previously uploaded file, or a URL download.
+        if req.upload_id:
+            job.set_stage("downloading", 0.2, "Loading uploaded video...")
+            source_mp4 = uploads.resolve_upload(req.upload_id)
+            job.set_stage("downloading", 1.0, "Uploaded video ready. Preparing...")
+        else:
+            job.set_stage("downloading", 0.0, "Starting download...")
 
-        def on_download(d: dict) -> None:
-            status = d.get("status")
-            if status == "downloading":
-                total = d.get("total_bytes") or d.get("total_bytes_estimate")
-                done = d.get("downloaded_bytes") or 0
-                if total:
-                    pct = int(done * 100 / total)
-                    job.set_stage("downloading", done / total, f"Downloading video... {pct}%")
-                else:
-                    mb = done / 1_048_576
-                    job.set_stage("downloading", 0.1, f"Downloading video... {mb:.1f} MB")
-            elif status == "finished":
-                job.set_stage("downloading", 1.0, "Download complete. Preparing...")
+            def on_download(d: dict) -> None:
+                status = d.get("status")
+                if status == "downloading":
+                    total = d.get("total_bytes") or d.get("total_bytes_estimate")
+                    done = d.get("downloaded_bytes") or 0
+                    if total:
+                        pct = int(done * 100 / total)
+                        job.set_stage("downloading", done / total, f"Downloading video... {pct}%")
+                    else:
+                        mb = done / 1_048_576
+                        job.set_stage("downloading", 0.1, f"Downloading video... {mb:.1f} MB")
+                elif status == "finished":
+                    job.set_stage("downloading", 1.0, "Download complete. Preparing...")
 
-        source_mp4 = downloader.download_video(req.video_url, progress_hook=on_download)
+            source_mp4 = downloader.download_video(req.video_url, progress_hook=on_download)
 
-        # 2) Transcribe locally (word timestamps).
+        # 2) Transcribe locally (word timestamps) on the requested device.
         clip_id = uuid.uuid4().hex
         job.clip_id = clip_id
-        job.set_stage("transcribing", 0.0, "Transcribing audio with local Whisper...")
+        device_label = {"auto": "Auto", "cuda": "GPU", "cpu": "CPU"}.get(
+            req.device.value, "Auto"
+        )
+        job.set_stage(
+            "transcribing", 0.0, f"Transcribing audio with local Whisper ({device_label})..."
+        )
 
         def on_transcribe(frac: float, msg: str) -> None:
             job.set_stage("transcribing", frac, msg)
 
         transcript = transcriber.transcribe_video(
-            source_mp4, clip_id, progress=on_transcribe
+            source_mp4, clip_id, progress=on_transcribe, device=req.device.value
         )
 
         # 3) Select clips (local heuristic, optional local Ollama).
@@ -199,11 +209,10 @@ def _run_pipeline(job: Job) -> None:
             )
         job.set_stage("selecting", 1.0, f"Found {len(windows)} clip(s) to render.")
 
-        # 4) Per clip: build ASS captions + render with ffmpeg.
+        # 4) Per clip: build ASS captions + render with ffmpeg. The caption canvas
+        # must match the actual output frame (1:1 in square mode, aspect otherwise).
         words = transcript.get("words") or []
-        width, height = (
-            (1080, 1920) if req.aspect_ratio.value == "9:16" else (1920, 1080)
-        )
+        width, height = target_size(req.aspect_ratio, req.fit_mode)
         clip_dir = CLIPS_DIR / clip_id
         clip_dir.mkdir(parents=True, exist_ok=True)
 
@@ -250,6 +259,22 @@ def _run_pipeline(job: Job) -> None:
 
         job.finish(results)
         logger.info("[%s] pipeline complete: %d clips", job.id, len(results))
+
+        # Persist to history so the "Video clips" panel survives restarts.
+        try:
+            history.add_entry(
+                clip_id=clip_id,
+                source=(req.video_url or "Uploaded file"),
+                settings={
+                    "aspect_ratio": req.aspect_ratio.value,
+                    "fit_mode": req.fit_mode.value,
+                    "caption_style": req.caption_style,
+                    "num_clips": req.num_clips,
+                },
+                clips=results,
+            )
+        except Exception:  # noqa: BLE001 - history is best-effort, never fail the job
+            logger.warning("[%s] could not write history entry", job.id, exc_info=True)
 
     except InvalidVideoURLError as exc:
         logger.warning("[%s] download error: %s", job.id, exc)
