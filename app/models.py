@@ -51,6 +51,66 @@ class Device(str, Enum):
 # --------------------------------------------------------------------------- #
 # Request / response schemas
 # --------------------------------------------------------------------------- #
+class CaptionOverrides(BaseModel):
+    """User tweaks layered on top of the chosen caption preset.
+
+    Every field is optional: an unset field falls back to the preset's value in
+    ``captions.build_ass``. Values are expressed in the same 1080x1920-tuned
+    space the presets use, so they scale to any output resolution at render time.
+    Colours are CSS hex (#RRGGBB).
+    """
+
+    pos_x: Optional[float] = Field(
+        default=None, ge=0, le=100,
+        description="Horizontal centre of the caption, as % of frame width.",
+    )
+    pos_y: Optional[float] = Field(
+        default=None, ge=0, le=100,
+        description="Vertical centre of the caption, as % of frame height.",
+    )
+    rotation: Optional[float] = Field(
+        default=None, ge=-180, le=180,
+        description="Caption rotation in degrees (counter-clockwise positive).",
+    )
+    outline_width: Optional[float] = Field(
+        default=None, ge=0, le=40,
+        description="Stroke/outline thickness in px (at 1080-wide scale).",
+    )
+    outline_color: Optional[str] = Field(
+        default=None, description="Stroke/outline colour (#RRGGBB)."
+    )
+    shadow_enabled: Optional[bool] = Field(
+        default=None, description="Whether to draw a drop shadow."
+    )
+    shadow_distance: Optional[float] = Field(
+        default=None, ge=0, le=40,
+        description="Drop-shadow offset in px (at 1080-wide scale).",
+    )
+    shadow_color: Optional[str] = Field(
+        default=None, description="Drop-shadow colour (#RRGGBB)."
+    )
+    background_enabled: Optional[bool] = Field(
+        default=None, description="Whether to draw a filled box behind the words."
+    )
+    background_color: Optional[str] = Field(
+        default=None, description="Background-box colour (#RRGGBB)."
+    )
+    # -- layout & animation ------------------------------------------------- #
+    max_lines: Optional[int] = Field(
+        default=None, ge=1, le=2,
+        description="Maximum text lines per caption event (1 or 2).",
+    )
+    max_chars: Optional[int] = Field(
+        default=None, ge=8, le=48,
+        description="Maximum characters packed onto one caption line.",
+    )
+    animation: Optional[str] = Field(
+        default=None,
+        description="Reveal animation: 'none', 'word_reveal' (words pop in and "
+        "stay), or 'one_word' (one word on screen at a time).",
+    )
+
+
 class GenerateRequest(BaseModel):
     """Body for POST /api/generate.
 
@@ -81,6 +141,11 @@ class GenerateRequest(BaseModel):
     )
     caption_style: str = Field(
         default="bold_white", description="Caption style preset id."
+    )
+    caption_overrides: Optional[CaptionOverrides] = Field(
+        default=None,
+        description="Per-render tweaks (position, rotation, stroke, shadow, "
+        "background) layered over the chosen preset.",
     )
     device: Device = Field(
         default=Device.AUTO,

@@ -212,6 +212,9 @@ def _run_pipeline(job: Job) -> None:
         # 4) Per clip: build ASS captions + render with ffmpeg. The caption canvas
         # must match the actual output frame (1:1 in square mode, aspect otherwise).
         words = transcript.get("words") or []
+        caption_overrides = (
+            req.caption_overrides.model_dump() if req.caption_overrides else None
+        )
         width, height = target_size(req.aspect_ratio, req.fit_mode)
         clip_dir = CLIPS_DIR / clip_id
         clip_dir.mkdir(parents=True, exist_ok=True)
@@ -235,6 +238,7 @@ def _run_pipeline(job: Job) -> None:
                 video_h=height,
                 out_path=ass_path,
                 clip_start=start,
+                overrides=caption_overrides,
             )
 
             opts = ClipOptions(

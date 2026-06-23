@@ -87,6 +87,7 @@ def get_presets_for_api() -> List[dict]:
                 "highlight_color": p["highlight_color"],
                 "outline_color": p["outline_color"],
                 "outline": p["outline"],
+                "shadow": p["shadow"],
                 "position": p["position"],
                 "karaoke": p["karaoke"],
                 "uppercase": p["uppercase"],
@@ -103,13 +104,17 @@ def get_preset(preset_id: str) -> dict:
 # --------------------------------------------------------------------------- #
 # Colour + time conversion
 # --------------------------------------------------------------------------- #
-def _hex_to_ass(hex_color: str) -> str:
-    """Convert '#RRGGBB' to ASS '&H00BBGGRR' (00 alpha = fully opaque)."""
-    h = hex_color.lstrip("#")
+def _hex_to_ass(hex_color: str, alpha: int = 0) -> str:
+    """Convert '#RRGGBB' to ASS '&HAABBGGRR'.
+
+    ``alpha`` is ASS alpha (0 = fully opaque, 255 = fully transparent).
+    """
+    h = (hex_color or "").lstrip("#")
     if len(h) != 6:
         h = "FFFFFF"
     r, g, b = h[0:2], h[2:4], h[4:6]
-    return f"&H00{b}{g}{r}".upper()
+    a = max(0, min(255, int(alpha)))
+    return f"&H{a:02X}{b}{g}{r}".upper()
 
 
 def _fmt_time(seconds: float) -> str:
@@ -139,46 +144,98 @@ def _ass_escape(text: str) -> str:
 # --------------------------------------------------------------------------- #
 # Word grouping
 # --------------------------------------------------------------------------- #
-def _group_words(words: List[dict], max_words: int = 4, max_span: float = 1.5) -> List[dict]:
-    """Group words into short caption lines (<=max_words OR <=max_span seconds).
+def _line_len(line: List[dict]) -> int:
+    """Rendered character length of a line (words + the single spaces between)."""
+    if not line:
+        return 0
+    return sum(len(w["word"]) for w in line) + (len(line) - 1)
 
-    Each returned line: {"start", "end", "words": [{word,start,end}, ...]}.
+
+def _group_events(
+    words: List[dict],
+    max_chars: int,
+    max_lines: int,
+    max_span: float = 2.5,
+) -> List[dict]:
+    """Pack words into caption events of up to ``max_lines`` lines.
+
+    A word joins the current line while it fits within ``max_chars``; otherwise it
+    starts a new line, or — when the event is already ``max_lines`` tall — a new
+    event. ``max_span`` caps how long one event lasts so captions keep pace with
+    speech. Each event: {"start", "end", "lines": [[word, ...], ...]}.
     """
-    lines: List[dict] = []
-    current: List[dict] = []
+    events: List[dict] = []
+    cur_lines: List[List[dict]] = [[]]
+
+    def event_start() -> float | None:
+        for ln in cur_lines:
+            if ln:
+                return ln[0]["start"]
+        return None
+
+    def flush() -> None:
+        nonlocal cur_lines
+        filled = [ln for ln in cur_lines if ln]
+        if filled:
+            flat = [w for ln in filled for w in ln]
+            events.append(
+                {"start": flat[0]["start"], "end": flat[-1]["end"], "lines": filled}
+            )
+        cur_lines = [[]]
 
     for w in words:
-        if not current:
-            current = [w]
-            continue
+        start = event_start()
+        # Time cap: a long-running event is closed before this word extends it.
+        if start is not None and (w["end"] - start) > max_span:
+            flush()
 
-        span = w["end"] - current[0]["start"]
-        if len(current) >= max_words or span > max_span:
-            lines.append(
-                {
-                    "start": current[0]["start"],
-                    "end": current[-1]["end"],
-                    "words": current,
-                }
-            )
-            current = [w]
+        cur_line = cur_lines[-1]
+        tentative = _line_len(cur_line) + (1 if cur_line else 0) + len(w["word"])
+        if cur_line and tentative > max_chars:
+            if len(cur_lines) < max_lines:
+                cur_lines.append([w])      # wrap onto a second line
+            else:
+                flush()
+                cur_lines = [[w]]          # start a fresh event
         else:
-            current.append(w)
+            cur_line.append(w)
 
-    if current:
-        lines.append(
-            {
-                "start": current[0]["start"],
-                "end": current[-1]["end"],
-                "words": current,
-            }
-        )
-    return lines
+    flush()
+    return events
+
+
+def _word_hold_events(words: List[dict], max_gap: float = 0.7) -> List[dict]:
+    """One event per word (the 'one word at a time' style).
+
+    Each word holds the screen until the next word begins, so there is no flicker
+    between words — except across a real pause (> ``max_gap`` s), where the word
+    is held only briefly so it doesn't linger through silence.
+    """
+    events: List[dict] = []
+    n = len(words)
+    for i, w in enumerate(words):
+        if i + 1 < n:
+            nxt = words[i + 1]["start"]
+            end = nxt if (nxt - w["end"]) <= max_gap else w["end"] + 0.3
+        else:
+            end = w["end"]
+        events.append({"start": w["start"], "end": max(end, w["end"]), "lines": [[w]]})
+    return events
 
 
 # --------------------------------------------------------------------------- #
 # ASS builder
 # --------------------------------------------------------------------------- #
+def _merge_overrides(preset: dict, overrides: dict | None) -> dict:
+    """Layer user `overrides` (any subset, None values ignored) onto `preset`."""
+    merged = dict(preset)
+    if overrides:
+        for key, value in overrides.items():
+            if value is not None:
+                merged[key] = value
+    return merged
+
+
 def build_ass(
     words: List[dict],
     style_preset: str,
@@ -186,6 +243,7 @@ def build_ass(
     video_h: int,
     out_path: Path,
     clip_start: float = 0.0,
+    overrides: dict | None = None,
 ) -> Path:
     """Build an .ass subtitle file at `out_path` and return it.
 
@@ -195,25 +253,47 @@ def build_ass(
         video_w/video_h: target frame size (sets PlayResX/Y so font px map 1:1).
         out_path: where to write the .ass file.
         clip_start: subtract this from word timings so captions align to the cut.
+        overrides: optional per-render tweaks (position, rotation, stroke, shadow,
+            background) that layer over the preset. See ``models.CaptionOverrides``.
     """
     preset = get_preset(style_preset)
+    cfg = _merge_overrides(preset, overrides)
 
     # Scale font/outline so presets (tuned for 1920 tall) look right at any height.
     scale = video_h / 1920.0
-    font_size = max(12, int(round(preset["font_size"] * scale)))
-    outline = max(0, int(round(preset["outline"] * scale)))
-    shadow = max(0, int(round(preset["shadow"] * scale)))
+    font_size = max(12, int(round(cfg["font_size"] * scale)))
+
+    # Stroke / outline width: from overrides ("outline_width") or the preset ("outline").
+    outline_px = cfg.get("outline_width", cfg["outline"])
+    outline = max(0, int(round(outline_px * scale)))
+
+    # Drop shadow: an explicit toggle wins; otherwise fall back to the preset depth.
+    shadow_on = cfg.get("shadow_enabled")
+    if shadow_on is None:
+        shadow_on = cfg["shadow"] > 0
+    shadow_px = cfg.get("shadow_distance", cfg["shadow"])
+    shadow = max(0, int(round(shadow_px * scale))) if shadow_on else 0
+    shadow_color = cfg.get("shadow_color", "#000000")
+
+    # Background box behind the words (BorderStyle 3) vs a per-glyph outline (1).
+    bg_on = bool(cfg.get("background_enabled"))
+    border_style = 3 if bg_on else 1
     margin_v = int(round(video_h * 0.08))
 
-    primary = _hex_to_ass(preset["primary_color"])
-    highlight = _hex_to_ass(preset["highlight_color"])
-    outline_col = _hex_to_ass(preset["outline_color"])
-    bold_flag = -1 if preset["bold"] else 0  # ASS: -1 = true, 0 = false
-    alignment = 2  # bottom-center (numpad layout)
+    primary = _hex_to_ass(cfg["primary_color"])
+    highlight = _hex_to_ass(cfg["highlight_color"])
+    # In box mode the OutlineColour slot fills the box; otherwise it strokes glyphs.
+    if bg_on:
+        outline_col = _hex_to_ass(cfg.get("background_color", "#000000"))
+    else:
+        outline_col = _hex_to_ass(cfg["outline_color"])
+    back_col = _hex_to_ass(shadow_color, alpha=64)  # soft, semi-transparent shadow
+    bold_flag = -1 if cfg["bold"] else 0  # ASS: -1 = true, 0 = false
+    alignment = 2  # bottom-center (numpad layout); per-line \pos overrides this
 
     # For karaoke, libass fills each syllable from SecondaryColour -> PrimaryColour.
     # So PrimaryColour must be the highlight colour and Secondary the base colour.
-    if preset["karaoke"]:
+    if cfg["karaoke"]:
         style_primary = highlight
         style_secondary = primary
     else:
@@ -229,56 +309,129 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{preset['font_family']},{font_size},{style_primary},{style_secondary},{outline_col},&H64000000,{bold_flag},0,0,0,100,100,0,0,1,{outline},{shadow},{alignment},60,60,{margin_v},1
+Style: Default,{cfg['font_family']},{font_size},{style_primary},{style_secondary},{outline_col},{back_col},{bold_flag},0,0,0,100,100,0,0,{border_style},{outline},{shadow},{alignment},60,60,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
-    lines = _group_words(words, max_words=4, max_span=1.5)
-    dialogue_rows: List[str] = []
+    prefix = _override_prefix(cfg, video_w, video_h)
+    uppercase = cfg["uppercase"]
 
-    for line in lines:
-        start = line["start"] - clip_start
-        end = line["end"] - clip_start
+    # Layout + animation settings (overridable; defaults match the classic look).
+    animation = cfg.get("animation") or "none"
+    max_lines = int(cfg.get("max_lines") or 1)
+    max_chars = int(cfg.get("max_chars") or 22)
+
+    if animation == "one_word":
+        events = _word_hold_events(words)
+    else:
+        events = _group_events(words, max_chars=max_chars, max_lines=max_lines)
+
+    dialogue_rows: List[str] = []
+    for ev in events:
+        start = ev["start"] - clip_start
+        end = ev["end"] - clip_start
         if end <= 0:
             continue
         start = max(0.0, start)
 
-        if preset["karaoke"]:
-            text = _build_karaoke_text(line["words"], clip_start, preset["uppercase"])
+        if animation == "one_word":
+            text = _build_one_word_text(ev["lines"][0][0], uppercase)
+        elif animation == "word_reveal":
+            text = _build_reveal_text(ev, uppercase)
+        elif cfg["karaoke"]:
+            text = _build_karaoke_text(ev["lines"], uppercase)
         else:
-            text = _build_plain_text(line["words"], preset["uppercase"])
+            text = _build_plain_text(ev["lines"], uppercase)
 
         dialogue_rows.append(
-            f"Dialogue: 0,{_fmt_time(start)},{_fmt_time(end)},Default,,0,0,0,,{text}"
+            f"Dialogue: 0,{_fmt_time(start)},{_fmt_time(end)},Default,,0,0,0,,{prefix}{text}"
         )
 
     out_path.write_text(header + "\n".join(dialogue_rows) + "\n", encoding="utf-8")
     return out_path
 
 
-def _build_plain_text(line_words: List[dict], uppercase: bool) -> str:
-    tokens = [_ass_escape(w["word"]) for w in line_words]
-    text = " ".join(t for t in tokens if t)
-    return text.upper() if uppercase else text
+def _override_prefix(cfg: dict, video_w: int, video_h: int) -> str:
+    """Build the inline ASS tag block ({...}) for position + rotation overrides.
+
+    Position uses ``\\an5`` (centre anchor) + ``\\pos`` so the X/Y sliders place
+    the caption block's centre anywhere in the frame; rotation uses ``\\frz``.
+    Returns "" when neither is set, leaving the style's default bottom-centre.
+    """
+    tags: List[str] = []
+
+    pos_x = cfg.get("pos_x")
+    pos_y = cfg.get("pos_y")
+    if pos_x is not None and pos_y is not None:
+        x = int(round(pos_x / 100.0 * video_w))
+        y = int(round(pos_y / 100.0 * video_h))
+        tags.append(f"\\an5\\pos({x},{y})")
+
+    rotation = cfg.get("rotation")
+    if rotation:  # non-zero
+        tags.append(f"\\frz{rotation:g}")
+
+    return "{" + "".join(tags) + "}" if tags else ""
 
 
-def _build_karaoke_text(line_words: List[dict], clip_start: float, uppercase: bool) -> str:
-    """Build a karaoke line where each word is timed with {\\k<centiseconds>}."""
-    parts: List[str] = []
-    prev_end = line_words[0]["start"]
+def _tok(word: str, uppercase: bool) -> str:
+    t = _ass_escape(word)
+    return t.upper() if uppercase else t
 
-    for w in line_words:
-        # Gap before the word (if any) consumes time at the base colour.
-        gap_cs = max(0, int(round((w["start"] - prev_end) * 100)))
-        dur_cs = max(1, int(round((w["end"] - w["start"]) * 100)))
-        token = _ass_escape(w["word"])
-        if uppercase:
-            token = token.upper()
-        if gap_cs > 0:
-            parts.append(f"{{\\k{gap_cs}}}")
-        parts.append(f"{{\\k{dur_cs}}}{token} ")
-        prev_end = w["end"]
 
-    return "".join(parts).strip()
+def _build_plain_text(lines: List[List[dict]], uppercase: bool) -> str:
+    """Static caption: words joined by spaces, lines joined by an ASS line break."""
+    rendered = []
+    for line in lines:
+        rendered.append(" ".join(_tok(w["word"], uppercase) for w in line if w["word"]))
+    return "\\N".join(r for r in rendered if r)
+
+
+def _build_karaoke_text(lines: List[List[dict]], uppercase: bool) -> str:
+    """Karaoke: each word timed with {\\k<centiseconds>}; lines split by \\N."""
+    line_strs: List[str] = []
+    for line in lines:
+        parts: List[str] = []
+        prev_end = line[0]["start"]
+        for w in line:
+            # Gap before the word (if any) consumes time at the base colour.
+            gap_cs = max(0, int(round((w["start"] - prev_end) * 100)))
+            dur_cs = max(1, int(round((w["end"] - w["start"]) * 100)))
+            if gap_cs > 0:
+                parts.append(f"{{\\k{gap_cs}}}")
+            parts.append(f"{{\\k{dur_cs}}}{_tok(w['word'], uppercase)} ")
+            prev_end = w["end"]
+        line_strs.append("".join(parts).strip())
+    return "\\N".join(line_strs)
+
+
+def _build_reveal_text(ev: dict, uppercase: bool) -> str:
+    """Word-by-word reveal: each word fades + pops in at its own start time.
+
+    Words begin invisible and small, then animate to opaque, full-size via ``\\t``
+    timed (in ms) from the event's display start — so the whole phrase stays on
+    screen, revealed one word at a time as it is spoken.
+    """
+    ev_start = ev["start"]
+    line_strs: List[str] = []
+    for line in ev["lines"]:
+        toks: List[str] = []
+        for w in line:
+            t = max(0, int(round((w["start"] - ev_start) * 1000)))
+            toks.append(
+                f"{{\\alpha&HFF&\\fscx70\\fscy70"
+                f"\\t({t},{t + 130},\\alpha&H00&\\fscx100\\fscy100)}}"
+                f"{_tok(w['word'], uppercase)}"
+            )
+        line_strs.append(" ".join(toks))
+    return "\\N".join(line_strs)
+
+
+def _build_one_word_text(word: dict, uppercase: bool) -> str:
+    """Single word with a quick fade + pop-in (the 'one word at a time' style)."""
+    return (
+        "{\\fad(60,0)\\fscx82\\fscy82\\t(0,130,\\fscx100\\fscy100)}"
+        f"{_tok(word['word'], uppercase)}"
+    )
