@@ -9,23 +9,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --bg: #09090b;
-    --bg-2: #0c0c0f;
-    --surface: #131316;
-    --surface-2: #19191d;
-    --surface-3: #202026;
-    --line: rgba(255,255,255,.07);
-    --line-2: rgba(255,255,255,.13);
-    --text: #f4f4f5;
-    --muted: #a1a1aa;
-    --muted-2: #71717a;
-    --accent: #2fb784;
-    --accent-hi: #4fd3a0;
-    --accent-soft: rgba(47,183,132,.14);
-    --ok: #2fb784;
-    --warn: #d9a441;
-    --danger: #f1556c;
-    --danger-soft: rgba(241,85,108,.12);
+    --bg: #f4f4fb;
+    --bg-2: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f3f3f9;
+    --surface-3: #e9e9f3;
+    --line: rgba(24,22,48,.09);
+    --line-2: rgba(24,22,48,.16);
+    --text: #16141f;
+    --muted: #5a5868;
+    --muted-2: #8b8a99;
+    --accent: #6c4cff;
+    --accent-hi: #5a32f0;
+    --accent-soft: rgba(108,76,255,.12);
+    --ok: #16a34a;
+    --warn: #b07d12;
+    --danger: #e23b53;
+    --danger-soft: rgba(226,59,83,.10);
     --radius: 18px;
     --radius-sm: 12px;
     --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, monospace;
@@ -37,8 +37,8 @@
     margin: 0;
     font-family: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background:
-      radial-gradient(900px 500px at 78% -8%, rgba(47,183,132,.08), transparent 60%),
-      radial-gradient(1000px 600px at 0% 0%, rgba(255,255,255,.03), transparent 55%),
+      radial-gradient(820px 460px at 82% -6%, rgba(108,76,255,.12), transparent 60%),
+      radial-gradient(900px 520px at 8% 2%, rgba(108,76,255,.07), transparent 55%),
       var(--bg);
     color: var(--text);
     min-height: 100dvh;
@@ -48,7 +48,7 @@
   }
   /* Fine grain overlay for a premium, non-flat surface (fixed → no repaint cost). */
   body::after {
-    content: ""; position: fixed; inset: 0; z-index: 999; pointer-events: none; opacity: .025;
+    content: ""; position: fixed; inset: 0; z-index: 999; pointer-events: none; opacity: .018;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   svg { display: block; }
@@ -63,10 +63,10 @@
   .brandbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
   .logo { display: inline-flex; align-items: center; gap: 11px; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
   .logo .mark {
-    width: 36px; height: 36px; border-radius: 11px; color: #06120d;
-    background: linear-gradient(150deg, var(--accent-hi), var(--accent));
+    width: 36px; height: 36px; border-radius: 11px; color: #fff;
+    background: linear-gradient(150deg, #8b6dff, var(--accent));
     display: grid; place-items: center;
-    box-shadow: 0 6px 18px -6px rgba(47,183,132,.6), inset 0 1px 0 rgba(255,255,255,.4);
+    box-shadow: 0 6px 18px -6px rgba(108,76,255,.6), inset 0 1px 0 rgba(255,255,255,.4);
   }
   .logo .mark svg { width: 19px; height: 19px; }
   .hero h1 {
@@ -84,16 +84,110 @@
   .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); animation: breathe 2.4s ease-in-out infinite; }
   @keyframes breathe { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
 
+  /* ---- Top nav ---- */
+  .topnav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 4px 2px 0; margin-bottom: 34px; }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .nav-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+  .nav-badge b { color: var(--text); font-weight: 600; }
+  .nav-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); animation: breathe 2.4s ease-in-out infinite; }
+  .nav-history {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; cursor: pointer;
+    font: inherit; font-size: 13.5px; font-weight: 600; color: #fff;
+    background: linear-gradient(180deg, #2c2c38, #131320); border: 0; border-radius: 12px;
+    box-shadow: 0 10px 24px -12px rgba(20,18,40,.55); transition: filter .15s, transform .08s;
+  }
+  .nav-history svg { width: 16px; height: 16px; }
+  .nav-history:hover { filter: brightness(1.12); }
+  .nav-history:active { transform: scale(.97); }
+  @media (max-width: 560px) { .nav-badge { display: none; } }
+
+  /* ---- Landing hero ---- */
+  .landing { text-align: center; max-width: 720px; margin: 18px auto 0; }
+  .trust {
+    display: inline-flex; align-items: center; gap: 10px; padding: 6px 16px 6px 8px; margin: 0 auto 30px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+    font-size: 12.5px; font-weight: 500; color: var(--muted); box-shadow: 0 8px 22px -14px rgba(40,30,90,.3);
+  }
+  .trust-faces { display: inline-flex; }
+  .trust-faces i { width: 21px; height: 21px; border-radius: 50%; border: 2px solid var(--surface); margin-left: -8px; }
+  .trust-faces i:first-child { margin-left: 0; }
+  .trust-faces i:nth-child(1){ background: linear-gradient(135deg,#8b6dff,#6c4cff); }
+  .trust-faces i:nth-child(2){ background: linear-gradient(135deg,#ff9a62,#ff5d8f); }
+  .trust-faces i:nth-child(3){ background: linear-gradient(135deg,#5ec8ff,#6c4cff); }
+  .trust-faces i:nth-child(4){ background: linear-gradient(135deg,#3ddc97,#2bb0ff); }
+  .hero-title {
+    font-size: clamp(40px, 7.2vw, 74px); line-height: 1.05; font-weight: 800; letter-spacing: -0.035em;
+    margin: 0 0 20px; color: var(--text);
+  }
+  .hero-title .grad {
+    background: linear-gradient(92deg, var(--accent-hi), #9a7bff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-sub { font-size: clamp(15px, 2.2vw, 18px); color: var(--muted); margin: 0 auto 32px; max-width: 50ch; line-height: 1.55; }
+
+  /* ---- Mega input bar (paste link / drop file + Generate) ---- */
+  .megabar {
+    display: flex; align-items: center; gap: 8px; padding: 8px; max-width: 580px; margin: 0 auto;
+    background: var(--surface); border: 1px solid var(--line-2); border-radius: 18px;
+    box-shadow: 0 28px 56px -28px rgba(40,30,90,.4), inset 0 1px 0 rgba(255,255,255,.7);
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  .megabar:focus-within { border-color: var(--accent); box-shadow: 0 28px 56px -22px rgba(108,76,255,.38); }
+  .megabar.dragover { border-color: var(--accent); background: var(--accent-soft); }
+  .mega-up {
+    width: 46px; height: 46px; flex: none; border-radius: 12px; cursor: pointer; display: grid; place-items: center;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--accent-hi); transition: .12s;
+  }
+  .mega-up svg { width: 20px; height: 20px; }
+  .mega-up:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .megabar input.mega-input, .megabar input.mega-input:focus {
+    flex: 1; min-width: 0; border: 0; background: transparent; outline: none; box-shadow: none;
+    font: inherit; font-size: 15px; color: var(--text); padding: 0 8px; margin: 0;
+  }
+  .megabar input.mega-input::placeholder { color: var(--muted-2); }
+  .megabar input.mega-input[readonly] { color: var(--accent-hi); font-weight: 600; }
+  .megabar .mega-go { width: auto; margin: 0; padding: 13px 22px; border-radius: 12px; font-size: 14.5px; flex: none; }
+  .mega-foot { font-size: 13px; color: var(--muted-2); margin-top: 16px; }
+
+  /* ---- Credits ("as seen on" replacement) ---- */
+  .credits { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 20px; margin-top: 52px; }
+  .credits-label { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted-2); width: 100%; }
+  .credit { font-family: var(--mono); font-size: 14.5px; font-weight: 600; color: var(--muted); opacity: .85; }
+
   /* ---- Card ---- */
   .card {
-    background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,0) 120px), var(--surface);
+    background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius); padding: 28px;
-    box-shadow: 0 1px 0 0 rgba(255,255,255,.04) inset, 0 30px 60px -30px rgba(0,0,0,.7);
+    box-shadow: 0 1px 0 0 rgba(255,255,255,.6) inset, 0 30px 60px -34px rgba(40,30,90,.28);
   }
   .fieldlabel { display: block; font-size: 11px; font-weight: 600; color: var(--muted-2);
     margin: 22px 0 10px; text-transform: uppercase; letter-spacing: .09em; }
   .fieldlabel:first-child { margin-top: 0; }
+
+  /* ---- Two-step wizard ---- */
+  .wstep { animation: wfade .26s var(--ease); }
+  @keyframes wfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .wstep-head { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+  .wstep-eyebrow { display: block; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-hi); }
+  .wstep-title { display: block; font-size: 18px; font-weight: 700; letter-spacing: -.02em; margin-top: 3px; }
+  .wback {
+    display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; cursor: pointer;
+    font: inherit; font-size: 13px; font-weight: 600; color: var(--text);
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 11px; transition: .12s;
+  }
+  .wback svg { width: 16px; height: 16px; }
+  .wback:hover { border-color: var(--line-2); }
+  #toStep2:disabled { cursor: not-allowed; }
+
+  .config-grid { display: grid; grid-template-columns: 1fr 240px; gap: 30px; align-items: start; }
+  .cfg-left { min-width: 0; }
+  .cfg-right { position: sticky; top: 20px; }
+  .cfg-right .phone { width: 100%; max-width: 240px; margin: 0 auto; }
+  @media (max-width: 760px) {
+    .config-grid { grid-template-columns: 1fr; }
+    .cfg-right { position: static; order: -1; margin-bottom: 6px; }
+  }
 
   .input-wrap { position: relative; }
   .input-wrap .ic { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--muted-2); display: grid; }
@@ -153,32 +247,63 @@
 
   /* ---- Live phone preview ---- */
   .preview-wrap { margin-top: 14px; display: flex; justify-content: center; }
+  /* iPhone 17 Pro Max — titanium rail, thin uniform bezels, Dynamic Island. */
   .phone {
-    width: 220px; background: #050506; border: 1px solid var(--line-2);
-    border-radius: 32px; padding: 10px; box-shadow: 0 40px 80px -30px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.06);
+    width: 232px; position: relative; padding: 6px;
+    border-radius: 50px;
+    background:
+      linear-gradient(145deg, #5b5b62 0%, #2a2a30 18%, #16161a 48%, #2f2f36 82%, #555 100%);
+    box-shadow:
+      0 44px 90px -30px rgba(0,0,0,.92),
+      0 0 0 1px rgba(0,0,0,.55),
+      inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(255,255,255,.06);
     transition: width .25s var(--ease);
   }
-  .phone.wide { width: 348px; }
+  /* Inner black rim between the titanium rail and the screen. */
+  .phone::before {
+    content: ""; position: absolute; inset: 3px; border-radius: 47px; background: #050506; z-index: 0;
+  }
+  /* Device screen: true iPhone 17 Pro Max 19.5:9. The clip fits inside (contain),
+     so a 9:16 short shows with realistic thin top/bottom bands — like fullscreen
+     playback on the real phone. The screen never morphs with the output aspect. */
   .phone-screen {
-    position: relative; width: 100%; aspect-ratio: 9 / 16; border-radius: 22px;
+    position: relative; z-index: 1; width: 100%; aspect-ratio: 9 / 19.5; border-radius: 44px;
     overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000;
   }
-  .phone-screen.ar-16-9 { aspect-ratio: 16 / 9; }
+  /* Dynamic Island (portrait only). */
+  .phone-screen .island {
+    position: absolute; top: 2.4%; left: 50%; transform: translateX(-50%); z-index: 6;
+    width: 30%; height: 3.5%; min-height: 9px; background: #000; border-radius: 999px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+  }
+  .phone-screen .island::after {
+    content: ""; position: absolute; right: 12%; top: 50%; transform: translateY(-50%);
+    width: 5px; height: 5px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #2b3b55, #060608 70%);
+  }
+  /* Dynamic Island shows in every mode — it's part of the phone. */
   .phone-screen.empty {
     background:
       radial-gradient(120% 80% at 50% 0%, #1b1b22, #0b0b0e);
   }
-  .media-box { position: absolute; inset: 0; overflow: hidden; }
+  /* Clip region inside the 19.5:9 screen, sized to the OUTPUT aspect. Default is
+     9:16 (tall, fills width); 16:9 is a centered landscape strip. Bands are the
+     screen area around it — so the two ratios look clearly different. */
+  .media-box { position: absolute; left: 0; right: 0; top: 8.97%; height: 82.05%; overflow: hidden; border-radius: 6px; }
+  .phone-screen.ar-16-9 .media-box { top: 37%; height: 26%; border-radius: 4px; }
   .media-box video, .media-box iframe {
     position: absolute; inset: 0; width: 100%; height: 100%; display: block; border: 0;
-    background: #000; object-fit: cover;
+    background: #000; object-fit: cover;   /* fill the region = previews the reframe crop */
   }
+  /* Square ("rounded reel") mode: a centered 1:1 square inside the 9:16 canvas,
+     which itself sits centered in the 19.5:9 device screen. */
   .phone-screen.square .media-box {
-    left: 2.78%; top: 23.4%; right: auto; bottom: auto; width: 94.4%; height: 53.1%;
+    left: 2.78%; top: 28.2%; right: auto; bottom: auto; width: 94.4%; height: 43.6%;
     border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.55);
   }
+  .phone-screen.square .media-box video { object-fit: cover; }   /* fill the square */
   .frame-title {
-    position: absolute; top: 16%; left: 50%; transform: translateX(-50%); z-index: 3;
+    position: absolute; top: 22%; left: 50%; transform: translateX(-50%); z-index: 3;
     max-width: 92%; padding: 0 8px;
     text-align: center; font-weight: 800; font-size: 13px; color: #fff; line-height: 1.15;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -194,23 +319,87 @@
     text-align: center; line-height: 1.12; font-weight: 800; word-break: break-word;
   }
 
-  /* ---- Caption customizer ---- */
-  .customizer { margin-top: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); overflow: hidden; }
-  .cust-toggle {
-    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 12px 14px; background: none; border: 0; color: var(--text); cursor: pointer;
-    font: inherit; font-size: 14px; font-weight: 600;
+  /* ---- Caption studio (premium, tabbed customizer) ---- */
+  .customizer {
+    margin-top: 12px; border: 1px solid var(--line); border-radius: var(--radius);
+    background: linear-gradient(180deg, var(--surface) 0%, var(--bg-2) 100%);
+    overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 18px 40px -28px rgba(0,0,0,.8);
   }
-  .cust-toggle .cust-chev { width: 16px; height: 16px; transition: transform .2s var(--ease); color: var(--muted); }
+  .cust-toggle {
+    width: 100%; display: flex; align-items: center; gap: 11px;
+    padding: 13px 15px; background: none; border: 0; color: var(--text); cursor: pointer;
+    font: inherit; font-size: 14px; font-weight: 600; text-align: left;
+  }
+  .cust-toggle .cust-ic {
+    width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 9px;
+    background: var(--accent-soft); color: var(--accent-hi);
+  }
+  .cust-toggle .cust-ic svg { width: 16px; height: 16px; }
+  .cust-toggle .cust-sub { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted-2); margin-top: 1px; }
+  .cust-toggle .cust-chev { width: 17px; height: 17px; margin-left: auto; transition: transform .25s var(--ease); color: var(--muted-2); }
   .customizer.open .cust-toggle .cust-chev { transform: rotate(90deg); }
-  .cust-body { padding: 4px 14px 14px; display: grid; gap: 14px; border-top: 1px solid var(--line); }
-  .cust-row { display: grid; gap: 7px; }
-  .cust-row > label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--muted); }
-  .cust-val { font-family: var(--mono); font-size: 11.5px; color: var(--accent-hi); }
-  .cust-inline { display: flex; align-items: center; gap: 10px; }
+  .cust-body { padding: 0 0 14px; border-top: 1px solid var(--line); }
+
+  /* Tab bar */
+  .cs-tabs { display: flex; gap: 4px; padding: 10px 12px; background: var(--bg-2); border-bottom: 1px solid var(--line); }
+  .cs-tab {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 9px 6px; background: transparent; border: 0; cursor: pointer; border-radius: 9px;
+    color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 600;
+    transition: color .15s, background .15s, transform .08s;
+  }
+  .cs-tab svg { width: 15px; height: 15px; }
+  .cs-tab:hover { color: var(--text); }
+  .cs-tab:active { transform: scale(.97); }
+  .cs-tab.active { background: var(--surface-3); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06); }
+  .cs-tab.active svg { color: var(--accent-hi); }
+
+  /* Tab panels */
+  .cs-panel { padding: 16px 15px 4px; display: none; gap: 16px; grid-template-columns: 1fr; animation: csFade .22s var(--ease); }
+  .cs-panel.active { display: grid; }
+  @keyframes csFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .cust-row { display: grid; gap: 8px; }
+  .cust-row > label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+  .cust-val {
+    font-family: var(--mono); font-size: 11px; color: var(--accent-hi); font-weight: 600;
+    background: var(--accent-soft); padding: 2px 8px; border-radius: 999px;
+  }
+  .cust-inline { display: flex; align-items: center; gap: 12px; }
   .cust-inline input[type="range"] { flex: 1; }
-  .cust-check { cursor: pointer; color: var(--text); font-weight: 500; }
-  .cust-check input { accent-color: var(--accent); width: 15px; height: 15px; }
+
+  /* iOS-style switch (wraps the original checkbox; JS still reads .checked) */
+  .cust-switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text); }
+  .cust-switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .cust-switch .track {
+    width: 42px; height: 24px; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--line-2);
+    position: relative; flex: none; transition: background .18s, border-color .18s;
+  }
+  .cust-switch .track::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--muted); transition: transform .2s var(--ease), background .18s;
+  }
+  .cust-switch input:checked + .track { background: var(--accent); border-color: transparent; }
+  .cust-switch input:checked + .track::after { transform: translateX(18px); background: #fff; }
+
+  /* Colour chip — swatch with a caption underneath */
+  .cs-colors { display: flex; flex-wrap: wrap; gap: 14px; }
+  .cs-color { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; color: var(--muted-2); font-weight: 500; }
+
+  /* 3×3 quick-anchor grid for placement */
+  .anchor-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 96px; }
+  .anchor-grid button {
+    aspect-ratio: 1; border: 1px solid var(--line); background: var(--bg-2); border-radius: 7px; cursor: pointer;
+    display: grid; place-items: center; transition: .12s;
+  }
+  .anchor-grid button::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--muted-2); transition: .12s; }
+  .anchor-grid button:hover { border-color: var(--line-2); }
+  .anchor-grid button:hover::before { background: var(--text); }
+  .anchor-grid button.active { border-color: var(--accent); background: var(--accent-soft); }
+  .anchor-grid button.active::before { background: var(--accent-hi); transform: scale(1.4); }
+  .cs-pos-split { display: flex; gap: 16px; align-items: flex-start; }
+  .cs-pos-split .cs-pos-sliders { flex: 1; display: grid; gap: 14px; }
+
   input[type="range"] {
     -webkit-appearance: none; appearance: none; width: 100%; height: 5px; border-radius: 999px;
     background: var(--line-2); outline: none; cursor: pointer; margin: 4px 0;
@@ -229,16 +418,20 @@
   }
   input[type="color"].swatch::-webkit-color-swatch-wrapper { padding: 3px; }
   input[type="color"].swatch::-webkit-color-swatch { border: 0; border-radius: 5px; }
+  .cs-foot { display: flex; justify-content: flex-end; padding: 12px 15px 2px; margin-top: 4px; border-top: 1px solid var(--line); }
   .cust-reset {
-    justify-self: start; padding: 7px 12px; font: inherit; font-size: 12.5px; cursor: pointer;
-    background: var(--bg); border: 1px solid var(--line); border-radius: 8px; color: var(--muted);
-    transition: color .15s, border-color .15s;
+    display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 9px; color: var(--muted);
+    transition: color .15s, border-color .15s, background .15s;
   }
-  .cust-reset:hover { color: var(--text); border-color: var(--line-2); }
-  select.cust-select { padding: 10px 38px 10px 12px; font-size: 13.5px; }
+  .cust-reset svg { width: 14px; height: 14px; }
+  .cust-reset:hover { color: var(--text); border-color: var(--line-2); background: var(--surface-2); }
+  .cust-reset:active { transform: scale(.97); }
+  select.cust-select { padding: 11px 38px 11px 13px; font-size: 13.5px; }
   .cust-row.disabled-row { opacity: .4; pointer-events: none; }
-  #ovLines { display: inline-flex; width: auto; }
-  #ovLines button { padding: 7px 16px; font-size: 13px; }
+  #ovLines button { padding: 9px 8px; font-size: 13px; }
+  .cs-color input[type="color"].swatch { width: 100%; height: 36px; }
+  .cs-color .swatch-wrap { width: 54px; }
 
   /* Caption-preview animation demos (illustrative loops; render is exact). */
   .cap-row { display: block; }
@@ -251,6 +444,167 @@
   }
   .cap-one { grid-area: 1 / 1; justify-self: center; align-self: center; white-space: nowrap; opacity: 0; animation: capOne 2.4s steps(1, end) infinite; }
   @keyframes capOne { 0% { opacity: 1; } 22% { opacity: 1; } 25% { opacity: 0; } 100% { opacity: 0; } }
+
+  /* ---- Caption preset gallery (Step 2) ---- */
+  .cap-presets {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px;
+    max-height: 280px; overflow-y: auto; padding: 3px; margin-bottom: 4px;
+  }
+  .cap-presets::-webkit-scrollbar { width: 8px; }
+  .cap-presets::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 8px; }
+  .cap-chip {
+    position: relative; cursor: pointer; border: 1px solid var(--line); border-radius: 13px;
+    background: #0c0c12; overflow: hidden; padding: 0; transition: border-color .14s, box-shadow .14s, transform .08s;
+  }
+  .cap-chip:hover { border-color: var(--line-2); }
+  .cap-chip:active { transform: scale(.985); }
+  .cap-chip.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .cap-chip .cap-stage {
+    height: 64px; display: flex; align-items: center; justify-content: center; padding: 4px 8px;
+    background: radial-gradient(120% 120% at 50% 0%, #23232c, #0a0a0e); overflow: hidden;
+  }
+  .cap-chip .cap-sample { font-size: 19px; line-height: 1; font-weight: 800; white-space: nowrap; letter-spacing: -.01em; }
+  .cap-chip .cap-name {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 7px 6px; font-size: 11px; font-weight: 600; color: var(--muted);
+    background: var(--bg-2); border-top: 1px solid var(--line);
+  }
+  .cap-chip.active .cap-name { color: var(--text); }
+  .cap-chip .cap-trend {
+    position: absolute; top: 6px; right: 6px; font-size: 8.5px; font-weight: 800; letter-spacing: .04em;
+    padding: 2px 6px; border-radius: 999px; color: #fff; background: linear-gradient(180deg,#8b6dff,var(--accent));
+    text-transform: uppercase;
+  }
+
+  /* ---- Caption customizer rows (reuses .customizer / .cust-* shells) ---- */
+  .cap-cust-grid { display: grid; gap: 15px; padding: 16px 15px 4px; }
+  .cap-ctl { display: grid; gap: 8px; }
+  .cap-ctl > label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+  .cap-ctl .cap-val { font-family: var(--mono); font-size: 11px; color: var(--accent-hi); font-weight: 600; background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; }
+  /* Editable value badge — type a number directly; stays in sync with the slider. */
+  .cap-num { display: inline-flex; align-items: center; gap: 1px; font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--accent-hi); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; transition: border-color .12s; }
+  .cap-num:focus-within { border-color: var(--accent); color: var(--text); }
+  .cap-num input { width: 4ch; border: 0; background: transparent; color: inherit; font: inherit; text-align: right; outline: none; padding: 0; -moz-appearance: textfield; }
+  .cap-num input::-webkit-outer-spin-button, .cap-num input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .cap-font-row { display: flex; gap: 8px; align-items: center; }
+  .cap-font-row select { flex: 1; min-width: 0; }
+  .cap-upload-btn {
+    flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 0 13px; height: 44px;
+    font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    color: var(--accent-hi); background: var(--accent-soft); border: 1px solid var(--line); border-radius: var(--radius-sm); transition: .12s;
+  }
+  .cap-upload-btn:hover { border-color: var(--accent); }
+  .cap-upload-btn svg { width: 15px; height: 15px; }
+  .cap-swatches { display: flex; gap: 10px; }
+  .cap-swatch { flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; font-size: 11px; color: var(--muted-2); font-weight: 500; }
+  .cap-swatch input[type="color"].swatch { width: 100%; height: 36px; }
+
+  /* ---- Advanced colour picker (trigger swatch + popover) ---- */
+  .cp-trigger {
+    width: 100%; height: 36px; border-radius: 9px; border: 1px solid var(--line-2); cursor: pointer; padding: 0;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), inset 0 0 0 3px rgba(0,0,0,.22); transition: transform .08s, box-shadow .15s;
+  }
+  .cp-trigger:hover { box-shadow: inset 0 0 0 1px rgba(255,255,255,.22), 0 0 0 2px var(--accent-soft); }
+  .cp-trigger:active { transform: scale(.97); }
+  .cp-pop {
+    position: fixed; z-index: 300; width: 236px; padding: 12px; border-radius: 16px; display: none;
+    background: var(--surface-2); border: 1px solid var(--line-2);
+    box-shadow: 0 28px 70px -18px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .cp-pop.open { display: block; animation: pop .14s var(--ease) both; }
+  .cp-area { position: relative; width: 100%; height: 134px; border-radius: 11px; cursor: crosshair; overflow: hidden; touch-action: none; }
+  .cp-cursor {
+    position: absolute; width: 15px; height: 15px; border-radius: 50%; border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.55); transform: translate(-50%, -50%); pointer-events: none;
+  }
+  .cp-hue {
+    position: relative; height: 14px; margin: 13px 0 11px; border-radius: 999px; cursor: pointer; touch-action: none;
+    background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  }
+  .cp-hue-thumb {
+    position: absolute; top: 50%; width: 17px; height: 17px; border-radius: 50%; background: #fff; border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 2px 5px rgba(0,0,0,.5); transform: translate(-50%, -50%); pointer-events: none;
+  }
+  .cp-row { display: flex; align-items: center; gap: 6px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; margin-bottom: 11px; }
+  .cp-row:focus-within { border-color: var(--accent); }
+  .cp-hash { color: var(--muted-2); font-family: var(--mono); font-size: 13px; }
+  .cp-hex { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font-family: var(--mono); font-size: 13px; text-transform: uppercase; outline: none; letter-spacing: .06em; }
+  .cp-presets { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+  .cp-sw { aspect-ratio: 1; border-radius: 6px; border: 1px solid rgba(255,255,255,.16); cursor: pointer; padding: 0; transition: transform .08s, border-color .12s; }
+  .cp-sw:hover { transform: scale(1.14); border-color: var(--accent); }
+  .cp-sw:active { transform: scale(.95); }
+  /* Nicer caption sliders: taller rounded track with an accent fill (set via JS),
+     a crisp white thumb with a soft accent ring. */
+  input[type="range"].cap-range {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 7px; border-radius: 999px;
+    background: var(--surface-3); outline: none; cursor: pointer; margin: 6px 0;
+  }
+  input[type="range"].cap-range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 19px; height: 19px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--accent);
+    box-shadow: 0 2px 6px rgba(0,0,0,.45), 0 0 0 4px var(--accent-soft); transition: transform .1s, box-shadow .15s;
+  }
+  input[type="range"].cap-range::-webkit-slider-thumb:hover { transform: scale(1.12); }
+  input[type="range"].cap-range:active::-webkit-slider-thumb { transform: scale(1.18); box-shadow: 0 2px 8px rgba(0,0,0,.5), 0 0 0 6px var(--accent-soft); }
+  input[type="range"].cap-range::-moz-range-thumb {
+    width: 19px; height: 19px; border-radius: 50%; background: #fff; border: 2px solid var(--accent);
+    box-shadow: 0 2px 6px rgba(0,0,0,.45);
+  }
+  input[type="range"].cap-range::-moz-range-progress { background: var(--accent); height: 7px; border-radius: 999px; }
+  /* Bidirectional (rotation): a centre tick to show the 0° origin. */
+  .cap-range-bi { position: relative; }
+  .cap-rot-wrap { position: relative; }
+  .cap-rot-wrap::before {
+    content: ""; position: absolute; left: 50%; top: -2px; width: 2px; height: 11px; border-radius: 2px;
+    background: var(--muted-2); transform: translateX(-50%); pointer-events: none; z-index: 1;
+  }
+
+  .cap-toggles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cap-toggles.cap-tg2 { grid-template-columns: repeat(2, 1fr); }
+  /* Vertical effect rows: activate toggle on the left, controls reveal on the right. */
+  .cap-fxrow { display: flex; gap: 10px; align-items: flex-start; }
+  .cap-fxtoggle { flex: none; width: 112px; align-self: flex-start; }
+  .cap-fxbody {
+    flex: 1; min-width: 0; display: grid; gap: 11px; padding: 12px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--bg-2); animation: csFade .18s var(--ease);
+  }
+  .cap-fxbody.hidden { display: none; }
+  .cap-fxbody label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+  .cap-fxbody .cap-sub { display: grid; gap: 7px; }
+  .cap-fxbody .cap-swatch { font-size: 11px; color: var(--muted-2); }
+  @media (max-width: 620px) { .cap-fxrow { flex-direction: column; } .cap-fxtoggle { width: 100%; } }
+  .cap-tg {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 6px; cursor: pointer;
+    font: inherit; font-size: 12px; font-weight: 600; color: var(--muted);
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; transition: .12s;
+  }
+  .cap-tg:hover { color: var(--text); border-color: var(--line-2); }
+  .cap-tg.active { border-color: var(--accent); color: var(--accent-hi); background: var(--accent-soft); }
+  .cap-upnote { font-size: 11.5px; color: var(--muted-2); }
+  .cap-upnote.err { color: var(--danger); }
+
+  /* ---- Live caption preview inside the phone frame ---- */
+  .cap-preview {
+    position: absolute; left: 0; right: 0; z-index: 3; display: flex; justify-content: center;
+    padding: 0 10px; pointer-events: none; text-align: center;
+  }
+  .cap-preview.pos-bottom { bottom: 13%; }
+  .cap-preview.pos-top { top: 15%; }
+  .cap-preview.pos-center { top: 50%; transform: translateY(-50%); }
+  /* In 16:9 the clip is a centered strip (37%–63%); keep captions inside it. */
+  .phone-screen.ar-16-9 .cap-preview.pos-bottom { bottom: 38%; }
+  .phone-screen.ar-16-9 .cap-preview.pos-top { top: 38%; }
+  .cap-preview .cap-line { display: inline-block; font-weight: 800; line-height: 1.12; word-break: break-word; max-width: 100%; }
+  .cap-preview .cap-box { padding: .12em .3em; border-radius: .18em; }
+  /* Free placement: anchored at a point (drag). */
+  .cap-preview.free { left: 0; right: auto; bottom: auto; padding: 0; width: auto; max-width: 88%; justify-content: center; transform: translate(-50%, -50%); }
+  .cap-preview .cap-line { pointer-events: auto; cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none; }
+  .cap-preview.dragging .cap-line { cursor: grabbing; }
+  .cap-preview.dragging { outline: none; }
+  /* Snap guide lines (top / centre / bottom), shown only while dragging. */
+  .cap-guides { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0; transition: opacity .15s; }
+  .cap-guides.on { opacity: 1; }
+  .cap-guides i { position: absolute; left: 6%; right: 6%; height: 1px; background: repeating-linear-gradient(90deg, var(--accent) 0 6px, transparent 6px 12px); opacity: .7; }
 
   /* ---- Dropdown ---- */
   select.dropdown {
@@ -274,6 +628,64 @@
   .devstatus.err { color: var(--danger); }
   .devstatus.err .sdot { background: var(--danger); }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+  /* ---- Background download status (Step 2, below the preview) ---- */
+  .dlstatus {
+    margin-top: 16px; padding: 13px 14px; border-radius: var(--radius-sm);
+    background: var(--bg-2); border: 1px solid var(--line); animation: csFade .22s var(--ease);
+  }
+  .dlstatus-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+  .dlstatus-msg { display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 12.5px; font-weight: 500; color: var(--text); }
+  .dlstatus-msg span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dlstatus-msg .sdot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-2); flex: none; transition: .2s; }
+  .dlstatus-pct { flex: none; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent-hi); }
+  .dlstatus-track { height: 7px; border-radius: 999px; background: var(--surface-3); overflow: hidden; border: 1px solid var(--line); }
+  .dlstatus-bar {
+    height: 100%; width: 0%; border-radius: 999px; transition: width .35s var(--ease);
+    background: linear-gradient(90deg, var(--accent), var(--accent-hi)); background-size: 200% 100%;
+  }
+  .dlstatus-bar.indeterminate { width: 40% !important; animation: shimmer 1.1s linear infinite; }
+  .dlstatus.loading .sdot { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+  .dlstatus.loading .dlstatus-pct { color: var(--warn); }
+  .dlstatus.ready { border-color: rgba(108,76,255,.4); }
+  .dlstatus.ready .sdot { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .dlstatus.ready .dlstatus-bar { background: var(--accent); }
+  .dlstatus.err { border-color: rgba(226,59,83,.4); background: var(--danger-soft); }
+  .dlstatus.err .sdot { background: var(--danger); }
+  .dlstatus.err .dlstatus-msg { color: #b4344a; }
+  .dlstatus.err .dlstatus-pct { display: none; }
+  .dlstatus-retry {
+    margin-top: 11px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 9px 14px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    color: var(--danger); background: rgba(226,59,83,.08); border: 1px solid rgba(226,59,83,.3); border-radius: 9px; transition: .12s;
+  }
+  .dlstatus-retry svg { width: 14px; height: 14px; }
+  .dlstatus-retry:hover { background: rgba(226,59,83,.16); }
+
+  /* ---- Status panel polish: live sheen, pinging dot, ready check ---- */
+  .dlstatus { transition: border-color .25s var(--ease), background .25s var(--ease); }
+  .dlstatus-bar { position: relative; overflow: hidden; }
+  .dlstatus.loading .dlstatus-bar::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent);
+    transform: translateX(-100%); animation: dlSheen 1.5s ease-in-out infinite;
+  }
+  @keyframes dlSheen { to { transform: translateX(260%); } }
+  .dlstatus-msg .sdot { position: relative; transition: background .25s, transform .25s var(--ease); }
+  .dlstatus.loading .sdot::after {
+    content: ""; position: absolute; inset: -4px; border-radius: 50%;
+    border: 1.5px solid currentColor; color: var(--warn); opacity: .55; animation: dlPing 1.25s ease-out infinite;
+  }
+  @keyframes dlPing { 0% { transform: scale(.55); opacity: .6; } 100% { transform: scale(1.9); opacity: 0; } }
+  /* Ready: the dot becomes a check + the bar flashes once. */
+  .dlstatus.ready .sdot { transform: scale(1.15); }
+  .dlstatus.ready .sdot::after {
+    content: ""; position: absolute; left: 50%; top: 47%; width: 2.5px; height: 5.5px;
+    border: solid #fff; border-width: 0 1.6px 1.6px 0; transform: translate(-50%, -62%) rotate(45deg);
+  }
+  .dlstatus.ready .dlstatus-bar { animation: dlReady .55s var(--ease); }
+  @keyframes dlReady { 0% { filter: brightness(1.7); } 100% { filter: brightness(1); } }
+  .dlstatus-pct { transition: color .25s; }
 
   /* ---- Upload dropzone ---- */
   .dropzone {
@@ -303,9 +715,9 @@
   .generate {
     width: 100%; margin-top: 28px; padding: 16px; font-size: 16px; font-weight: 700; font-family: inherit;
     display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-    color: #06120d; border: 0; border-radius: var(--radius-sm); cursor: pointer; letter-spacing: -0.01em;
-    background: linear-gradient(180deg, var(--accent-hi), var(--accent));
-    box-shadow: 0 10px 26px -10px rgba(47,183,132,.7), inset 0 1px 0 rgba(255,255,255,.35);
+    color: #fff; border: 0; border-radius: var(--radius-sm); cursor: pointer; letter-spacing: -0.01em;
+    background: linear-gradient(180deg, #2c2c38, #131320);
+    box-shadow: 0 14px 30px -12px rgba(20,18,40,.5), inset 0 1px 0 rgba(255,255,255,.14);
     transition: transform .1s var(--ease), filter .15s, opacity .15s;
   }
   .generate svg { width: 18px; height: 18px; }
@@ -518,6 +930,13 @@
 </style>
 </head>
 <body class="sidebar-collapsed">
+<!-- Shared advanced colour picker popover (anchored to whichever swatch opens it). -->
+<div class="cp-pop" id="cpPop">
+  <div class="cp-area" id="cpArea"><span class="cp-cursor" id="cpCursor"></span></div>
+  <div class="cp-hue" id="cpHue"><span class="cp-hue-thumb" id="cpHueThumb"></span></div>
+  <div class="cp-row"><span class="cp-hash">#</span><input id="cpHex" class="cp-hex" spellcheck="false" maxlength="7" /></div>
+  <div class="cp-presets" id="cpPresets"></div>
+</div>
 <aside class="sidebar" id="sidebar">
   <div class="side-head">
     <span class="side-title">
@@ -542,188 +961,276 @@
 </button>
 <main class="main">
 <div class="wrap">
-  <div class="hero">
-    <div class="brandbar">
-      <div class="logo">
-        <span class="mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
-        </span>
-        <span>ClipForge</span>
-      </div>
-      <span class="badge"><span class="dot"></span> Local · Whisper on <b id="deviceTag">…</b></span>
+  <nav class="topnav">
+    <div class="logo">
+      <span class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+      </span>
+      <span>ClipForge</span>
     </div>
-    <h1>Turn any video into <span class="em">scroll-stopping</span> shorts</h1>
-    <p>Download, transcribe, and auto-caption clips entirely on your own machine. No API keys, no cloud AI.</p>
+    <div class="nav-right">
+      <span class="nav-badge"><span class="dot"></span> Local · Whisper on <b id="deviceTag">…</b></span>
+      <button class="nav-history" id="navHistory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+        History
+      </button>
+    </div>
+  </nav>
+
+  <!-- ============ STEP 1 · LANDING ============ -->
+  <div class="wstep landing" id="step1">
+    <div class="trust">
+      <span class="trust-faces"><i></i><i></i><i></i><i></i></span>
+      100% local · runs on your machine · no sign-up
+    </div>
+    <h1 class="hero-title">Turn videos into <span class="grad">viral shorts</span></h1>
+    <p class="hero-sub">Create TikToks, Reels &amp; Shorts from your long videos in just one click.</p>
+
+    <div class="megabar" id="megabar">
+      <button type="button" class="mega-up" id="megaUpload" title="Upload a file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </button>
+      <input type="file" id="fileInput" accept="video/*" hidden />
+      <input id="url" class="mega-input" type="text" placeholder="Paste a YouTube link or drop a file…" />
+      <button class="generate mega-go" id="toStep2" disabled>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z"/></svg>
+        Continue
+      </button>
+    </div>
+    <div class="mega-foot">Free &amp; unlimited · No API keys · No credit card required</div>
+    <div class="devstatus hidden" id="upStatus"><span class="sdot"></span><span id="upStatusText"></span></div>
+    <button type="button" id="removeUpload" class="remove-btn hidden">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      Remove video
+    </button>
+    <div id="error1" class="error hidden"></div>
+
+    <div class="credits">
+      <span class="credits-label">Powered by a 100% local pipeline</span>
+      <span class="credit">yt-dlp</span>
+      <span class="credit">faster-whisper</span>
+      <span class="credit">ffmpeg</span>
+    </div>
   </div>
 
-  <div class="card">
-    <label class="fieldlabel">Video source</label>
-    <div class="toggle" id="source">
-      <button data-val="url" class="active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        Paste link
-      </button>
-      <button data-val="upload">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Upload file
-      </button>
-    </div>
-
-    <div id="urlWrap" class="input-wrap" style="margin-top:12px;">
-      <span class="ic">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-      </span>
-      <input id="url" type="text" placeholder="Paste a YouTube (or other) video URL…" />
-    </div>
-
-    <div id="uploadWrap" class="hidden" style="margin-top:12px;">
-      <label class="dropzone" id="dropzone">
-        <input type="file" id="fileInput" accept="video/*" hidden />
-        <span class="dz-ic">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        </span>
-        <span class="dz-main" id="dzMain">Click to choose a video — or drag &amp; drop</span>
-        <span class="dz-sub">mp4, mov, mkv, webm, avi…</span>
-      </label>
-      <div class="devstatus hidden" id="upStatus"><span class="sdot"></span><span id="upStatusText"></span></div>
-      <button type="button" id="removeUpload" class="remove-btn hidden">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        Remove video
-      </button>
-    </div>
-
-    <div class="controls">
-      <div class="control">
-        <label class="fieldlabel">Aspect ratio</label>
-        <div class="toggle" id="aspect">
-          <button data-val="9:16" class="active">9:16</button>
-          <button data-val="16:9">16:9</button>
+  <!-- ============ STEP 2 · CONFIGURE ============ -->
+  <div class="wstep hidden" id="step2">
+    <div class="card">
+      <div class="wstep-head">
+        <button type="button" class="wback" id="backToStep1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Back
+        </button>
+        <div>
+          <span class="wstep-eyebrow">Step 2 of 2</span>
+          <span class="wstep-title">Settings &amp; preview</span>
         </div>
       </div>
-      <div class="control">
-        <label class="fieldlabel">Fit mode</label>
-        <div class="toggle" id="fit">
-          <button data-val="crop" class="active">Crop</button>
-          <button data-val="square">Square</button>
-        </div>
-      </div>
-      <div class="control">
-        <label class="fieldlabel">Clips</label>
-        <div class="counter">
-          <button id="minus" type="button">−</button>
-          <input id="numClips" type="number" min="1" max="10" value="3" />
-          <button id="plus" type="button">+</button>
-        </div>
-      </div>
-    </div>
 
-    <div id="barWrap" class="hidden">
-      <label class="fieldlabel">Title text (top)</label>
-      <input id="barText" class="barinput" type="text" placeholder="Title shown over the top of the square…" />
-    </div>
-
-    <label class="fieldlabel">Compute (Whisper)</label>
-    <select id="device" class="dropdown">
-      <option value="auto">Auto — GPU if available, else CPU</option>
-      <option value="cuda">GPU (CUDA) — fastest</option>
-      <option value="cpu">CPU — works everywhere</option>
-    </select>
-    <div class="devstatus" id="devStatus"><span class="sdot"></span><span id="devStatusText">Checking…</span></div>
-
-    <label class="fieldlabel">Caption style</label>
-    <div class="chips" id="styleChips"></div>
-
-    <div class="customizer" id="customizer">
-      <button type="button" class="cust-toggle" id="custToggle">
-        <span>Customize captions</span>
-        <svg class="cust-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
-      <div class="cust-body hidden" id="custBody">
-        <div class="cust-row">
-          <label>Animation</label>
-          <select id="ovAnim" class="dropdown cust-select">
-            <option value="none">None — static line</option>
-            <option value="word_reveal">Word reveal — pop in &amp; stay</option>
-            <option value="one_word">One word at a time</option>
+      <div class="config-grid">
+        <div class="cfg-left">
+          <label class="fieldlabel">Compute (Whisper)</label>
+          <select id="device" class="dropdown">
+            <option value="auto">Auto — GPU if available, else CPU</option>
+            <option value="cuda">GPU (CUDA) — fastest</option>
+            <option value="cpu">CPU — works everywhere</option>
           </select>
-        </div>
-        <div class="cust-row" id="rowLines">
-          <label>Lines</label>
-          <div class="toggle" id="ovLines">
-            <button type="button" data-val="1" class="active">1 line</button>
-            <button type="button" data-val="2">2 lines</button>
-          </div>
-        </div>
-        <div class="cust-row" id="rowChars">
-          <label>Max characters / line <span class="cust-val" id="valChars">22</span></label>
-          <input type="range" id="ovChars" min="8" max="48" step="1" value="22" />
-        </div>
-        <div class="cust-row">
-          <label>Horizontal position <span class="cust-val" id="valPosX">50%</span></label>
-          <input type="range" id="ovPosX" min="0" max="100" step="1" value="50" />
-        </div>
-        <div class="cust-row">
-          <label>Vertical position <span class="cust-val" id="valPosY">88%</span></label>
-          <input type="range" id="ovPosY" min="0" max="100" step="1" value="88" />
-        </div>
-        <div class="cust-row">
-          <label>Rotation <span class="cust-val" id="valRot">0°</span></label>
-          <input type="range" id="ovRot" min="-180" max="180" step="1" value="0" />
-        </div>
-        <div class="cust-row">
-          <label>Stroke / outline <span class="cust-val" id="valOutline">5 px</span></label>
-          <div class="cust-inline">
-            <input type="range" id="ovOutline" min="0" max="20" step="1" value="5" />
-            <input type="color" id="ovOutlineColor" class="swatch" value="#000000" title="Outline colour" />
-          </div>
-        </div>
-        <div class="cust-row">
-          <label class="cust-check"><input type="checkbox" id="ovShadowOn" /> Drop shadow <span class="cust-val" id="valShadow">2 px</span></label>
-          <div class="cust-inline">
-            <input type="range" id="ovShadow" min="0" max="20" step="1" value="2" />
-            <input type="color" id="ovShadowColor" class="swatch" value="#000000" title="Shadow colour" />
-          </div>
-        </div>
-        <div class="cust-row">
-          <label class="cust-check"><input type="checkbox" id="ovBgOn" /> Background box</label>
-          <div class="cust-inline">
-            <input type="color" id="ovBgColor" class="swatch" value="#000000" title="Background colour" />
-          </div>
-        </div>
-        <button type="button" class="cust-reset" id="custReset">Reset to preset</button>
-      </div>
-    </div>
+          <div class="devstatus" id="devStatus"><span class="sdot"></span><span id="devStatusText">Checking…</span></div>
 
-    <label class="fieldlabel">Preview</label>
-    <div class="preview-wrap">
-      <div class="phone" id="phone">
-        <div class="phone-screen empty" id="phoneScreen">
-          <div class="ph-placeholder" id="phPlaceholder">Upload a video or paste a link to preview it here</div>
-          <div class="media-box" id="mediaBox">
-            <video id="previewVideo" class="hidden" muted loop autoplay playsinline></video>
-            <iframe id="previewEmbed" class="hidden" allow="autoplay; encrypted-media; picture-in-picture"
-                    allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          <label class="fieldlabel">Aspect ratio</label>
+          <div class="toggle" id="aspect">
+            <button data-val="9:16" class="active">9:16</button>
+            <button data-val="16:9">16:9</button>
           </div>
-          <div class="frame-title hidden" id="phoneTitle">Title of vid</div>
-          <div class="capline" id="capPreview">YOUR CAPTION STYLE</div>
+
+          <label class="fieldlabel">Fit mode</label>
+          <div class="toggle" id="fit">
+            <button data-val="crop" class="active">Crop</button>
+            <button data-val="square">Square</button>
+          </div>
+
+          <div id="barWrap" class="hidden">
+            <label class="fieldlabel">Title text (top)</label>
+            <input id="barText" class="barinput" type="text" placeholder="Title shown over the top of the square…" />
+          </div>
+
+          <label class="fieldlabel">Clips</label>
+          <div class="counter">
+            <button id="minus" type="button">−</button>
+            <input id="numClips" type="number" min="1" max="10" value="3" />
+            <button id="plus" type="button">+</button>
+          </div>
+
+          <label class="fieldlabel">Caption style</label>
+          <div class="cap-presets" id="capPresets"></div>
+
+          <div class="customizer" id="capCustomizer">
+            <button type="button" class="cust-toggle" id="capCustToggle">
+              <span class="cust-ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+              </span>
+              <span>Customize captions<span class="cust-sub">Font · colours · size · position · animation · emphasis</span></span>
+              <svg class="cust-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <div class="cust-body hidden" id="capCustBody">
+              <div class="cap-cust-grid">
+                <div class="cap-ctl">
+                  <label>Font <span class="cap-val" id="capFontVal">Roboto</span></label>
+                  <div class="cap-font-row">
+                    <select id="capFont" class="dropdown"></select>
+                    <button type="button" class="cap-upload-btn" id="capFontUpload">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      Upload
+                    </button>
+                  </div>
+                  <input type="file" id="capFontInput" accept=".ttf,.otf,font/ttf,font/otf" hidden />
+                  <div class="cap-upnote" id="capFontNote"></div>
+                </div>
+
+                <div class="cap-ctl">
+                  <label>Animation</label>
+                  <select id="capAnim" class="dropdown">
+                    <option value="none">None — static</option>
+                    <option value="highlight">Highlight active word</option>
+                    <option value="word_reveal">Word reveal</option>
+                    <option value="one_word">One word at a time</option>
+                    <option value="karaoke">Karaoke fill</option>
+                  </select>
+                </div>
+
+                <div class="cap-ctl">
+                  <label>Colours</label>
+                  <div class="cap-swatches">
+                    <label class="cap-swatch">Text<button type="button" class="cp-trigger" id="capPrimary" data-cp="primary_color" data-def="#FFFFFF"></button></label>
+                    <label class="cap-swatch">Highlight<button type="button" class="cp-trigger" id="capHighlight" data-cp="highlight_color" data-def="#FFD400"></button></label>
+                    <label class="cap-swatch">Outline<button type="button" class="cp-trigger" id="capOutlineColor" data-cp="outline_color" data-def="#000000"></button></label>
+                  </div>
+                </div>
+
+                <div class="cap-ctl">
+                  <label>Size <span class="cap-num"><input type="number" id="capSizeNum" min="60" max="180" step="5" value="100" />%</span></label>
+                  <input type="range" class="cap-range" id="capSize" min="0.6" max="1.8" step="0.05" value="1" />
+                </div>
+
+                <div class="cap-ctl">
+                  <label>Letter spacing <span class="cap-num"><input type="number" id="capTrackingNum" min="0" max="30" step="1" value="0" />px</span></label>
+                  <input type="range" class="cap-range" id="capTracking" min="0" max="30" step="1" value="0" />
+                </div>
+
+                <div class="cap-ctl">
+                  <label>Outline <span class="cap-num"><input type="number" id="capOutlineNum" min="0" max="16" step="1" value="5" />px</span></label>
+                  <input type="range" class="cap-range" id="capOutline" min="0" max="16" step="1" value="5" />
+                </div>
+
+                <div class="cap-ctl">
+                  <label>Position</label>
+                  <div class="cap-upnote">Drag the caption in the preview (snaps to edges &amp; centre), or fine-tune with the sliders.</div>
+                </div>
+                <div class="cap-ctl">
+                  <label>X position <span class="cap-num"><input type="number" id="capPosXNum" min="0" max="100" step="1" value="50" />%</span></label>
+                  <input type="range" class="cap-range" id="capPosX" min="0" max="100" step="1" value="50" />
+                </div>
+                <div class="cap-ctl">
+                  <label>Y position <span class="cap-num"><input type="number" id="capPosYNum" min="0" max="100" step="1" value="88" />%</span></label>
+                  <input type="range" class="cap-range" id="capPosY" min="0" max="100" step="1" value="88" />
+                </div>
+                <div class="cap-ctl">
+                  <label>Rotation <span class="cap-num"><input type="number" id="capRotationNum" min="-180" max="180" step="1" value="0" />°</span></label>
+                  <div class="cap-rot-wrap"><input type="range" class="cap-range cap-range-bi" id="capRotation" min="-180" max="180" step="1" value="0" /></div>
+                </div>
+
+                <div class="cap-ctl">
+                  <label>Style</label>
+                  <div class="cap-toggles cap-tg2">
+                    <button class="cap-tg" data-k="bold" type="button">Bold</button>
+                    <button class="cap-tg" data-k="uppercase" type="button">UPPER</button>
+                  </div>
+
+                  <div class="cap-fxrow">
+                    <button class="cap-tg cap-fxtoggle" data-k="background_enabled" type="button">Box</button>
+                    <div class="cap-fxbody hidden" id="capBoxFx">
+                      <div class="cap-swatches"><label class="cap-swatch">Colour<button type="button" class="cp-trigger" id="capBoxColor" data-cp="background_color" data-def="#000000"></button></label></div>
+                      <div class="cap-sub"><label>Opacity <span class="cap-num"><input type="number" id="capBoxOpacityNum" min="0" max="100" step="1" value="100" />%</span></label><input type="range" class="cap-range" id="capBoxOpacity" min="0" max="100" step="1" value="100" /></div>
+                      <div class="cap-sub"><label>Corner radius <span class="cap-num"><input type="number" id="capBoxRadiusNum" min="0" max="40" step="1" value="10" />px</span></label><input type="range" class="cap-range" id="capBoxRadius" min="0" max="40" step="1" value="10" /></div>
+                      <div class="cap-upnote">Rounded corners are preview-only; the exported box is square.</div>
+                    </div>
+                  </div>
+
+                  <div class="cap-fxrow">
+                    <button class="cap-tg cap-fxtoggle" data-k="shadow_enabled" type="button">Drop shadow</button>
+                    <div class="cap-fxbody hidden" id="capShadowFx">
+                      <div class="cap-swatches"><label class="cap-swatch">Colour<button type="button" class="cp-trigger" id="capShadowColor" data-cp="shadow_color" data-def="#000000"></button></label></div>
+                      <div class="cap-sub"><label>Distance <span class="cap-num"><input type="number" id="capShadowDistNum" min="0" max="30" step="1" value="6" />px</span></label><input type="range" class="cap-range" id="capShadowDist" min="0" max="30" step="1" value="6" /></div>
+                      <div class="cap-sub"><label>Opacity <span class="cap-num"><input type="number" id="capShadowOpacityNum" min="0" max="100" step="1" value="75" />%</span></label><input type="range" class="cap-range" id="capShadowOpacity" min="0" max="100" step="1" value="75" /></div>
+                    </div>
+                  </div>
+
+                  <div class="cap-fxrow">
+                    <button class="cap-tg cap-fxtoggle" data-k="glow_enabled" type="button">Glow</button>
+                    <div class="cap-fxbody hidden" id="capGlowFx">
+                      <div class="cap-swatches"><label class="cap-swatch">Colour<button type="button" class="cp-trigger" id="capGlowColor" data-cp="glow_color" data-def="#7C4DFF"></button></label></div>
+                      <div class="cap-sub"><label>Intensity <span class="cap-num"><input type="number" id="capGlowNum" min="0" max="30" step="1" value="10" />px</span></label><input type="range" class="cap-range" id="capGlow" min="0" max="30" step="1" value="10" /></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="cs-foot">
+                <button type="button" class="cust-reset" id="capReset">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  Reset to preset
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button class="generate" id="generateBtn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z"/></svg>
+            Generate Shorts
+          </button>
+          <div id="error" class="error hidden"></div>
+
+          <!-- Progress panel -->
+          <div id="progressPanel" class="progress-panel hidden">
+            <div class="steps" id="steps"></div>
+            <div class="bar-row">
+              <div class="bar-msg"><span class="spinner" id="barSpinner"></span><span id="barMsg">Starting…</span></div>
+              <div class="bar-pct" id="barPct">0%</div>
+            </div>
+            <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+          </div>
+        </div>
+
+        <div class="cfg-right">
+          <div class="phone" id="phone">
+            <div class="phone-screen empty" id="phoneScreen">
+              <div class="island"></div>
+              <div class="ph-placeholder" id="phPlaceholder">Upload a video or paste a link to preview it here</div>
+              <div class="media-box" id="mediaBox">
+                <video id="previewVideo" class="hidden" muted loop autoplay playsinline></video>
+                <iframe id="previewEmbed" class="hidden" allow="autoplay; encrypted-media; picture-in-picture"
+                        allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+              </div>
+              <div class="frame-title hidden" id="phoneTitle">Title of vid</div>
+              <div class="cap-guides" id="capGuides"><i></i><i></i><i></i></div>
+              <div class="cap-preview pos-bottom hidden" id="capPreview"><span class="cap-line" id="capPreviewLine"></span></div>
+            </div>
+          </div>
+
+          <!-- Background download progress (URL source): fills while the user
+               adjusts settings so the file is ready by the time they Generate. -->
+          <div id="dlStatus" class="dlstatus hidden">
+            <div class="dlstatus-row">
+              <span class="dlstatus-msg"><span class="sdot"></span><span id="dlStatusText">Preparing…</span></span>
+              <span id="dlStatusPct" class="dlstatus-pct"></span>
+            </div>
+            <div class="dlstatus-track"><div id="dlStatusBar" class="dlstatus-bar"></div></div>
+            <button type="button" id="dlRetry" class="dlstatus-retry hidden">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/></svg>
+              Retry download
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-
-    <button class="generate" id="generateBtn">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z"/></svg>
-      Generate Shorts
-    </button>
-    <div id="error" class="error hidden"></div>
-
-    <!-- Progress panel -->
-    <div id="progressPanel" class="progress-panel hidden">
-      <div class="steps" id="steps"></div>
-      <div class="bar-row">
-        <div class="bar-msg"><span class="spinner" id="barSpinner"></span><span id="barMsg">Starting…</span></div>
-        <div class="bar-pct" id="barPct">0%</div>
-      </div>
-      <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
     </div>
   </div>
 
@@ -790,14 +1297,22 @@ const state = {
   fit: "crop",
   device: "auto",
   numClips: 3,
-  caption_style: null,
-  presets: [],
-  overrides: null,        // caption customizer values (seeded from the active preset)
   evtSource: null,
   renderedCount: 0,
   uploadName: null,       // original filename of an uploaded video (for history label)
   history: [],            // cached /api/history entries (one per processed video)
   currentVideo: null,     // clip_id of the video open in the clips view
+  prefetchId: null,       // id of the in-flight background URL download
+  prefetchUrl: null,      // the URL prefetch is for (guards against stale reuse)
+  downloadId: null,       // file id of a completed prefetch (reused on Generate)
+  pretranscribeId: null,  // id of the in-flight background transcription
+  pretranscribeSource: null, // source file id that pretranscribe is for
+  transcriptReady: false, // true once the background transcript is cached
+  captionStyle: "bold_white", // selected caption preset id
+  captionOverrides: {},   // user tweaks layered over the preset (sent to /generate)
+  presets: [],            // /api/caption-styles
+  fontsData: { bundled: [], user: [] }, // /api/fonts
+  fontFiles: {},          // family -> filename (for @font-face)
 };
 
 // ---- Toggles ----
@@ -812,11 +1327,6 @@ function bindToggle(id, key, onChange) {
     });
   });
 }
-bindToggle("source", "source", val => {
-  document.getElementById("urlWrap").classList.toggle("hidden", val !== "url");
-  document.getElementById("uploadWrap").classList.toggle("hidden", val !== "upload");
-  if (val === "url") refreshUrlEmbed(); else updatePreviewFrame();
-});
 bindToggle("aspect", "aspect", () => updatePreviewFrame());
 bindToggle("fit", "fit", val => {
   // Square mode shows the title field and ignores the aspect ratio.
@@ -826,7 +1336,7 @@ bindToggle("fit", "fit", val => {
 
 // ---- File upload (drag/drop + click) ----
 const fileInput = document.getElementById("fileInput");
-const dropzone = document.getElementById("dropzone");
+const megabar = document.getElementById("megabar");
 
 function setUpStatus(cls, text) {
   const s = document.getElementById("upStatus");
@@ -838,11 +1348,14 @@ function setUpStatus(cls, text) {
 function uploadFile(file) {
   if (!file) return;
   state.upload_id = null;
+  state.source = "upload";            // a chosen file switches the source to upload
   setPreviewVideo(file);              // instant local preview, before upload finishes
-  dropzone.classList.remove("loaded");
-  document.getElementById("dzMain").textContent = file.name;
+  const urlIn = document.getElementById("url");
+  urlIn.value = file.name; urlIn.readOnly = true;
+  megabar.classList.add("hasfile");
   document.getElementById("removeUpload").classList.remove("hidden");
   setUpStatus("loading", `Uploading ${file.name}… 0%`);
+  updateContinueState();
 
   const fd = new FormData();
   fd.append("file", file);
@@ -860,7 +1373,6 @@ function uploadFile(file) {
     if (xhr.status === 200 && d.upload_id) {
       state.upload_id = d.upload_id;
       state.uploadName = d.filename || file.name;
-      dropzone.classList.add("loaded");
       setUpStatus("ready", `Ready: ${d.filename} — uploaded`);
     } else {
       setUpStatus("err", d.detail || "Upload failed. Try another file.");
@@ -871,16 +1383,20 @@ function uploadFile(file) {
 }
 
 fileInput.addEventListener("change", () => uploadFile(fileInput.files[0]));
-["dragenter", "dragover"].forEach(ev => dropzone.addEventListener(ev, (e) => {
-  e.preventDefault(); dropzone.classList.add("dragover");
+document.getElementById("megaUpload").addEventListener("click", () => fileInput.click());
+["dragenter", "dragover"].forEach(ev => megabar.addEventListener(ev, (e) => {
+  e.preventDefault(); megabar.classList.add("dragover");
 }));
-["dragleave", "drop"].forEach(ev => dropzone.addEventListener(ev, (e) => {
-  e.preventDefault(); dropzone.classList.remove("dragover");
+["dragleave", "drop"].forEach(ev => megabar.addEventListener(ev, (e) => {
+  e.preventDefault(); megabar.classList.remove("dragover");
 }));
-dropzone.addEventListener("drop", (e) => {
+megabar.addEventListener("drop", (e) => {
   const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if (f) { fileInput.files = e.dataTransfer.files; uploadFile(f); }
 });
+// Top-nav History button opens the sidebar.
+document.getElementById("navHistory").addEventListener("click", () =>
+  document.body.classList.remove("sidebar-collapsed"));
 // ---- Compute dropdown + live device status ----
 const deviceSel = document.getElementById("device");
 deviceSel.addEventListener("change", () => {
@@ -893,15 +1409,28 @@ function setDeviceStatus(cls, text) {
   document.getElementById("devStatusText").textContent = text;
 }
 
+// Auto-detected GPU model name (e.g. "NVIDIA GeForce RTX 5060 Ti"), filled by
+// loadCompute() from /api/devices; null until detected / when no GPU.
+let GPU_NAME = null;
+const gpuLabel = () => GPU_NAME || "GPU";
 const DEV_LABELS = { auto: "Auto", cuda: "GPU", cpu: "CPU" };
+// Friendly label for a selected dropdown value (auto/cuda/cpu).
+const selLabel = (dev) => (dev === "cuda" ? gpuLabel() : (DEV_LABELS[dev] || dev));
+// Badge/status text for a concrete device the server resolved to.
+function deviceTagText(dev) {
+  const d = (dev || "").toLowerCase();
+  if (d === "cuda" || d === "gpu") return gpuLabel();
+  if (d === "cpu") return "CPU";
+  return (dev || "—").toUpperCase();
+}
 
 async function warmDevice(dev) {
-  setDeviceStatus("loading", `Loading Whisper on ${DEV_LABELS[dev] || dev}…`);
+  setDeviceStatus("loading", `Loading Whisper on ${selLabel(dev)}…`);
   try {
     const res = await fetch("/api/warmup?device=" + encodeURIComponent(dev), { method: "POST" });
     const d = await res.json();
     if (d.status === "ready") {
-      const tag = (d.device || dev).toUpperCase();
+      const tag = deviceTagText(d.device || dev);
       setDeviceStatus("ready", d.cached ? `${tag} ready — model already loaded` : `${tag} ready — model loaded`);
       document.getElementById("deviceTag").textContent = tag;
     } else {
@@ -971,8 +1500,15 @@ function activeMedia() {
     if (state.uploadObjectUrl && !state.previewError) return { kind: "video", src: state.uploadObjectUrl };
     return null;
   }
+  // URL source: once the background download for THIS url has finished, show the
+  // real downloaded file in the frame instead of the embeddable player.
+  const url = (document.getElementById("url").value || "").trim();
+  const haveLocal = state.downloadId && state.prefetchUrl === url;
+  if (haveLocal && !state.previewError) {
+    return { kind: "video", src: `/api/download/${state.downloadId}/video` };
+  }
   const e = state.embed;
-  if (!e) return null;
+  if (!e) return haveLocal ? { kind: "unknown" } : null;
   if (e.type === "iframe") return { kind: "iframe", src: e.src };
   if (e.type === "video" && !state.previewError) return { kind: "video", src: e.src };
   return { kind: "unknown" };
@@ -1032,225 +1568,576 @@ function updatePreviewFrame() {
     title.classList.toggle("placeholder", !t);
   }
 
-  renderPreview();
+  updateCaptionPreview();
+}
+
+// ---- Caption styles: presets + customizer + live in-frame preview ----
+const CAP_SAMPLE = ["Make", "it", "go", "viral"];   // preview phrase
+const CAP_HL = 2;                                    // which word is "active"
+
+function presetById(id) { return state.presets.find(p => p.id === id) || state.presets[0] || {}; }
+function effectiveCaptionCfg() { return Object.assign({}, presetById(state.captionStyle), state.captionOverrides); }
+
+function setCaptionOverride(key, val) { state.captionOverrides[key] = val; updateCaptionPreview(); }
+
+// True/false for an emphasis toggle, honouring the override → preset fallback.
+function captionToggleOn(cfg, key) {
+  if (key === "shadow_enabled") {
+    return state.captionOverrides.shadow_enabled !== undefined
+      ? !!state.captionOverrides.shadow_enabled
+      : (presetById(state.captionStyle).shadow || 0) > 0;
+  }
+  return !!cfg[key];
+}
+
+function injectFontFaces(list) {
+  let css = "";
+  (list || []).forEach(f => {
+    state.fontFiles[f.family] = f.file;
+    css += `@font-face{font-family:'${f.family}';src:url('/fonts/${encodeURIComponent(f.file)}');font-display:swap;}\n`;
+  });
+  let el = document.getElementById("capFontFaces");
+  if (!el) { el = document.createElement("style"); el.id = "capFontFaces"; document.head.appendChild(el); }
+  el.textContent = css;
+}
+
+// Multi-shadow text outline approximating the burned libass outline.
+function outlineShadow(px, color) {
+  if (!px || px < 0.4) return "";
+  const o = [];
+  for (let a = 0; a < 360; a += 45) {
+    const x = (Math.cos(a * Math.PI / 180) * px).toFixed(1);
+    const y = (Math.sin(a * Math.PI / 180) * px).toFixed(1);
+    o.push(`${x}px ${y}px 0 ${color}`);
+  }
+  return o.join(",");
+}
+
+function hexToRgba(hex, a) {
+  hex = (hex || "#000000").replace("#", "");
+  if (hex.length === 3) hex = hex.split("").map(c => c + c).join("");
+  const r = parseInt(hex.slice(0, 2), 16) || 0, g = parseInt(hex.slice(2, 4), 16) || 0, b = parseInt(hex.slice(4, 6), 16) || 0;
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ---- Advanced colour picker (SV area + hue + hex + premium presets) ----
+const CP_PRESETS = ["#FFFFFF", "#000000", "#FFD400", "#FFC400", "#FF9F0A", "#FF3B30", "#FF2D55", "#FF4FD8",
+                    "#AF52DE", "#7C4DFF", "#5E5CE6", "#0A84FF", "#22D3EE", "#30D158", "#27E36B", "#E5E5EA"];
+let cpState = null;
+const clamp01 = v => Math.max(0, Math.min(1, v));
+
+function hexToRgbArr(hex) {
+  hex = (hex || "#000000").replace("#", ""); if (hex.length === 3) hex = hex.split("").map(c => c + c).join("");
+  return [parseInt(hex.slice(0, 2), 16) || 0, parseInt(hex.slice(2, 4), 16) || 0, parseInt(hex.slice(4, 6), 16) || 0];
+}
+function rgbToHex(r, g, b) { return "#" + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, "0")).join("").toUpperCase(); }
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0;
+  if (d) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h *= 60; if (h < 0) h += 360; }
+  return [h, mx ? d / mx : 0, mx];
+}
+function hsvToHex(h, s, v) {
+  const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c; let r, g, b;
+  if (h < 60) [r, g, b] = [c, x, 0]; else if (h < 120) [r, g, b] = [x, c, 0]; else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c]; else if (h < 300) [r, g, b] = [x, 0, c]; else [r, g, b] = [c, 0, x];
+  return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255);
+}
+function hexToHsv(hex) { const [r, g, b] = hexToRgbArr(hex); return rgbToHsv(r, g, b); }
+
+function paintColorTriggers() {
+  const cfg = effectiveCaptionCfg();
+  document.querySelectorAll(".cp-trigger").forEach(t => { t.style.background = cfg[t.dataset.cp] || t.dataset.def || "#000000"; });
+}
+
+function renderCp(skipHex) {
+  if (!cpState) return;
+  const { h, s, v } = cpState;
+  document.getElementById("cpArea").style.background =
+    `linear-gradient(to top,#000,rgba(0,0,0,0)),linear-gradient(to right,#fff,rgba(255,255,255,0)),hsl(${Math.round(h)},100%,50%)`;
+  const cur = document.getElementById("cpCursor");
+  cur.style.left = (s * 100) + "%"; cur.style.top = ((1 - v) * 100) + "%"; cur.style.background = hsvToHex(h, s, v);
+  document.getElementById("cpHueThumb").style.left = (h / 360 * 100) + "%";
+  if (!skipHex) document.getElementById("cpHex").value = hsvToHex(h, s, v);
+}
+function applyCp() {
+  if (!cpState) return;
+  state.captionOverrides[cpState.key] = hsvToHex(cpState.h, cpState.s, cpState.v);
+  cpState.trigger.style.background = state.captionOverrides[cpState.key];
+  updateCaptionPreview();
+}
+function setCpHex(hex, skipHex) { const [h, s, v] = hexToHsv(hex); cpState.h = h; cpState.s = s; cpState.v = v; renderCp(skipHex); applyCp(); }
+function openColorPicker(trigger) {
+  const key = trigger.dataset.cp;
+  const cur = effectiveCaptionCfg()[key] || trigger.dataset.def || "#FFFFFF";
+  const [h, s, v] = hexToHsv(cur);
+  cpState = { key, h, s, v, trigger };
+  renderCp();
+  const pop = document.getElementById("cpPop");
+  pop.classList.add("open");
+  const r = trigger.getBoundingClientRect();
+  const pw = pop.offsetWidth || 236, ph = pop.offsetHeight || 300;
+  let left = r.left, top = r.bottom + 8;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 8);
+  pop.style.left = Math.max(8, left) + "px"; pop.style.top = top + "px";
+}
+function closeColorPicker() { document.getElementById("cpPop").classList.remove("open"); cpState = null; }
+
+function dragXY(el, cb) {
+  let on = false;
+  const at = (e) => { const r = el.getBoundingClientRect(); const p = e.touches ? e.touches[0] : e; cb(clamp01((p.clientX - r.left) / r.width), clamp01((p.clientY - r.top) / r.height)); };
+  const mv = (e) => { if (on) at(e); };
+  const up = () => { on = false; document.removeEventListener("mousemove", mv); document.removeEventListener("mouseup", up); };
+  el.addEventListener("mousedown", (e) => { on = true; if (e.cancelable) e.preventDefault(); at(e); document.addEventListener("mousemove", mv); document.addEventListener("mouseup", up); });
+  el.addEventListener("touchstart", (e) => { on = true; at(e); }, { passive: true });
+  el.addEventListener("touchmove", (e) => { if (on) at(e); }, { passive: true });
+  el.addEventListener("touchend", () => { on = false; });
+}
+
+function initColorPicker() {
+  const pr = document.getElementById("cpPresets");
+  pr.innerHTML = CP_PRESETS.map(c => `<button type="button" class="cp-sw" data-c="${c}" style="background:${c}"></button>`).join("");
+  pr.querySelectorAll(".cp-sw").forEach(b => b.addEventListener("click", () => { if (cpState) setCpHex(b.dataset.c); }));
+  document.querySelectorAll(".cp-trigger").forEach(t => t.addEventListener("click", (e) => { e.stopPropagation(); openColorPicker(t); }));
+  dragXY(document.getElementById("cpArea"), (px, py) => { if (!cpState) return; cpState.s = px; cpState.v = 1 - py; renderCp(); applyCp(); });
+  dragXY(document.getElementById("cpHue"), (px) => { if (!cpState) return; cpState.h = px * 360; renderCp(); applyCp(); });
+  document.getElementById("cpHex").addEventListener("input", (e) => {
+    let v = e.target.value.trim(); if (!v.startsWith("#")) v = "#" + v;
+    if (/^#[0-9a-fA-F]{6}$/.test(v) && cpState) setCpHex(v, true);
+  });
+  document.addEventListener("mousedown", (e) => {
+    const pop = document.getElementById("cpPop");
+    if (pop.classList.contains("open") && !pop.contains(e.target) && !(e.target.classList && e.target.classList.contains("cp-trigger"))) closeColorPicker();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeColorPicker(); });
+}
+
+// ---- Live animation in the preview (demonstrates the selected animation) ----
+let capAnimTimer = null;
+function stopCaptionAnim() { if (capAnimTimer) { clearInterval(capAnimTimer); capAnimTimer = null; } }
+function startCaptionAnim() {
+  stopCaptionAnim();
+  const cfg = effectiveCaptionCfg();
+  const anim = cfg.karaoke ? "karaoke" : (cfg.animation || "none");
+  if (anim === "none") return;
+  const words = [...document.querySelectorAll("#capPreviewLine span")];
+  if (!words.length) return;
+  const base = cfg.primary_color || "#FFFFFF", hi = cfg.highlight_color || "#FFD400";
+  words.forEach(w => { w.style.transition = "color .18s, opacity .25s var(--ease), transform .25s var(--ease)"; });
+  const n = words.length;
+  let i = 0;
+  const frame = () => {
+    if (anim === "highlight") words.forEach((w, k) => w.style.color = k === i ? hi : base);
+    else if (anim === "karaoke") words.forEach((w, k) => w.style.color = k <= i ? hi : base);
+    else if (anim === "one_word") words.forEach((w, k) => w.style.display = k === i ? "" : "none");
+    else if (anim === "word_reveal") words.forEach((w, k) => { const on = k <= i; w.style.opacity = on ? "1" : "0"; w.style.transform = on ? "scale(1)" : "scale(.7)"; });
+    i = (i + 1) % n;
+  };
+  frame();
+  capAnimTimer = setInterval(frame, anim === "one_word" ? 620 : 520);
+}
+
+// Style one element (a chip sample or the in-frame line) to look like `cfg`.
+function styleCaptionEl(el, cfg, opts) {
+  opts = opts || {};
+  const scale = opts.scale || 1;
+  const words = opts.words || CAP_SAMPLE;
+  const hlIndex = opts.hlIndex != null ? opts.hlIndex : -1;
+  const showHl = (cfg.animation === "highlight" || cfg.karaoke) && hlIndex >= 0;
+  const upper = !!cfg.uppercase;
+  el.innerHTML = words.map((w, i) => {
+    const c = (showHl && i === hlIndex) ? cfg.highlight_color : cfg.primary_color;
+    return `<span style="color:${c || "#fff"}">${escapeHtml(upper ? w.toUpperCase() : w)}</span>`;
+  }).join(" ");
+  el.style.fontFamily = `'${(cfg.font_family || "Roboto").replace(/'/g, "")}', sans-serif`;
+  el.style.fontWeight = cfg.bold ? "800" : "600";
+  el.style.color = cfg.primary_color || "#fff";
+  el.style.letterSpacing = ((cfg.tracking || 0) * scale).toFixed(1) + "px";
+  el.style.textDecoration = ((cfg.underline ? "underline " : "") + (cfg.strikethrough ? "line-through" : "")).trim() || "none";
+  // ASS \frz is CCW-positive; CSS rotate is CW-positive → negate to match the render.
+  el.style.transform = cfg.rotation ? `rotate(${-cfg.rotation}deg)` : "";
+  if (opts.fontPx) el.style.fontSize = opts.fontPx.toFixed(1) + "px";
+  const outlinePx = ((cfg.outline_width != null ? cfg.outline_width : cfg.outline) || 0) * scale;
+  const box = !!cfg.background_enabled;
+  const shadows = [];
+  if (!box) { const o = outlineShadow(outlinePx, cfg.outline_color || "#000"); if (o) shadows.push(o); }
+  if (captionToggleOn(cfg, "glow_enabled")) {
+    const g = (cfg.glow_intensity != null ? cfg.glow_intensity : 10) * scale;
+    const gc = cfg.glow_color || "#7C4DFF";
+    shadows.push(`0 0 ${g.toFixed(1)}px ${gc}`, `0 0 ${(g * 2).toFixed(1)}px ${gc}`);
+  }
+  if (captionToggleOn(cfg, "shadow_enabled")) {
+    const d = (cfg.shadow_distance != null ? cfg.shadow_distance : (cfg.shadow || 6)) * scale;
+    const op = (cfg.shadow_opacity != null ? cfg.shadow_opacity : 75) / 100;
+    shadows.push(`${d.toFixed(1)}px ${d.toFixed(1)}px ${(d * 0.6).toFixed(1)}px ${hexToRgba(cfg.shadow_color || "#000", op)}`);
+  }
+  if (box) {
+    const bop = (cfg.background_opacity != null ? cfg.background_opacity : 100) / 100;
+    el.style.background = hexToRgba(cfg.background_color || "#000", bop);
+    el.style.padding = ".12em .34em";
+    el.style.borderRadius = ((cfg.background_radius != null ? cfg.background_radius : 10) * scale).toFixed(1) + "px";
+  } else {
+    el.style.background = "none"; el.style.padding = "0"; el.style.borderRadius = "0";
+  }
+  el.style.textShadow = shadows.length ? shadows.join(",") : "none";
+}
+
+function renderPresetChips() {
+  const root = document.getElementById("capPresets");
+  root.innerHTML = "";
+  state.presets.forEach(p => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "cap-chip" + (p.id === state.captionStyle ? " active" : "");
+    chip.dataset.id = p.id;
+    chip.innerHTML = `${p.trending ? '<span class="cap-trend">Trending</span>' : ""}` +
+      `<span class="cap-stage"><span class="cap-sample"></span></span>` +
+      `<span class="cap-name">${escapeHtml(p.label)}</span>`;
+    styleCaptionEl(chip.querySelector(".cap-sample"), p, { fontPx: 21, scale: 0.22, words: ["Viral"], hlIndex: 0 });
+    chip.addEventListener("click", () => selectPreset(p.id));
+    root.appendChild(chip);
+  });
+}
+
+function selectPreset(id) {
+  state.captionStyle = id;
+  state.captionOverrides = {};   // start clean from the preset; tweaks become overrides
+  document.querySelectorAll("#capPresets .cap-chip").forEach(c => c.classList.toggle("active", c.dataset.id === id));
+  syncCustomizerToPreset();
+  updateCaptionPreview();
+}
+
+function populateFontSelect() {
+  const sel = document.getElementById("capFont");
+  const prev = sel.value;
+  sel.innerHTML = "";
+  const add = (label, fams) => {
+    if (!fams.length) return;
+    const og = document.createElement("optgroup"); og.label = label;
+    fams.forEach(f => { const o = document.createElement("option"); o.value = f.family; o.textContent = f.family; og.appendChild(o); });
+    sel.appendChild(og);
+  };
+  add("Trending", state.fontsData.bundled || []);
+  add("Your fonts", state.fontsData.user || []);
+  if (prev) sel.value = prev;
+}
+
+// Reflect the active preset (+ any overrides) back into the customizer widgets.
+function syncCustomizerToPreset() {
+  const cfg = effectiveCaptionCfg();
+  const $ = id => document.getElementById(id);
+  $("capFont").value = cfg.font_family || "Roboto";
+  $("capFontVal").textContent = cfg.font_family || "Roboto";
+  $("capAnim").value = cfg.karaoke ? "karaoke" : (cfg.animation || "none");
+  const fs = cfg.font_scale || 1; $("capSize").value = fs; setNum("capSizeNum", Math.round(fs * 100));
+  const tr = cfg.tracking || 0; $("capTracking").value = tr; setNum("capTrackingNum", Math.round(tr));
+  const ow = cfg.outline_width != null ? cfg.outline_width : (cfg.outline || 0);
+  $("capOutline").value = ow; setNum("capOutlineNum", Math.round(ow));
+  document.querySelectorAll("#capCustBody .cap-tg").forEach(b => b.classList.toggle("active", captionToggleOn(cfg, b.dataset.k)));
+  // Effect panels: sliders (colours are painted onto the picker triggers).
+  const bo = cfg.background_opacity != null ? cfg.background_opacity : 100; $("capBoxOpacity").value = bo; setNum("capBoxOpacityNum", Math.round(bo));
+  const br = cfg.background_radius != null ? cfg.background_radius : 10; $("capBoxRadius").value = br; setNum("capBoxRadiusNum", Math.round(br));
+  const sd = cfg.shadow_distance != null ? cfg.shadow_distance : (cfg.shadow || 6); $("capShadowDist").value = sd; setNum("capShadowDistNum", Math.round(sd));
+  const so = cfg.shadow_opacity != null ? cfg.shadow_opacity : 75; $("capShadowOpacity").value = so; setNum("capShadowOpacityNum", Math.round(so));
+  const gi = cfg.glow_intensity != null ? cfg.glow_intensity : 10; $("capGlow").value = gi; setNum("capGlowNum", Math.round(gi));
+  updateFxPanels();
+  paintColorTriggers();
+}
+
+// The clip region inside the 19.5:9 device screen (matches the burned canvas).
+// pos_x/pos_y overrides are % within THIS region, so preview == render.
+function clipRegion() {
+  if (state.fit !== "square" && state.aspect === "16:9") return { top: 37, height: 26 };
+  return { top: 8.97, height: 82.05 };
+}
+
+function updateCaptionPreview() {
+  const prev = document.getElementById("capPreview");
+  if (!prev) return;
+  const cfg = effectiveCaptionCfg();
+  if (!cfg || !state.presets.length) { prev.classList.add("hidden"); stopCaptionAnim(); return; }
+  const dragging = prev.classList.contains("dragging") ? " dragging" : "";
+  if (cfg.pos_x != null && cfg.pos_y != null) {
+    const reg = clipRegion();
+    prev.className = "cap-preview free" + dragging;
+    prev.style.left = cfg.pos_x + "%";
+    prev.style.top = (reg.top + (cfg.pos_y / 100) * reg.height) + "%";
+    prev.style.bottom = "auto";
+  } else {
+    prev.className = "cap-preview pos-" + (cfg.position || "bottom") + dragging;
+    prev.style.left = ""; prev.style.top = ""; prev.style.bottom = "";
+  }
+  const screen = document.getElementById("phoneScreen");
+  const scale = (screen ? screen.clientWidth : 200) / 1080;
+  const fontPx = Math.max(9, (cfg.font_size || 90) * (cfg.font_scale || 1) * scale);
+  styleCaptionEl(document.getElementById("capPreviewLine"), cfg, { fontPx, scale, words: CAP_SAMPLE, hlIndex: CAP_HL });
+  syncPosControls();
+  updateFxPanels();
+  paintRanges();
+  paintColorTriggers();
+  startCaptionAnim();
+}
+
+// Show the Box / Drop shadow / Glow control panels only when their toggle is on.
+function updateFxPanels() {
+  const cfg = effectiveCaptionCfg();
+  const t = (id, k) => { const el = document.getElementById(id); if (el) el.classList.toggle("hidden", !captionToggleOn(cfg, k)); };
+  t("capBoxFx", "background_enabled");
+  t("capShadowFx", "shadow_enabled");
+  t("capGlowFx", "glow_enabled");
+}
+
+// Maps each effect property to its control, so enabling an effect can seed the
+// override from the control's current value (keeps the export == the preview).
+const FX_CONTROL = {
+  background_color: ["capBoxColor", v => v],
+  background_opacity: ["capBoxOpacity", parseFloat],
+  background_radius: ["capBoxRadius", parseFloat],
+  shadow_color: ["capShadowColor", v => v],
+  shadow_distance: ["capShadowDist", parseFloat],
+  shadow_opacity: ["capShadowOpacity", parseFloat],
+  glow_color: ["capGlowColor", v => v],
+  glow_intensity: ["capGlow", parseFloat],
+};
+function seedFx(keys) {
+  keys.forEach(k => {
+    if (state.captionOverrides[k] == null) {
+      const [id, conv] = FX_CONTROL[k];
+      const el = document.getElementById(id);
+      if (el) state.captionOverrides[k] = conv(el.value);
+    }
+  });
+}
+
+// Fill the caption sliders up to the thumb with the accent colour.
+function paintRanges() {
+  document.querySelectorAll(".cap-range").forEach(el => {
+    const min = parseFloat(el.min || 0), max = parseFloat(el.max || 100), v = parseFloat(el.value || 0);
+    const pct = max > min ? ((v - min) / (max - min)) * 100 : 0;
+    el.style.background = `linear-gradient(90deg, var(--accent) ${pct}%, var(--surface-3) ${pct}%)`;
+  });
+}
+
+// Set an editable value badge — but not while the user is typing in it.
+function setNum(id, v) { const el = document.getElementById(id); if (el && el !== document.activeElement) el.value = v; }
+
+// Two-way bind an editable number badge: typing applies (clamped) live, blur normalises.
+function bindNum(numId, min, max, apply) {
+  const el = document.getElementById(numId);
+  if (!el) return;
+  el.addEventListener("input", () => { const n = parseFloat(el.value); if (!isNaN(n)) apply(Math.max(min, Math.min(max, n))); });
+  el.addEventListener("change", () => { let n = parseFloat(el.value); if (isNaN(n)) n = min; n = Math.max(min, Math.min(max, n)); el.value = n; apply(n); });
+}
+
+// Current effective X/Y placement (% within the clip region), falling back to the
+// position preset's default when free-placement isn't set yet.
+function effectivePosXY() {
+  const cfg = effectiveCaptionCfg();
+  const yDef = { top: 12, center: 50, bottom: 88 }[cfg.position] != null ? { top: 12, center: 50, bottom: 88 }[cfg.position] : 88;
+  return { x: cfg.pos_x != null ? cfg.pos_x : 50, y: cfg.pos_y != null ? cfg.pos_y : yDef };
+}
+
+// Reflect placement/rotation back into the X/Y/rotation sliders.
+function syncPosControls() {
+  const cfg = effectiveCaptionCfg();
+  const xy = effectivePosXY();
+  const sx = document.getElementById("capPosX"); if (!sx) return;
+  sx.value = xy.x; setNum("capPosXNum", Math.round(xy.x));
+  document.getElementById("capPosY").value = xy.y; setNum("capPosYNum", Math.round(xy.y));
+  const r = cfg.rotation || 0;
+  document.getElementById("capRotation").value = r; setNum("capRotationNum", r);
+}
+
+// Drag the caption in the preview to place it freely, with a magnetic snap near
+// the top / centre / bottom defaults (and horizontal centre).
+function initCaptionDrag() {
+  const line = document.getElementById("capPreviewLine");
+  const prev = document.getElementById("capPreview");
+  const guides = document.getElementById("capGuides");
+  const screen = document.getElementById("phoneScreen");
+  if (!line || !prev || !screen) return;
+  let dragging = false;
+  const snap = (v, targets, th) => { for (const t of targets) if (Math.abs(v - t) < th) return t; return v; };
+  const showGuides = () => {
+    const reg = clipRegion();
+    const gi = guides.querySelectorAll("i");
+    [12, 50, 88].forEach((p, i) => { if (gi[i]) gi[i].style.top = (reg.top + p / 100 * reg.height) + "%"; });
+    guides.classList.add("on");
+  };
+  const move = (e) => {
+    if (!dragging) return;
+    const r = screen.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    const reg = clipRegion();
+    let posX = ((p.clientX - r.left) / r.width) * 100;
+    let posY = (((p.clientY - r.top) / r.height) * 100 - reg.top) / reg.height * 100;
+    posX = Math.max(4, Math.min(96, posX));
+    posY = Math.max(2, Math.min(98, posY));
+    posX = snap(posX, [50], 4.5);           // magnetic: horizontal centre
+    posY = snap(posY, [12, 50, 88], 5.5);   // magnetic: top / centre / bottom
+    state.captionOverrides.pos_x = Math.round(posX * 10) / 10;
+    state.captionOverrides.pos_y = Math.round(posY * 10) / 10;
+    updateCaptionPreview();
+  };
+  const stop = () => {
+    if (!dragging) return;
+    dragging = false; prev.classList.remove("dragging"); guides.classList.remove("on");
+    document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", stop);
+  };
+  const start = (e) => {
+    dragging = true; prev.classList.add("dragging"); showGuides();
+    if (e.cancelable) e.preventDefault();
+    document.addEventListener("mousemove", move); document.addEventListener("mouseup", stop);
+    move(e);
+  };
+  line.addEventListener("mousedown", start);
+  line.addEventListener("touchstart", (e) => { dragging = true; prev.classList.add("dragging"); showGuides(); move(e); }, { passive: true });
+  line.addEventListener("touchmove", move, { passive: true });
+  line.addEventListener("touchend", stop);
+}
+
+async function loadFonts() {
+  try {
+    state.fontsData = await fetch("/api/fonts").then(r => r.json());
+    injectFontFaces([...(state.fontsData.bundled || []), ...(state.fontsData.user || [])]);
+    populateFontSelect();
+  } catch (e) { /* fonts are best-effort */ }
+}
+
+async function loadCaptionData() {
+  try {
+    const [ps, fs] = await Promise.all([
+      fetch("/api/caption-styles").then(r => r.json()),
+      fetch("/api/fonts").then(r => r.json()),
+    ]);
+    state.presets = ps || [];
+    state.fontsData = fs || { bundled: [], user: [] };
+    injectFontFaces([...(state.fontsData.bundled || []), ...(state.fontsData.user || [])]);
+    populateFontSelect();
+    renderPresetChips();
+    syncCustomizerToPreset();
+    updateCaptionPreview();
+  } catch (e) { /* captions still default server-side */ }
+}
+
+async function uploadCaptionFont(file) {
+  if (!file) return;
+  const note = document.getElementById("capFontNote");
+  note.className = "cap-upnote"; note.textContent = `Uploading ${file.name}…`;
+  try {
+    const fd = new FormData(); fd.append("file", file);
+    const res = await fetch("/api/fonts/upload", { method: "POST", body: fd });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || "Upload failed.");
+    await loadFonts();
+    document.getElementById("capFont").value = d.family;
+    document.getElementById("capFontVal").textContent = d.family;
+    setCaptionOverride("font_family", d.family);
+    note.textContent = `Added “${d.family}”.`;
+  } catch (e) {
+    note.className = "cap-upnote err"; note.textContent = e.message;
+  }
+}
+
+function bindCaptionControls() {
+  const $ = id => document.getElementById(id);
+  $("capCustToggle").addEventListener("click", () => {
+    const body = $("capCustBody");
+    const open = body.classList.toggle("hidden");
+    $("capCustomizer").classList.toggle("open", !open);
+  });
+  $("capFont").addEventListener("change", e => { $("capFontVal").textContent = e.target.value; setCaptionOverride("font_family", e.target.value); });
+  $("capFontUpload").addEventListener("click", () => $("capFontInput").click());
+  $("capFontInput").addEventListener("change", e => uploadCaptionFont(e.target.files[0]));
+  $("capAnim").addEventListener("change", e => {
+    const v = e.target.value;
+    if (v === "karaoke") { state.captionOverrides.karaoke = true; state.captionOverrides.animation = "none"; }
+    else { state.captionOverrides.karaoke = false; state.captionOverrides.animation = v; }
+    updateCaptionPreview();
+  });
+  initColorPicker();
+  $("capSize").addEventListener("input", e => { setNum("capSizeNum", Math.round(e.target.value * 100)); setCaptionOverride("font_scale", parseFloat(e.target.value)); });
+  $("capTracking").addEventListener("input", e => { setNum("capTrackingNum", Math.round(e.target.value)); setCaptionOverride("tracking", parseFloat(e.target.value)); });
+  $("capOutline").addEventListener("input", e => { setNum("capOutlineNum", Math.round(e.target.value)); setCaptionOverride("outline_width", parseFloat(e.target.value)); });
+  // X/Y sliders → free placement (both must be set for the renderer to use \pos).
+  $("capPosX").addEventListener("input", e => {
+    const xy = effectivePosXY();
+    if (state.captionOverrides.pos_y == null) state.captionOverrides.pos_y = xy.y;
+    setCaptionOverride("pos_x", parseFloat(e.target.value));
+  });
+  $("capPosY").addEventListener("input", e => {
+    const xy = effectivePosXY();
+    if (state.captionOverrides.pos_x == null) state.captionOverrides.pos_x = xy.x;
+    setCaptionOverride("pos_y", parseFloat(e.target.value));
+  });
+  $("capRotation").addEventListener("input", e => setCaptionOverride("rotation", parseFloat(e.target.value)));
+  // Editable value badges (type a number) — two-way synced with the sliders.
+  bindNum("capSizeNum", 60, 180, n => { $("capSize").value = n / 100; setCaptionOverride("font_scale", n / 100); });
+  bindNum("capTrackingNum", 0, 30, n => { $("capTracking").value = n; setCaptionOverride("tracking", n); });
+  bindNum("capOutlineNum", 0, 16, n => { $("capOutline").value = n; setCaptionOverride("outline_width", n); });
+  bindNum("capPosXNum", 0, 100, n => { if (state.captionOverrides.pos_y == null) state.captionOverrides.pos_y = effectivePosXY().y; $("capPosX").value = n; setCaptionOverride("pos_x", n); });
+  bindNum("capPosYNum", 0, 100, n => { if (state.captionOverrides.pos_x == null) state.captionOverrides.pos_x = effectivePosXY().x; $("capPosY").value = n; setCaptionOverride("pos_y", n); });
+  bindNum("capRotationNum", -180, 180, n => { $("capRotation").value = n; setCaptionOverride("rotation", n); });
+  initCaptionDrag();
+  paintRanges();
+  document.querySelectorAll("#capCustBody .cap-tg").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.k;
+    const now = !captionToggleOn(effectiveCaptionCfg(), k);
+    b.classList.toggle("active", now);
+    if (now && k === "background_enabled") seedFx(["background_color", "background_opacity", "background_radius"]);
+    if (now && k === "shadow_enabled") seedFx(["shadow_color", "shadow_distance", "shadow_opacity"]);
+    if (now && k === "glow_enabled") seedFx(["glow_color", "glow_intensity"]);
+    setCaptionOverride(k, now);
+  }));
+  // Effect panel controls (Box / Drop shadow / Glow).
+  $("capBoxOpacity").addEventListener("input", e => { setNum("capBoxOpacityNum", Math.round(e.target.value)); setCaptionOverride("background_opacity", parseFloat(e.target.value)); });
+  bindNum("capBoxOpacityNum", 0, 100, n => { $("capBoxOpacity").value = n; setCaptionOverride("background_opacity", n); });
+  $("capBoxRadius").addEventListener("input", e => { setNum("capBoxRadiusNum", Math.round(e.target.value)); setCaptionOverride("background_radius", parseFloat(e.target.value)); });
+  bindNum("capBoxRadiusNum", 0, 40, n => { $("capBoxRadius").value = n; setCaptionOverride("background_radius", n); });
+  $("capShadowDist").addEventListener("input", e => { setNum("capShadowDistNum", Math.round(e.target.value)); setCaptionOverride("shadow_distance", parseFloat(e.target.value)); });
+  bindNum("capShadowDistNum", 0, 30, n => { $("capShadowDist").value = n; setCaptionOverride("shadow_distance", n); });
+  $("capShadowOpacity").addEventListener("input", e => { setNum("capShadowOpacityNum", Math.round(e.target.value)); setCaptionOverride("shadow_opacity", parseFloat(e.target.value)); });
+  bindNum("capShadowOpacityNum", 0, 100, n => { $("capShadowOpacity").value = n; setCaptionOverride("shadow_opacity", n); });
+  $("capGlow").addEventListener("input", e => { setNum("capGlowNum", Math.round(e.target.value)); setCaptionOverride("glow_intensity", parseFloat(e.target.value)); });
+  bindNum("capGlowNum", 0, 30, n => { $("capGlow").value = n; setCaptionOverride("glow_intensity", n); });
+  $("capReset").addEventListener("click", () => { state.captionOverrides = {}; syncCustomizerToPreset(); updateCaptionPreview(); });
 }
 
 function removeUpload() {
   state.upload_id = null;
   state.uploadName = null;
+  state.source = "url";
   fileInput.value = "";
-  document.getElementById("dzMain").textContent = "Click to choose a video — or drag & drop";
-  dropzone.classList.remove("loaded");
+  const urlIn = document.getElementById("url");
+  urlIn.readOnly = false; urlIn.value = "";
+  megabar.classList.remove("hasfile");
   document.getElementById("upStatus").classList.add("hidden");
   document.getElementById("removeUpload").classList.add("hidden");
   clearPreviewVideo();
-}
-
-// ---- Caption customizer: defaults, sync, binding ----
-// Vertical anchor (% from top) the burned render uses per preset "position".
-const POS_Y_FOR = { top: 12, center: 50, middle: 50, bottom: 88 };
-
-// Seed the customizer from the active preset (called on load + on chip change).
-function resetOverrides() {
-  const p = state.presets.find(x => x.id === state.caption_style);
-  if (!p) return;
-  state.overrides = {
-    pos_x: 50,
-    pos_y: POS_Y_FOR[p.position] ?? 88,
-    rotation: 0,
-    outline_width: p.outline,
-    outline_color: p.outline_color || "#000000",
-    shadow_enabled: (p.shadow || 0) > 0,
-    shadow_distance: p.shadow || 2,
-    shadow_color: "#000000",
-    background_enabled: false,
-    background_color: "#000000",
-    max_lines: 1,
-    max_chars: 22,
-    animation: "none",
-  };
-  syncCustomizerInputs();
-  renderPreview();
-}
-
-// Push state.overrides -> the input widgets + their value labels.
-function syncCustomizerInputs() {
-  const o = state.overrides;
-  if (!o) return;
-  const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
-  set("ovPosX", o.pos_x);            set("ovPosY", o.pos_y);
-  set("ovRot", o.rotation);
-  set("ovOutline", o.outline_width); set("ovOutlineColor", o.outline_color);
-  set("ovShadow", o.shadow_distance); set("ovShadowColor", o.shadow_color);
-  set("ovBgColor", o.background_color);
-  set("ovAnim", o.animation); set("ovChars", o.max_chars);
-  document.getElementById("ovShadowOn").checked = o.shadow_enabled;
-  document.getElementById("ovBgOn").checked = o.background_enabled;
-  document.querySelectorAll("#ovLines button").forEach(b =>
-    b.classList.toggle("active", Number(b.dataset.val) === o.max_lines));
-  updateCustomizerLabels();
-}
-
-function updateCustomizerLabels() {
-  const o = state.overrides; if (!o) return;
-  document.getElementById("valPosX").textContent = Math.round(o.pos_x) + "%";
-  document.getElementById("valPosY").textContent = Math.round(o.pos_y) + "%";
-  document.getElementById("valRot").textContent = Math.round(o.rotation) + "°";
-  document.getElementById("valOutline").textContent = Math.round(o.outline_width) + " px";
-  document.getElementById("valShadow").textContent = Math.round(o.shadow_distance) + " px";
-  document.getElementById("valChars").textContent = Math.round(o.max_chars);
-  // Disable the dependent controls when their feature is off.
-  document.getElementById("ovShadow").disabled = !o.shadow_enabled;
-  document.getElementById("ovShadowColor").disabled = !o.shadow_enabled;
-  document.getElementById("ovOutline").disabled = o.background_enabled;
-  document.getElementById("ovOutlineColor").disabled = o.background_enabled;
-  // Line/char layout doesn't apply to the one-word-at-a-time style.
-  const oneWord = o.animation === "one_word";
-  document.getElementById("rowLines").classList.toggle("disabled-row", oneWord);
-  document.getElementById("rowChars").classList.toggle("disabled-row", oneWord);
-}
-
-// ---- Caption style preview ----
-const SAMPLE = ["This", "is", "your", "caption"];
-function renderPreview() {
-  const p = state.presets.find(x => x.id === state.caption_style);
-  if (!p) return;
-  const o = state.overrides || {};
-  const el = document.getElementById("capPreview");
-  const screen = document.getElementById("phoneScreen");
-  const sw = (screen && screen.clientWidth) ? screen.clientWidth : 190;
-  // ASS font_size targets a 1080-wide frame; scale it (and px-based widths) to the preview.
-  const k = sw / 1080;
-  const px = Math.max(10, Math.round(p.font_size * k));
-  const txt = p.uppercase ? SAMPLE.map(w => w.toUpperCase()) : SAMPLE;
-
-  const bgOn = !!o.background_enabled;
-  const layers = [];
-  // Stroke/outline — replaced by the box in background mode (matches BorderStyle 3).
-  const ow = o.outline_width != null ? o.outline_width : p.outline;
-  if (!bgOn && ow > 0) {
-    const s = Math.max(1, ow * k);
-    const oc = o.outline_color || p.outline_color;
-    layers.push(`-${s}px -${s}px 0 ${oc}`, `${s}px -${s}px 0 ${oc}`,
-                `-${s}px ${s}px 0 ${oc}`, `${s}px ${s}px 0 ${oc}`);
-  }
-  // Drop shadow — offset down-right like libass.
-  if (o.shadow_enabled) {
-    const d = Math.max(1, (o.shadow_distance || 0) * k);
-    layers.push(`${d}px ${d}px ${d}px ${o.shadow_color || "#000000"}`);
-  }
-
-  el.style.fontFamily = "'" + p.font_family + "', 'Arial Black', sans-serif";
-  el.style.fontSize = px + "px";
-  el.style.fontWeight = p.bold ? "800" : "600";
-  el.style.textShadow = layers.length ? layers.join(",") : "none";
-
-  // Free X/Y placement + rotation (CSS rotate is clockwise; ASS \frz is CCW, so negate).
-  const anim = o.animation || "none";
-  const rot = o.rotation || 0;
-  el.style.position = "absolute";
-  // One-word mode stacks all sample words in a single grid cell so the box sizes
-  // to the widest word while they cycle; other modes flow as inline-block lines.
-  el.style.display = anim === "one_word" ? "grid" : "inline-block";
-  el.style.placeItems = anim === "one_word" ? "center" : "";
-  el.style.left = (o.pos_x != null ? o.pos_x : 50) + "%";
-  el.style.top = (o.pos_y != null ? o.pos_y : 88) + "%";
-  el.style.right = "auto";
-  el.style.bottom = "auto";
-  el.style.maxWidth = "84%";
-  el.style.transform = `translate(-50%, -50%) rotate(${-rot}deg)`;
-
-  // Background box behind the words.
-  if (bgOn) {
-    el.style.background = o.background_color || "#000000";
-    el.style.padding = Math.max(2, 6 * k) + "px " + Math.max(4, 12 * k) + "px";
-    el.style.borderRadius = Math.max(3, 8 * k) + "px";
-  } else {
-    el.style.background = "transparent";
-    el.style.padding = "0";
-    el.style.borderRadius = "0";
-  }
-
-  // Colour: karaoke highlights one word, but only in the static ('none') style —
-  // the animated modes reveal words themselves, so they use the base colour.
-  const colorFor = (i) =>
-    (p.karaoke && anim === "none" && i === 2) ? p.highlight_color : p.primary_color;
-
-  if (anim === "one_word") {
-    // All sample words cycle one at a time, staggered by their slot.
-    el.innerHTML = txt.map((w, i) =>
-      `<span class="cap-one" style="animation-delay:${(i * 2.4 / txt.length).toFixed(2)}s;color:${colorFor(i)}">${w}</span>`
-    ).join("");
-  } else {
-    const lines = packLines(txt, o.max_chars || 22, o.max_lines || 1);
-    let gi = 0;
-    el.innerHTML = lines.map(line => {
-      const inner = line.map(w => {
-        const cls = anim === "word_reveal" ? "cap-rev" : "";
-        const delay = anim === "word_reveal" ? `animation-delay:${(gi * 0.35).toFixed(2)}s;` : "";
-        const span = `<span class="${cls}" style="${delay}color:${colorFor(gi)}">${w}</span>`;
-        gi++;
-        return span;
-      }).join(" ");
-      return `<div class="cap-row">${inner}</div>`;
-    }).join("");
-  }
-}
-
-// Pack words into <=maxLines lines of <=maxChars chars (mirrors backend grouping).
-// Preview is a single snapshot, so any overflow past maxLines just stays on the
-// last line (in a real render it would spill into the next timed caption).
-function packLines(words, maxChars, maxLines) {
-  const lines = [[]];
-  const len = ln => ln.reduce((a, w) => a + w.length, 0) + Math.max(0, ln.length - 1);
-  for (const w of words) {
-    const cur = lines[lines.length - 1];
-    const tentative = len(cur) + (cur.length ? 1 : 0) + w.length;
-    if (cur.length && tentative > maxChars) {
-      if (lines.length < maxLines) lines.push([w]);
-      else cur.push(w);
-    } else {
-      cur.push(w);
-    }
-  }
-  return lines.filter(l => l.length);
-}
-
-function renderChips() {
-  const root = document.getElementById("styleChips");
-  root.innerHTML = "";
-  state.presets.forEach(p => {
-    const chip = document.createElement("div");
-    chip.className = "chip" + (p.id === state.caption_style ? " active" : "");
-    chip.textContent = p.label;
-    chip.onclick = () => { state.caption_style = p.id; renderChips(); resetOverrides(); };
-    root.appendChild(chip);
-  });
-}
-
-async function loadStyles() {
-  try {
-    const res = await fetch("/api/caption-styles");
-    state.presets = await res.json();
-    if (state.presets.length) {
-      state.caption_style = state.presets[0].id;
-      renderChips();
-      resetOverrides();
-    }
-  } catch (e) { showError("Could not load caption styles: " + e.message); }
+  updateContinueState();
 }
 
 async function loadCompute() {
   try {
     const res = await fetch("/api/devices");
     const d = await res.json();
-    document.getElementById("deviceTag").textContent = (d.default || "cpu").toUpperCase();
-    // If no usable GPU, disable the GPU option so users can't pick a dead path.
+    GPU_NAME = d.gpu_name || null;
+    const opt = deviceSel.querySelector('option[value="cuda"]');
     if (!d.cuda_available) {
-      const opt = deviceSel.querySelector('option[value="cuda"]');
+      // No usable GPU: disable the option so users can't pick a dead path.
       if (opt) { opt.disabled = true; opt.textContent = "GPU (CUDA) — not available"; }
+    } else if (opt) {
+      // Auto-detected GPU: show its real name (when known) instead of a generic label.
+      opt.textContent = GPU_NAME ? `GPU — ${GPU_NAME}` : "GPU (CUDA) — fastest";
     }
+    // Default to the GPU when one is available, otherwise CPU.
+    state.device = d.cuda_available ? "cuda" : "cpu";
+    deviceSel.value = state.device;
+    document.getElementById("deviceTag").textContent = deviceTagText(state.device);
   } catch (e) {
+    state.device = "cpu";
+    deviceSel.value = "cpu";
     document.getElementById("deviceTag").textContent = "—";
   }
   // Warm the currently selected device and show its status immediately.
@@ -1390,10 +2277,10 @@ btn.addEventListener("click", async () => {
     fit_mode: state.fit,
     bar_text: state.fit === "square" ? (document.getElementById("barText").value.trim() || null) : null,
     num_clips: state.numClips,
-    caption_style: state.caption_style,
-    caption_overrides: state.overrides,
     device: state.device,
+    caption_style: state.captionStyle,
   };
+  if (Object.keys(state.captionOverrides).length) payload.caption_overrides = state.captionOverrides;
 
   if (state.source === "upload") {
     if (!state.upload_id) { showError("Please upload a video file first (wait for it to finish)."); return; }
@@ -1403,6 +2290,9 @@ btn.addEventListener("click", async () => {
     const url = document.getElementById("url").value.trim();
     if (!url) { showError("Please paste a video URL first."); return; }
     payload.video_url = url;
+    // Reuse the background-downloaded file when it finished for THIS exact URL,
+    // so the pipeline skips downloading the same video again.
+    if (state.downloadId && state.prefetchUrl === url) payload.download_id = state.downloadId;
   }
 
   // Reset UI.
@@ -1468,6 +2358,7 @@ let urlDebounce;
 document.getElementById("url").addEventListener("input", () => {
   clearTimeout(urlDebounce);
   urlDebounce = setTimeout(refreshUrlEmbed, 400);
+  updateContinueState();
 });
 
 (() => {
@@ -1702,65 +2593,195 @@ document.getElementById("sideReopen").addEventListener("click", () => document.b
 document.addEventListener("click", closeAllMenus);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAllMenus(); });
 
-// ---- Caption customizer wiring ----
-function bindCustomizer() {
-  const customizer = document.getElementById("customizer");
-  document.getElementById("custToggle").addEventListener("click", () => {
-    const open = customizer.classList.toggle("open");
-    document.getElementById("custBody").classList.toggle("hidden", !open);
-  });
+// ---- Background pre-download (URL source) ----
+// When the user reaches Step 2 with a pasted link, start fetching the video so
+// it's ready (or nearly so) by the time they hit Generate. Progress shows under
+// the preview; the finished file is reused via download_id (no second download).
+let prefetchTimer = null;
 
-  // A range/colour input -> live state + label + preview.
-  const bindVal = (id, key, isNumber) => {
-    document.getElementById(id).addEventListener("input", (e) => {
-      if (!state.overrides) return;
-      state.overrides[key] = isNumber ? Number(e.target.value) : e.target.value;
-      updateCustomizerLabels();
-      renderPreview();
-    });
-  };
-  bindVal("ovPosX", "pos_x", true);
-  bindVal("ovPosY", "pos_y", true);
-  bindVal("ovRot", "rotation", true);
-  bindVal("ovOutline", "outline_width", true);
-  bindVal("ovOutlineColor", "outline_color", false);
-  bindVal("ovShadow", "shadow_distance", true);
-  bindVal("ovShadowColor", "shadow_color", false);
-  bindVal("ovBgColor", "background_color", false);
-
-  document.getElementById("ovShadowOn").addEventListener("change", (e) => {
-    if (!state.overrides) return;
-    state.overrides.shadow_enabled = e.target.checked;
-    updateCustomizerLabels(); renderPreview();
-  });
-  document.getElementById("ovBgOn").addEventListener("change", (e) => {
-    if (!state.overrides) return;
-    state.overrides.background_enabled = e.target.checked;
-    updateCustomizerLabels(); renderPreview();
-  });
-  bindVal("ovChars", "max_chars", true);
-  document.getElementById("ovAnim").addEventListener("change", (e) => {
-    if (!state.overrides) return;
-    state.overrides.animation = e.target.value;
-    updateCustomizerLabels(); renderPreview();
-  });
-  document.querySelectorAll("#ovLines button").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (!state.overrides) return;
-      document.querySelectorAll("#ovLines button").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      state.overrides.max_lines = Number(btn.dataset.val);
-      updateCustomizerLabels(); renderPreview();
-    });
-  });
-  document.getElementById("custReset").addEventListener("click", resetOverrides);
+function fmtMB(bytes) {
+  return (bytes / 1048576).toFixed(bytes >= 10485760 ? 0 : 1) + " MB";
 }
-bindCustomizer();
 
-loadStyles();
+function setDlStatus(cls, msg, pct, barMode) {
+  const box = document.getElementById("dlStatus");
+  box.classList.remove("hidden");
+  box.className = "dlstatus " + (cls || "");
+  document.getElementById("dlStatusText").textContent = msg;
+  document.getElementById("dlStatusPct").textContent = (pct == null ? "" : Math.round(pct) + "%");
+  const bar = document.getElementById("dlStatusBar");
+  bar.className = "dlstatus-bar" + (barMode === "indeterminate" ? " indeterminate" : "");
+  if (barMode !== "indeterminate") bar.style.width = (pct == null ? 0 : pct) + "%";
+  document.getElementById("dlRetry").classList.toggle("hidden", cls !== "err");
+}
+
+function hideDlStatus() { document.getElementById("dlStatus").classList.add("hidden"); }
+function stopPrefetchPoll() { if (prefetchTimer) { clearTimeout(prefetchTimer); prefetchTimer = null; } }
+
+function renderPrefetch(snap) {
+  if (snap.status === "done") {
+    state.downloadId = snap.download_id;
+    setDlStatus("ready", "Video download completed", 100);
+    // Swap the preview frame from the embed to the freshly-downloaded local file.
+    state.previewError = false;
+    updatePreviewFrame();
+    // Kick off background transcription so Generate can skip it later.
+    startPretranscribe(snap.download_id);
+  } else if (snap.status === "error") {
+    state.downloadId = null;
+    setDlStatus("err", snap.error || snap.message || "Download failed.", null);
+  } else {
+    const total = snap.total_bytes || 0, done = snap.downloaded_bytes || 0;
+    if (total) setDlStatus("loading", `Downloaded ${fmtMB(done)} of ${fmtMB(total)}`, snap.progress * 100);
+    else if (done) setDlStatus("loading", `Downloaded ${fmtMB(done)}`, null, "indeterminate");
+    else setDlStatus("loading", snap.message || "Starting download…", null, "indeterminate");
+  }
+}
+
+async function pollPrefetch() {
+  if (!state.prefetchId) return;
+  try {
+    const res = await fetch("/api/prefetch/" + state.prefetchId);
+    if (!res.ok) throw new Error("status " + res.status);
+    const snap = await res.json();
+    renderPrefetch(snap);
+    if (snap.status === "running") prefetchTimer = setTimeout(pollPrefetch, 500);
+    else stopPrefetchPoll();
+  } catch (e) {
+    stopPrefetchPoll();
+    setDlStatus("err", "Lost contact with the download: " + e.message, null);
+  }
+}
+
+async function startPrefetch(force) {
+  const url = document.getElementById("url").value.trim();
+  if (state.source !== "url" || !url) { hideDlStatus(); return; }
+  // Already have this exact URL on disk — nothing to do.
+  if (!force && state.downloadId && state.prefetchUrl === url) {
+    setDlStatus("ready", "Video download completed", 100); return;
+  }
+  // A poll for this exact URL is already in flight — let it continue.
+  if (!force && state.prefetchId && state.prefetchUrl === url && prefetchTimer) return;
+
+  stopPrefetchPoll();
+  state.downloadId = null;
+  state.prefetchId = null;
+  state.prefetchUrl = url;
+  setDlStatus("loading", "Starting download…", null, "indeterminate");
+  try {
+    const res = await fetch("/api/prefetch", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video_url: url }),
+    });
+    const snap = await res.json();
+    if (!res.ok) throw new Error(snap.detail || ("Request failed (" + res.status + ")"));
+    state.prefetchId = snap.prefetch_id;
+    renderPrefetch(snap);
+    if (snap.status === "running") prefetchTimer = setTimeout(pollPrefetch, 500);
+  } catch (e) {
+    setDlStatus("err", "Could not start the download: " + e.message, null);
+  }
+}
+
+document.getElementById("dlRetry").addEventListener("click", () => startPrefetch(true));
+
+// ---- Background pre-transcription ----
+// Once the video is on disk, transcribe it in the background (Whisper is the
+// slowest stage) so it's cached by the time the user hits Generate. Reuses the
+// same status panel: download phase → transcribe phase → "ready".
+let pretranscribeTimer = null;
+function stopPretranscribePoll() { if (pretranscribeTimer) { clearTimeout(pretranscribeTimer); pretranscribeTimer = null; } }
+
+function renderPretranscribe(snap) {
+  if (snap.status === "done") {
+    state.transcriptReady = true;
+    setDlStatus("ready", "Ready to generate — video & transcript prepared", 100);
+  } else if (snap.status === "error") {
+    // Non-fatal: Generate will just transcribe normally. Keep the truthful
+    // "downloaded" state rather than alarming the user.
+    state.transcriptReady = false;
+    setDlStatus("ready", "Video download completed", 100);
+  } else {
+    setDlStatus("loading", snap.message || "Transcribing audio in the background…", snap.progress * 100);
+  }
+}
+
+async function pollPretranscribe() {
+  if (!state.pretranscribeId) return;
+  try {
+    const res = await fetch("/api/pretranscribe/" + state.pretranscribeId);
+    if (!res.ok) throw new Error("status " + res.status);
+    const snap = await res.json();
+    renderPretranscribe(snap);
+    if (snap.status === "running") pretranscribeTimer = setTimeout(pollPretranscribe, 700);
+    else stopPretranscribePoll();
+  } catch (e) {
+    stopPretranscribePoll();  // silent: pipeline will transcribe on Generate
+  }
+}
+
+async function startPretranscribe(sourceId) {
+  if (!sourceId) return;
+  // Already prepared for this exact source — nothing to do.
+  if (state.transcriptReady && state.pretranscribeSource === sourceId) {
+    setDlStatus("ready", "Ready to generate — video & transcript prepared", 100); return;
+  }
+  // A poll for this exact source is already in flight — let it continue.
+  if (state.pretranscribeId && state.pretranscribeSource === sourceId && pretranscribeTimer) return;
+
+  stopPretranscribePoll();
+  state.transcriptReady = false;
+  state.pretranscribeId = null;
+  state.pretranscribeSource = sourceId;
+  try {
+    const res = await fetch("/api/pretranscribe", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_id: sourceId, device: state.device }),
+    });
+    const snap = await res.json();
+    if (!res.ok) throw new Error(snap.detail || ("Request failed (" + res.status + ")"));
+    state.pretranscribeId = snap.pretranscribe_id;
+    renderPretranscribe(snap);
+    if (snap.status === "running") pretranscribeTimer = setTimeout(pollPretranscribe, 700);
+  } catch (e) {
+    // Non-fatal — the pipeline still transcribes normally on Generate.
+  }
+}
+
+// ---- Two-step wizard navigation ----
+// A source is "ready" when there's a URL typed, or a file chosen/uploaded.
+function sourceReady() {
+  if (state.source === "upload") return !!(state.upload_id || state.uploadObjectUrl);
+  return !!document.getElementById("url").value.trim();
+}
+function updateContinueState() {
+  document.getElementById("toStep2").disabled = !sourceReady();
+}
+function goToStep(n) {
+  document.getElementById("step1").classList.toggle("hidden", n !== 1);
+  document.getElementById("step2").classList.toggle("hidden", n !== 2);
+  if (n === 2) {
+    updatePreviewFrame();   // bind the preview now that the frame is visible
+    // Link source → fetch the video in the background, then pre-transcribe.
+    // Uploaded files are already local, so skip straight to pre-transcription
+    // (only once the upload itself has finished, i.e. we have an upload_id).
+    if (state.source === "url") startPrefetch();
+    else if (state.upload_id) startPretranscribe(state.upload_id);
+    else hideDlStatus();
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+document.getElementById("toStep2").addEventListener("click", () => {
+  if (sourceReady()) goToStep(2);
+});
+document.getElementById("backToStep1").addEventListener("click", () => goToStep(1));
+
 loadCompute();
+bindCaptionControls();
+loadCaptionData();
 updatePreviewFrame();
 loadSidebar();
+updateContinueState();
 </script>
 </body>
 </html>

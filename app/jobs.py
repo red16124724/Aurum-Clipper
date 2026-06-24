@@ -17,7 +17,7 @@ import threading
 import uuid
 from typing import Dict, List, Optional
 
-from . import captions, downloader, history, selector, transcriber, uploads
+from . import captions, downloader, history, pretranscribe, selector, transcriber, uploads
 from .clipper import ClipOptions, generate_clip, target_size
 from .models import (
     ClipGenerationError,
@@ -158,12 +158,30 @@ def _run_pipeline(job: Job) -> None:
     logger.info("[%s] starting pipeline: %s", job.id, req.model_dump())
 
     try:
-        # 1) Get the source video: a previously uploaded file, or a URL download.
-        if req.upload_id:
+        # 1) Get the source video. Order of preference:
+        #    a) a file already fetched in the background (prefetch) — instant reuse,
+        #    b) a previously uploaded file,
+        #    c) a fresh URL download.
+        source_mp4 = None
+
+        if req.download_id:
+            try:
+                source_mp4 = uploads.resolve_upload(req.download_id)
+                job.set_stage("downloading", 1.0, "Video already downloaded. Preparing...")
+            except InvalidVideoURLError:
+                # Prefetched file vanished — fall back to a normal download below.
+                logger.warning(
+                    "[%s] prefetched file %s missing; re-downloading.",
+                    job.id,
+                    req.download_id,
+                )
+
+        if source_mp4 is None and req.upload_id:
             job.set_stage("downloading", 0.2, "Loading uploaded video...")
             source_mp4 = uploads.resolve_upload(req.upload_id)
             job.set_stage("downloading", 1.0, "Uploaded video ready. Preparing...")
-        else:
+
+        if source_mp4 is None:
             job.set_stage("downloading", 0.0, "Starting download...")
 
             def on_download(d: dict) -> None:
@@ -182,21 +200,31 @@ def _run_pipeline(job: Job) -> None:
 
             source_mp4 = downloader.download_video(req.video_url, progress_hook=on_download)
 
-        # 2) Transcribe locally (word timestamps) on the requested device.
+        # 2) Transcribe locally (word timestamps) on the requested device. The
+        # transcript is keyed by the source file id (its stem), so a transcript
+        # prepared in the background (pre-transcription, while the user was still
+        # adjusting settings) is reused here and this stage finishes instantly.
         clip_id = uuid.uuid4().hex
         job.clip_id = clip_id
+        source_id = source_mp4.stem
         device_label = {"auto": "Auto", "cuda": "GPU", "cpu": "CPU"}.get(
             req.device.value, "Auto"
         )
-        job.set_stage(
-            "transcribing", 0.0, f"Transcribing audio with local Whisper ({device_label})..."
-        )
+        if pretranscribe.cached(source_id) is not None:
+            job.set_stage(
+                "transcribing", 1.0, "Using transcript prepared while you set things up..."
+            )
+        else:
+            job.set_stage(
+                "transcribing", 0.0,
+                f"Transcribing audio with local Whisper ({device_label})...",
+            )
 
         def on_transcribe(frac: float, msg: str) -> None:
             job.set_stage("transcribing", frac, msg)
 
-        transcript = transcriber.transcribe_video(
-            source_mp4, clip_id, progress=on_transcribe, device=req.device.value
+        transcript = pretranscribe.get_or_transcribe(
+            source_mp4, source_id, req.device.value, progress=on_transcribe
         )
 
         # 3) Select clips (local heuristic, optional local Ollama).

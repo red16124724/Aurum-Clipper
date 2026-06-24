@@ -95,6 +95,22 @@ class CaptionOverrides(BaseModel):
     background_color: Optional[str] = Field(
         default=None, description="Background-box colour (#RRGGBB)."
     )
+    background_opacity: Optional[float] = Field(
+        default=None, ge=0, le=100, description="Box opacity in % (100 = solid)."
+    )
+    shadow_opacity: Optional[float] = Field(
+        default=None, ge=0, le=100, description="Drop-shadow opacity in %."
+    )
+    glow_enabled: Optional[bool] = Field(
+        default=None, description="Soft glow halo behind the text."
+    )
+    glow_color: Optional[str] = Field(
+        default=None, description="Glow colour (#RRGGBB)."
+    )
+    glow_intensity: Optional[float] = Field(
+        default=None, ge=0, le=30,
+        description="Glow size/strength in px (at 1080-wide scale).",
+    )
     # -- layout & animation ------------------------------------------------- #
     max_lines: Optional[int] = Field(
         default=None, ge=1, le=2,
@@ -107,7 +123,42 @@ class CaptionOverrides(BaseModel):
     animation: Optional[str] = Field(
         default=None,
         description="Reveal animation: 'none', 'word_reveal' (words pop in and "
-        "stay), or 'one_word' (one word on screen at a time).",
+        "stay), 'one_word' (one word on screen at a time), or 'highlight' (whole "
+        "phrase shown, active word recolours — the creator/Hormozi look).",
+    )
+    # -- typeface & emphasis (advanced custom controls) --------------------- #
+    font_family: Optional[str] = Field(
+        default=None, description="Caption font family (must be an available font)."
+    )
+    bold: Optional[bool] = Field(default=None, description="Bold the caption text.")
+    uppercase: Optional[bool] = Field(
+        default=None, description="Force the caption text to UPPERCASE."
+    )
+    primary_color: Optional[str] = Field(
+        default=None, description="Base text colour (#RRGGBB)."
+    )
+    highlight_color: Optional[str] = Field(
+        default=None, description="Active/karaoke word colour (#RRGGBB)."
+    )
+    font_scale: Optional[float] = Field(
+        default=None, ge=0.4, le=2.5,
+        description="Multiplier on the preset's font size (1.0 = preset default).",
+    )
+    tracking: Optional[float] = Field(
+        default=None, ge=0, le=40,
+        description="Letter spacing in px (at 1080-wide scale).",
+    )
+    underline: Optional[bool] = Field(default=None, description="Underline the text.")
+    strikethrough: Optional[bool] = Field(
+        default=None, description="Strike through the text."
+    )
+    karaoke: Optional[bool] = Field(
+        default=None,
+        description="Fill each word left-to-right at its spoken time (karaoke).",
+    )
+    position: Optional[str] = Field(
+        default=None,
+        description="Vertical placement: 'top', 'center', or 'bottom'.",
     )
 
 
@@ -129,6 +180,12 @@ class GenerateRequest(BaseModel):
     upload_name: Optional[str] = Field(
         default=None,
         description="Original filename of the uploaded video (display label only).",
+    )
+    download_id: Optional[str] = Field(
+        default=None,
+        description="Reference to a video already fetched in the background via "
+        "/api/prefetch. When present (alongside the original video_url), the "
+        "pipeline reuses that file instead of downloading it again.",
     )
     aspect_ratio: AspectRatio = AspectRatio.NINE_16
     fit_mode: FitMode = FitMode.CROP

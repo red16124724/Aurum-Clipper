@@ -21,49 +21,93 @@ from typing import List
 # font_size values are tuned for a 1080x1920 (9:16) frame and scaled to other
 # resolutions at render time.
 # --------------------------------------------------------------------------- #
+# Every preset shares this shape; a preset only lists what differs. This keeps
+# the (long) list readable AND guarantees every key exists for both the renderer
+# and the API/preview, so neither can KeyError on a new field.
+#   animation: "none" | "karaoke" (via karaoke flag) | "word_reveal" | "one_word"
+#              | "highlight" (whole phrase shown, active word recolours — the
+#              Hormozi/creator look).
+_BASE_PRESET = {
+    "font_family": "Roboto",
+    "bold": True,
+    "font_size": 90,
+    "primary_color": "#FFFFFF",
+    "highlight_color": "#FFD400",
+    "outline_color": "#000000",
+    "outline": 5,
+    "shadow": 1,
+    "position": "bottom",
+    "karaoke": False,
+    "uppercase": True,
+    "animation": "none",
+    "tracking": 0,
+    "underline": False,
+    "strikethrough": False,
+    "max_lines": 2,
+    "max_chars": 22,
+    "background_enabled": False,
+    "background_color": "#000000",
+    "trending": False,
+}
+
+
+def _P(label: str, **kw) -> dict:
+    """Build a preset from the base template, overriding only what differs."""
+    d = dict(_BASE_PRESET)
+    d["label"] = label
+    d.update(kw)
+    return d
+
+
 STYLE_PRESETS: dict[str, dict] = {
-    "bold_white": {
-        "label": "Bold White",
-        "font_family": "Roboto",
-        "bold": True,
-        "font_size": 96,
-        "primary_color": "#FFFFFF",
-        "highlight_color": "#FFFFFF",  # no per-word highlight
-        "outline_color": "#000000",
-        "outline": 5,
-        "shadow": 1,
-        "position": "bottom",
-        "karaoke": False,
-        "uppercase": True,
-    },
-    "karaoke_yellow": {
-        "label": "Karaoke Yellow",
-        "font_family": "Roboto",
-        "bold": True,
-        "font_size": 92,
-        "primary_color": "#FFFFFF",   # word colour before it is reached
-        "highlight_color": "#FFE600",  # word colour once it is "sung"
-        "outline_color": "#000000",
-        "outline": 5,
-        "shadow": 1,
-        "position": "bottom",
-        "karaoke": True,
-        "uppercase": True,
-    },
-    "minimal": {
-        "label": "Minimal",
-        "font_family": "Roboto",
-        "bold": False,
-        "font_size": 64,
-        "primary_color": "#FFFFFF",
-        "highlight_color": "#FFFFFF",
-        "outline_color": "#000000",
-        "outline": 1,
-        "shadow": 2,  # subtle drop shadow rather than a thick outline
-        "position": "bottom",
-        "karaoke": False,
-        "uppercase": False,
-    },
+    # --- Originals ---
+    "bold_white": _P("Bold White", highlight_color="#FFFFFF", font_size=96, max_chars=20),
+    "karaoke_yellow": _P("Karaoke Yellow", karaoke=True, font_size=92, highlight_color="#FFE600"),
+    "minimal": _P("Minimal", bold=False, uppercase=False, font_size=64, outline=1, shadow=2,
+                  highlight_color="#FFFFFF", max_chars=28),
+
+    # --- Creator / trending styles ---
+    "hormozi_green": _P("Hormozi Green", trending=True, font_family="Montserrat",
+                        animation="highlight", highlight_color="#27E36B", font_size=94,
+                        outline=6, position="center", max_lines=2, max_chars=16),
+    "hormozi_yellow": _P("Hormozi Yellow", trending=True, font_family="Montserrat",
+                         animation="highlight", highlight_color="#FFD400", font_size=94,
+                         outline=6, position="center", max_lines=2, max_chars=16),
+    "beast_red": _P("Beast Pop", trending=True, font_family="Anton", bold=False,
+                    animation="highlight", highlight_color="#FF3B30", font_size=108,
+                    outline=7, position="center", max_lines=2, max_chars=15),
+    "raj_clean": _P("Raj Shamani Clean", trending=True, font_family="Poppins",
+                    animation="highlight", uppercase=False, highlight_color="#FFC400",
+                    font_size=78, outline=4, max_chars=26),
+    "alex_caps": _P("Alex Bold Caps", trending=True, font_family="Montserrat",
+                    animation="highlight", highlight_color="#22D3EE", font_size=92,
+                    outline=6, position="center", max_chars=17),
+    "one_word_punch": _P("One-Word Punch", trending=True, font_family="Anton", bold=False,
+                         animation="one_word", font_size=132, outline=8, position="center"),
+    "word_reveal": _P("Word Reveal", trending=True, font_family="Montserrat",
+                      animation="word_reveal", highlight_color="#FFFFFF", font_size=90, outline=5),
+    "bebas_clean": _P("Bebas Clean", trending=True, font_family="Bebas Neue", bold=False,
+                      font_size=110, outline=4, highlight_color="#FFFFFF", tracking=2, max_chars=22),
+    "comic_bangers": _P("Comic Punch", trending=True, font_family="Bangers", bold=False,
+                        primary_color="#FFE600", highlight_color="#FFFFFF", font_size=104,
+                        outline=6, max_chars=20),
+    "slab_impact": _P("Slab Impact", trending=True, font_family="Alfa Slab One", bold=False,
+                      animation="highlight", highlight_color="#FFD400", font_size=84, outline=6),
+    "marker_note": _P("Marker", trending=True, font_family="Permanent Marker", bold=False,
+                      uppercase=False, highlight_color="#FFD400", font_size=82, outline=5),
+    "serif_elegant": _P("Serif Elegant", trending=True, font_family="DM Serif Display", bold=False,
+                        uppercase=False, highlight_color="#FFD400", font_size=88, outline=2, shadow=3,
+                        max_chars=30),
+    "neon_pop": _P("Neon Pop", trending=True, font_family="Luckiest Guy", bold=False,
+                   animation="highlight", highlight_color="#22D3EE", outline_color="#101018",
+                   font_size=92, outline=6, position="center"),
+    "boxed_tiktok": _P("Boxed", trending=True, font_family="Roboto", background_enabled=True,
+                       background_color="#000000", highlight_color="#FFFFFF", font_size=78,
+                       outline=6, shadow=0, max_chars=24),
+    "oswald_news": _P("Oswald News", trending=True, font_family="Oswald",
+                      animation="highlight", highlight_color="#FFD400", font_size=86, outline=4),
+    "green_word": _P("Green Word", trending=True, font_family="Poppins",
+                     animation="highlight", highlight_color="#27E36B", font_size=84, outline=5),
 }
 
 DEFAULT_PRESET = "bold_white"
@@ -91,6 +135,15 @@ def get_presets_for_api() -> List[dict]:
                 "position": p["position"],
                 "karaoke": p["karaoke"],
                 "uppercase": p["uppercase"],
+                "animation": p.get("animation", "none"),
+                "tracking": p.get("tracking", 0),
+                "underline": p.get("underline", False),
+                "strikethrough": p.get("strikethrough", False),
+                "max_lines": p.get("max_lines", 2),
+                "max_chars": p.get("max_chars", 22),
+                "background_enabled": p.get("background_enabled", False),
+                "background_color": p.get("background_color", "#000000"),
+                "trending": p.get("trending", False),
             }
         )
     return out
@@ -261,7 +314,8 @@ def build_ass(
 
     # Scale font/outline so presets (tuned for 1920 tall) look right at any height.
     scale = video_h / 1920.0
-    font_size = max(12, int(round(cfg["font_size"] * scale)))
+    font_scale = float(cfg.get("font_scale", 1.0) or 1.0)
+    font_size = max(12, int(round(cfg["font_size"] * font_scale * scale)))
 
     # Stroke / outline width: from overrides ("outline_width") or the preset ("outline").
     outline_px = cfg.get("outline_width", cfg["outline"])
@@ -284,12 +338,20 @@ def build_ass(
     highlight = _hex_to_ass(cfg["highlight_color"])
     # In box mode the OutlineColour slot fills the box; otherwise it strokes glyphs.
     if bg_on:
-        outline_col = _hex_to_ass(cfg.get("background_color", "#000000"))
+        bg_alpha = int(round((100 - float(cfg.get("background_opacity", 100) or 100)) / 100 * 255))
+        outline_col = _hex_to_ass(cfg.get("background_color", "#000000"), alpha=bg_alpha)
     else:
         outline_col = _hex_to_ass(cfg["outline_color"])
-    back_col = _hex_to_ass(shadow_color, alpha=64)  # soft, semi-transparent shadow
+    # Drop-shadow colour + opacity (BackColour slot, offset by Shadow px).
+    sh_alpha = int(round((100 - float(cfg.get("shadow_opacity", 75) or 75)) / 100 * 255))
+    back_col = _hex_to_ass(shadow_color, alpha=sh_alpha)
     bold_flag = -1 if cfg["bold"] else 0  # ASS: -1 = true, 0 = false
-    alignment = 2  # bottom-center (numpad layout); per-line \pos overrides this
+    underline_flag = -1 if cfg.get("underline") else 0
+    strike_flag = -1 if cfg.get("strikethrough") else 0
+    spacing = max(0, int(round(float(cfg.get("tracking", 0) or 0) * scale)))
+    # Vertical placement -> ASS alignment (numpad). A pos_x/pos_y override still
+    # wins, because an \an5\pos prefix is emitted per line when those are set.
+    alignment = {"top": 8, "center": 5, "bottom": 2}.get(cfg.get("position", "bottom"), 2)
 
     # For karaoke, libass fills each syllable from SecondaryColour -> PrimaryColour.
     # So PrimaryColour must be the highlight colour and Secondary the base colour.
@@ -309,14 +371,23 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{cfg['font_family']},{font_size},{style_primary},{style_secondary},{outline_col},{back_col},{bold_flag},0,0,0,100,100,0,0,{border_style},{outline},{shadow},{alignment},60,60,{margin_v},1
+Style: Default,{cfg['font_family']},{font_size},{style_primary},{style_secondary},{outline_col},{back_col},{bold_flag},0,{underline_flag},{strike_flag},100,100,{spacing},0,{border_style},{outline},{shadow},{alignment},60,60,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
-    prefix = _override_prefix(cfg, video_w, video_h)
+    pos_inner = _override_inner(cfg, video_w, video_h)
+    prefix = ("{" + pos_inner + "}") if pos_inner else ""
     uppercase = cfg["uppercase"]
+
+    # Optional soft glow: a blurred, glow-coloured copy of the words drawn on a
+    # lower layer behind the sharp text (libass \\blur). Off by default.
+    glow_on = bool(cfg.get("glow_enabled"))
+    glow_px = max(1, int(round(float(cfg.get("glow_intensity", 10) or 10) * scale))) if glow_on else 0
+    glow_col = _hex_to_ass(cfg.get("glow_color", "#7C4DFF"))
+    glow_prefix = "{" + pos_inner + f"\\1c{glow_col}\\3c{glow_col}\\bord{glow_px}\\shad0\\blur{glow_px}" + "}"
+    main_layer = 1 if glow_on else 0
 
     # Layout + animation settings (overridable; defaults match the classic look).
     animation = cfg.get("animation") or "none"
@@ -340,25 +411,33 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             text = _build_one_word_text(ev["lines"][0][0], uppercase)
         elif animation == "word_reveal":
             text = _build_reveal_text(ev, uppercase)
+        elif animation == "highlight":
+            text = _build_active_word_text(ev, cfg, uppercase)
         elif cfg["karaoke"]:
             text = _build_karaoke_text(ev["lines"], uppercase)
         else:
             text = _build_plain_text(ev["lines"], uppercase)
 
+        if glow_on:
+            glow_text = _build_plain_text(ev["lines"], uppercase)
+            dialogue_rows.append(
+                f"Dialogue: 0,{_fmt_time(start)},{_fmt_time(end)},Default,,0,0,0,,{glow_prefix}{glow_text}"
+            )
         dialogue_rows.append(
-            f"Dialogue: 0,{_fmt_time(start)},{_fmt_time(end)},Default,,0,0,0,,{prefix}{text}"
+            f"Dialogue: {main_layer},{_fmt_time(start)},{_fmt_time(end)},Default,,0,0,0,,{prefix}{text}"
         )
 
     out_path.write_text(header + "\n".join(dialogue_rows) + "\n", encoding="utf-8")
     return out_path
 
 
-def _override_prefix(cfg: dict, video_w: int, video_h: int) -> str:
-    """Build the inline ASS tag block ({...}) for position + rotation overrides.
+def _override_inner(cfg: dict, video_w: int, video_h: int) -> str:
+    """Build the inline ASS tags (no braces) for position + rotation overrides.
 
     Position uses ``\\an5`` (centre anchor) + ``\\pos`` so the X/Y sliders place
     the caption block's centre anywhere in the frame; rotation uses ``\\frz``.
     Returns "" when neither is set, leaving the style's default bottom-centre.
+    Callers wrap the result in ``{...}`` (and may append further tags, e.g. glow).
     """
     tags: List[str] = []
 
@@ -373,7 +452,7 @@ def _override_prefix(cfg: dict, video_w: int, video_h: int) -> str:
     if rotation:  # non-zero
         tags.append(f"\\frz{rotation:g}")
 
-    return "{" + "".join(tags) + "}" if tags else ""
+    return "".join(tags)
 
 
 def _tok(word: str, uppercase: bool) -> str:
@@ -423,6 +502,31 @@ def _build_reveal_text(ev: dict, uppercase: bool) -> str:
             toks.append(
                 f"{{\\alpha&HFF&\\fscx70\\fscy70"
                 f"\\t({t},{t + 130},\\alpha&H00&\\fscx100\\fscy100)}}"
+                f"{_tok(w['word'], uppercase)}"
+            )
+        line_strs.append(" ".join(toks))
+    return "\\N".join(line_strs)
+
+
+def _build_active_word_text(ev: dict, cfg: dict, uppercase: bool) -> str:
+    """Whole phrase visible; the word being spoken recolours to the highlight.
+
+    This is the signature creator / "Hormozi" look. Each word starts at the base
+    (primary) colour, instantly switches to ``highlight_color`` at its own start
+    time, and snaps back at its end — via zero-length ``\\t`` transforms timed (ms)
+    from the event's display start. The full phrase stays on screen throughout.
+    """
+    base = _hex_to_ass(cfg["primary_color"])
+    hi = _hex_to_ass(cfg["highlight_color"])
+    ev_start = ev["start"]
+    line_strs: List[str] = []
+    for line in ev["lines"]:
+        toks: List[str] = []
+        for w in line:
+            t0 = max(0, int(round((w["start"] - ev_start) * 1000)))
+            t1 = max(t0 + 1, int(round((w["end"] - ev_start) * 1000)))
+            toks.append(
+                f"{{\\1c{base}\\t({t0},{t0},\\1c{hi})\\t({t1},{t1},\\1c{base})}}"
                 f"{_tok(w['word'], uppercase)}"
             )
         line_strs.append(" ".join(toks))

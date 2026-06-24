@@ -22,10 +22,9 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import captions, history, jobs, transcriber, uploads
+from . import captions, fonts, history, jobs, prefetch, pretranscribe, transcriber, uploads
 from .models import Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
-from .fonts import ensure_fonts
-from .paths import CLIPS_DIR, STATIC_DIR, ensure_dirs
+from .paths import CLIPS_DIR, FONTS_DIR, STATIC_DIR, ensure_dirs
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,7 +37,7 @@ logger = logging.getLogger("ai_video_clipper")
 async def lifespan(app: FastAPI):
     """Create dirs, ensure the font, and load whisper ONCE before serving."""
     ensure_dirs()
-    ensure_fonts()
+    fonts.ensure_fonts()
     transcriber.load_model()
     logger.info(
         "Startup complete. Whisper '%s' on %s. No external AI APIs are used.",
@@ -60,6 +59,8 @@ app.add_middleware(
 
 # Serve generated clips so the frontend can preview/download them.
 app.mount("/clips", StaticFiles(directory=str(CLIPS_DIR)), name="clips")
+# Serve caption fonts so the UI can @font-face them for an accurate live preview.
+app.mount("/fonts", StaticFiles(directory=str(FONTS_DIR)), name="fonts")
 
 
 @app.get("/health")
@@ -83,6 +84,7 @@ def devices() -> dict:
         "devices": transcriber.available_devices(),
         "default": transcriber.get_device(),
         "cuda_available": transcriber.cuda_available(),
+        "gpu_name": transcriber.gpu_name(),
     }
 
 
@@ -121,6 +123,101 @@ def upload(file: UploadFile = File(...)) -> dict:
     finally:
         file.file.close()
     return {"status": "ok", **info}
+
+
+@app.get("/api/fonts")
+def get_fonts() -> dict:
+    """List caption fonts the UI can offer (bundled trending set + user uploads)."""
+    return fonts.list_fonts()
+
+
+@app.post("/api/fonts/upload")
+def upload_font(file: UploadFile = File(...)) -> dict:
+    """Accept a user .ttf/.otf font and register it for use in captions."""
+    try:
+        info = fonts.save_user_font(file.filename, file.file)
+    except InvalidVideoURLError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    finally:
+        file.file.close()
+    return {"status": "ok", **info}
+
+
+class PrefetchRequest(BaseModel):
+    """Body for POST /api/prefetch — start fetching a URL video in the background."""
+
+    video_url: str
+
+
+@app.post("/api/prefetch")
+def prefetch_start(req: PrefetchRequest) -> dict:
+    """Begin downloading a URL video ahead of time and return a prefetch id.
+
+    The frontend calls this when the user reaches Step 2 with a pasted link, then
+    polls ``GET /api/prefetch/{id}`` for progress. When done, the returned
+    ``download_id`` is passed to ``/api/generate`` so the pipeline reuses the file.
+    """
+    url = (req.video_url or "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="No video URL was provided.")
+    pf = prefetch.start(url)
+    return {"prefetch_id": pf.id, **pf.snapshot()}
+
+
+@app.get("/api/prefetch/{prefetch_id}")
+def prefetch_status(prefetch_id: str) -> dict:
+    """Return the current progress/result of a background prefetch."""
+    pf = prefetch.get(prefetch_id)
+    if pf is None:
+        raise HTTPException(status_code=404, detail="Unknown prefetch id.")
+    return pf.snapshot()
+
+
+class PretranscribeRequest(BaseModel):
+    """Body for POST /api/pretranscribe — transcribe a ready video in the background."""
+
+    source_id: str
+    device: Device = Device.AUTO
+
+
+@app.post("/api/pretranscribe")
+def pretranscribe_start(req: PretranscribeRequest) -> dict:
+    """Begin transcribing an already-downloaded/uploaded video ahead of Generate.
+
+    Called once the video is on disk (download finished, or an upload). The
+    result is cached by source id, so the Generate pipeline reuses it and skips
+    the transcribe stage. The frontend polls ``GET /api/pretranscribe/{id}``.
+    """
+    source_id = (req.source_id or "").strip()
+    if not source_id:
+        raise HTTPException(status_code=400, detail="No source id was provided.")
+    job = pretranscribe.start(source_id, req.device.value)
+    return {"pretranscribe_id": job.id, **job.snapshot()}
+
+
+@app.get("/api/pretranscribe/{job_id}")
+def pretranscribe_status(job_id: str) -> dict:
+    """Return the current progress/result of a background pre-transcription."""
+    job = pretranscribe.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown pretranscribe id.")
+    return job.snapshot()
+
+
+@app.get("/api/download/{download_id}/video")
+def download_file(download_id: str) -> FileResponse:
+    """Stream a prefetched video file so the Step-2 preview can swap from the
+    embeddable player to the real downloaded file once it's ready.
+
+    The id is resolved via the same ``downloads/<id>.*`` glob used for uploads,
+    so it can never reach a file outside the downloads directory. FileResponse
+    serves Range requests, so the ``<video>`` element can seek/stream normally.
+    """
+    try:
+        path = uploads.resolve_upload(download_id)
+    except InvalidVideoURLError:
+        raise HTTPException(status_code=404, detail="Downloaded video not found.")
+    return FileResponse(str(path))
 
 
 class ClipRef(BaseModel):

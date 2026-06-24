@@ -68,6 +68,11 @@ _models: dict[str, WhisperModel] = {}
 _device: str = "uninitialised"
 _cuda_available: Optional[bool] = None
 
+# Cached human-readable GPU name (e.g. "NVIDIA GeForce RTX 5060 Ti"). `_probed`
+# guards the one-time lookup so a missing/None name isn't re-queried every call.
+_gpu_name: Optional[str] = None
+_gpu_name_probed: bool = False
+
 # Serialises model loads so two requests warming the same device don't double-load.
 _load_lock = threading.Lock()
 
@@ -92,6 +97,41 @@ def cuda_available() -> bool:
 def available_devices() -> list[str]:
     """Devices the UI may offer, best (GPU) first."""
     return (["cuda", "cpu"] if cuda_available() else ["cpu"])
+
+
+def gpu_name() -> Optional[str]:
+    """Best-effort, cached human-readable name of the active CUDA GPU.
+
+    Returns the marketing name (e.g. "NVIDIA GeForce RTX 5060 Ti") so the UI can
+    auto-detect and show the real device instead of a generic "GPU" label, or
+    ``None`` when there's no usable GPU / the name can't be read. Uses
+    ``nvidia-smi`` (shipped with every NVIDIA driver) rather than pulling in a
+    heavy dep like torch just to read a string. Probed once, then cached.
+    """
+    global _gpu_name, _gpu_name_probed
+    if _gpu_name_probed:
+        return _gpu_name
+    _gpu_name_probed = True
+    if not cuda_available():
+        return None
+    try:
+        import subprocess
+
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            # Avoid a flashing console window on Windows (no-op elsewhere).
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        if out.returncode == 0:
+            lines = [ln.strip() for ln in out.stdout.splitlines() if ln.strip()]
+            if lines:
+                _gpu_name = lines[0]
+    except Exception as exc:  # noqa: BLE001 - any failure -> unnamed GPU
+        logger.debug("Could not read GPU name via nvidia-smi: %s", exc)
+    return _gpu_name
 
 
 def is_loaded(device: str) -> bool:

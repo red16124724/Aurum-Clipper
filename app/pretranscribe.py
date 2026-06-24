@@ -1,0 +1,167 @@
+"""Background pre-transcription so Whisper runs while the user is still tweaking
+settings — by the time they hit Generate the transcript is already cached.
+
+Transcription depends only on the source video + compute device (NOT on caption
+style, aspect ratio, clip count, etc.), so it's safe to start as soon as the
+video is on disk. Results are cached per source-file id and reused by the
+pipeline, which then skips the (usually slowest) transcribe stage entirely.
+
+A single lock serialises all transcription: the local Whisper model is shared,
+and running two transcriptions at once isn't worth the risk on a single-user
+tool. Double-checking the cache inside that lock means a Generate run that
+arrives while a pre-transcription is mid-flight simply waits for it and then
+reuses the result — the same video is never transcribed twice.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import threading
+import uuid
+from pathlib import Path
+from typing import Callable, Dict, Optional
+
+from . import transcriber, uploads
+from .models import InvalidVideoURLError, TranscriptionError
+from .paths import TRANSCRIPTS_DIR
+
+logger = logging.getLogger("ai_video_clipper.pretranscribe")
+
+# source_id (the downloads/<id> file stem) -> transcript dict.
+_CACHE: Dict[str, dict] = {}
+_CACHE_LOCK = threading.Lock()
+# Serialises access to the shared Whisper model (and dedupes same-source work).
+_TRANSCRIBE_LOCK = threading.Lock()
+
+
+def cached(source_id: str) -> Optional[dict]:
+    """Return an in-memory cached transcript for `source_id`, if any."""
+    with _CACHE_LOCK:
+        return _CACHE.get(source_id)
+
+
+def get_or_transcribe(
+    source_path: Path,
+    source_id: str,
+    device: str,
+    progress: Optional[Callable[[float, str], None]] = None,
+) -> dict:
+    """Return a cached transcript for `source_id`, or transcribe and cache it.
+
+    Concurrency-safe: if another thread is already transcribing this source, this
+    call blocks on the lock and then returns the freshly-cached result instead of
+    transcribing again. Also reuses a transcript persisted on disk (survives
+    restarts / in-memory cache misses).
+    """
+    hit = cached(source_id)
+    if hit is not None:
+        return hit
+
+    with _TRANSCRIBE_LOCK:
+        # Re-check now that we hold the lock — a concurrent run may have finished.
+        hit = cached(source_id)
+        if hit is not None:
+            return hit
+
+        # Disk fallback: a previous run (or session) may have already saved it.
+        tpath = TRANSCRIPTS_DIR / f"{source_id}.json"
+        if tpath.exists():
+            try:
+                result = json.loads(tpath.read_text(encoding="utf-8"))
+                with _CACHE_LOCK:
+                    _CACHE[source_id] = result
+                logger.info("Reusing transcript on disk for %s", source_id)
+                return result
+            except Exception:  # noqa: BLE001 - corrupt/partial json -> re-transcribe
+                logger.warning("Ignoring unreadable transcript %s", tpath, exc_info=True)
+
+        result = transcriber.transcribe_video(
+            source_path, source_id, progress=progress, device=device
+        )
+        with _CACHE_LOCK:
+            _CACHE[source_id] = result
+        return result
+
+
+# --------------------------------------------------------------------------- #
+# Background job (so the UI can show "transcribing in the background" progress)
+# --------------------------------------------------------------------------- #
+class TranscriptJob:
+    """A single background pre-transcription with thread-safe progress state."""
+
+    def __init__(self, source_id: str, device: str) -> None:
+        self.id = uuid.uuid4().hex
+        self.source_id = source_id
+        self.device = device
+        self.status = "running"  # running | done | error
+        self.progress = 0.0
+        self.message = "Preparing transcription..."
+        self.error: Optional[str] = None
+        self._lock = threading.Lock()
+        self._rev = 0
+
+    def update(self, **fields) -> None:
+        with self._lock:
+            for key, value in fields.items():
+                setattr(self, key, value)
+            self._rev += 1
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            return {
+                "id": self.id,
+                "status": self.status,
+                "progress": round(self.progress, 4),
+                "message": self.message,
+                "error": self.error,
+                "rev": self._rev,
+            }
+
+
+_JOBS: Dict[str, TranscriptJob] = {}
+_JOBS_LOCK = threading.Lock()
+
+
+def get(job_id: str) -> Optional[TranscriptJob]:
+    with _JOBS_LOCK:
+        return _JOBS.get(job_id)
+
+
+def start(source_id: str, device: str) -> TranscriptJob:
+    """Begin pre-transcribing `source_id` on a daemon thread."""
+    job = TranscriptJob(source_id, device)
+    with _JOBS_LOCK:
+        _JOBS[job.id] = job
+    threading.Thread(target=_run, args=(job,), daemon=True).start()
+    logger.info("[%s] pretranscribe started: source=%s device=%s", job.id, source_id, device)
+    return job
+
+
+def _run(job: TranscriptJob) -> None:
+    if cached(job.source_id) is not None:
+        job.update(status="done", progress=1.0, message="Transcript ready.")
+        return
+    try:
+        path = uploads.resolve_upload(job.source_id)
+    except InvalidVideoURLError as exc:
+        job.update(status="error", error=str(exc), message="Source file not found.")
+        return
+
+    def on_progress(frac: float, msg: str) -> None:
+        job.update(progress=min(0.99, frac), message=msg)
+
+    try:
+        get_or_transcribe(path, job.source_id, job.device, progress=on_progress)
+        job.update(status="done", progress=1.0, message="Transcript ready.")
+        logger.info("[%s] pretranscribe done", job.id)
+    except TranscriptionError as exc:
+        logger.warning("[%s] pretranscribe failed: %s", job.id, exc)
+        job.update(status="error", error=str(exc), message="Could not pre-transcribe.")
+    except Exception as exc:  # noqa: BLE001 - never let the thread die silently
+        logger.exception("[%s] unexpected pretranscribe failure", job.id)
+        job.update(
+            status="error",
+            error=f"Unexpected error: {exc}",
+            message="Could not pre-transcribe.",
+        )
