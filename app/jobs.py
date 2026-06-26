@@ -325,6 +325,7 @@ def _run_pipeline(job: Job) -> None:
                 out_path=ass_path,
                 clip_start=start,
                 overrides=caption_overrides,
+                fit_mode=req.fit_mode.value,
             )
 
             opts = ClipOptions(

@@ -297,6 +297,7 @@ def build_ass(
     out_path: Path,
     clip_start: float = 0.0,
     overrides: dict | None = None,
+    fit_mode: str | None = None,
 ) -> Path:
     """Build an .ass subtitle file at `out_path` and return it.
 
@@ -308,6 +309,9 @@ def build_ass(
         clip_start: subtract this from word timings so captions align to the cut.
         overrides: optional per-render tweaks (position, rotation, stroke, shadow,
             background) that layer over the preset. See ``models.CaptionOverrides``.
+        fit_mode: "square" pulls the default caption margin up so captions sit
+            inside the centered square instead of in the black band below it.
+            Any other value keeps the normal full-frame placement.
     """
     preset = get_preset(style_preset)
     cfg = _merge_overrides(preset, overrides)
@@ -332,7 +336,16 @@ def build_ass(
     # Background box behind the words (BorderStyle 3) vs a per-glyph outline (1).
     bg_on = bool(cfg.get("background_enabled"))
     border_style = 3 if bg_on else 1
-    margin_v = int(round(video_h * 0.08))
+    # Vertical margin for top/bottom-anchored captions. In square mode the footage
+    # only fills a centered 1:1 square, so the default 8% (measured from the canvas
+    # edge) drops the captions into the black band BELOW the square. Instead, pull
+    # them inside the square: skip the black band, then a small inset off the edge.
+    if fit_mode == "square":
+        inner = max(0, video_w - 60)              # square side (matches clipper geometry)
+        band = max(0, (video_h - inner) // 2)     # black band above & below the square
+        margin_v = band + int(round(inner * 0.05))
+    else:
+        margin_v = int(round(video_h * 0.08))
 
     primary = _hex_to_ass(cfg["primary_color"])
     highlight = _hex_to_ass(cfg["highlight_color"])
