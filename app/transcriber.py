@@ -212,11 +212,30 @@ def get_device() -> str:
     return _device
 
 
+def _normalize_language(language: Optional[str]) -> Optional[str]:
+    """Map UI language values to a Whisper code, or None for auto-detect.
+
+    Empty string / 'auto' (case-insensitive) -> None, which tells Whisper to
+    detect the spoken language itself. 'hinglish' is not a Whisper language —
+    it's Hindustani transcribed as Hindi and then romanised after the fact (see
+    ``transcribe_video``), so here it maps to the Hindi model code.
+    """
+    if not language:
+        return None
+    lang = language.strip().lower()
+    if lang in ("", "auto"):
+        return None
+    if lang == "hinglish":
+        return "hi"
+    return lang
+
+
 def transcribe_video(
     video_path: Path,
     clip_id: str,
     progress: Optional[Callable[[float, str], None]] = None,
     device: str = "auto",
+    language: Optional[str] = None,
 ) -> dict:
     """Transcribe `video_path`, returning a dict with word-level timestamps.
 
@@ -241,6 +260,7 @@ def transcribe_video(
             str(video_path),
             word_timestamps=True,
             vad_filter=True,  # trims long silences -> better segment boundaries
+            language=_normalize_language(language),  # None -> auto-detect
         )
 
         segments: list[dict] = []
@@ -291,6 +311,13 @@ def transcribe_video(
     except Exception as exc:  # noqa: BLE001
         logger.exception("Transcription failed for %s", video_path)
         raise TranscriptionError(f"Transcription failed: {exc}") from exc
+
+    # Hinglish: the audio was transcribed as Hindi (Devanagari); romanise the
+    # whole transcript to readable Roman Urdu/Hindi before caching/persisting.
+    if (language or "").strip().lower() == "hinglish":
+        from . import translit
+
+        result = translit.romanize_transcript(result)
 
     # Persist the transcript for debugging / reuse.
     transcript_path = TRANSCRIPTS_DIR / f"{clip_id}.json"

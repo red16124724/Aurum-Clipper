@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from . import effects
 from .models import AspectRatio, ClipGenerationError, FitMode
 from .paths import CLIPS_DIR, FONTS_DIR, MASKS_DIR
 
@@ -97,6 +98,9 @@ class ClipOptions:
     clip_id: str
     index: int
     bar_text: Optional[str] = None
+    cinematic: Optional[dict] = None  # cinematic effects config (see app.effects)
+    music_path: Optional[Path] = None  # background-music track to mix under the audio
+    music_volume: float = 35.0         # 0-100, reels-style (ducked under speech)
 
 
 def _rel_for_filter(target: Path, start_dir: Path) -> str:
@@ -131,13 +135,25 @@ def _ass_filter(opts: ClipOptions, work_dir: Path) -> str:
     )
 
 
-def _build_crop_filter(width: int, height: int, opts: ClipOptions, work_dir: Path) -> str:
-    """-vf graph for crop mode: cover+crop to WxH, then burn captions."""
-    reframe = (
-        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-        f"crop={width}:{height}"
-    )
-    return f"{reframe},{_ass_filter(opts, work_dir)}"
+def _finish_stages(in_label: str, vw: int, vh: int, opts: ClipOptions, work_dir: Path) -> list[str]:
+    """Append the cinematic stages (under the captions) then the caption burn.
+
+    Returns the stages that take ``in_label`` -> cinematic effects -> ``[outv]``.
+    With no effects this is just the single caption-burn stage, so the default
+    render is unchanged.
+    """
+    cine_stages, cap_in = effects.cinematic_stages(opts.cinematic, in_label, vw, vh)
+    return cine_stages + [f"[{cap_in}]{_ass_filter(opts, work_dir)}[outv]"]
+
+
+def _build_crop_filter_complex(width: int, height: int, opts: ClipOptions, work_dir: Path) -> str:
+    """-filter_complex graph for crop mode: cover+crop, cinematic FX, then captions."""
+    stages = [
+        f"[0:v]scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"crop={width}:{height}[v0]"
+    ]
+    stages += _finish_stages("v0", width, height, opts, work_dir)
+    return ";".join(stages)
 
 
 def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
@@ -177,8 +193,29 @@ def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
         )
         last = "titled"
 
-    stages.append(f"[{last}]{_ass_filter(opts, work_dir)}[outv]")
+    stages += _finish_stages(last, w, h, opts, work_dir)
     return ";".join(stages)
+
+
+def _music_audio_graph(mus_idx: int, volume: float) -> str:
+    """Filtergraph that mixes a background track UNDER the original audio, reels-style.
+
+    The voice is split: one copy is the sidechain key for ``sidechaincompress``,
+    which automatically ducks the music whenever the speaker is talking, and one
+    copy is mixed back at full level. So you hear the voice clearly with music
+    filling the gaps — never a wall of loud music. ``normalize=0`` keeps the voice
+    at unity gain instead of amix halving everything.
+
+    Input 0's audio is the source voice; ``mus_idx`` is the music input's index.
+    Produces the ``[aout]`` label the caller maps as the output audio.
+    """
+    base = max(0.0, min(1.0, (volume if volume is not None else 35) / 100.0 * 0.7))
+    return (
+        f"[0:a]asplit=2[__v1][__v2];"
+        f"[{mus_idx}:a]volume={base:.3f},aresample=async=1[__m];"
+        f"[__m][__v2]sidechaincompress=threshold=0.02:ratio=8:attack=15:release=300[__md];"
+        f"[__v1][__md]amix=inputs=2:duration=first:normalize=0[aout]"
+    )
 
 
 # Shared output-encoding args (everything after the filter graph).
@@ -202,33 +239,41 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions)
 
     src = str(Path(source_mp4).resolve())
 
+    has_music = opts.music_path is not None and Path(opts.music_path).is_file()
+
     # ffmpeg runs with cwd = out_dir so in-filtergraph paths can be relative (no
     # Windows drive colon / spaces). Inputs/outputs are absolute argv, which is fine.
     if opts.fit_mode == FitMode.SQUARE:
         mask = ensure_rounded_mask()
         fc = _build_square_filter_complex(opts, out_dir)
-        cmd = [
-            "ffmpeg", "-y",
-            "-ss", f"{start:.3f}", "-i", src,
-            "-loop", "1", "-i", str(mask.resolve()),
-            "-t", f"{duration:.3f}",
-            "-filter_complex", fc,
-            "-map", "[outv]", "-map", "0:a?",
-            *_ENCODE_ARGS,
-            "-shortest",
-            str(out_path),
-        ]
+        inputs = ["-ss", f"{start:.3f}", "-i", src, "-loop", "1", "-i", str(mask.resolve())]
+        music_idx = 2  # 0 = source, 1 = mask
+        tail = ["-shortest"]
     else:
         width, height = target_size(opts.aspect_ratio, opts.fit_mode)
-        vf = _build_crop_filter(width, height, opts, out_dir)
-        cmd = [
-            "ffmpeg", "-y",
-            "-ss", f"{start:.3f}", "-i", src,
-            "-t", f"{duration:.3f}",
-            "-vf", vf,
-            *_ENCODE_ARGS,
-            str(out_path),
-        ]
+        fc = _build_crop_filter_complex(width, height, opts, out_dir)
+        inputs = ["-ss", f"{start:.3f}", "-i", src]
+        music_idx = 1  # 0 = source
+        tail = []
+
+    # Background music: loop the track, mix it under the audio, duck it under speech.
+    if has_music:
+        inputs += ["-stream_loop", "-1", "-i", str(Path(opts.music_path).resolve())]
+        fc = fc + ";" + _music_audio_graph(music_idx, opts.music_volume)
+        audio_map = ["-map", "[aout]"]
+    else:
+        audio_map = ["-map", "0:a?"]
+
+    cmd = [
+        "ffmpeg", "-y",
+        *inputs,
+        "-t", f"{duration:.3f}",
+        "-filter_complex", fc,
+        "-map", "[outv]", *audio_map,
+        *_ENCODE_ARGS,
+        *tail,
+        str(out_path),
+    ]
 
     logger.info("Rendering clip %d (cwd=%s): %s", opts.index, out_dir, " ".join(cmd))
 

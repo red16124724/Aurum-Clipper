@@ -13,13 +13,16 @@ tool. Restarting the server clears jobs (the rendered clips on disk survive).
 from __future__ import annotations
 
 import logging
+import re
 import threading
+import time
 import uuid
 from typing import Dict, List, Optional
 
-from . import captions, downloader, history, pretranscribe, selector, transcriber, uploads
+from . import captions, downloader, history, music, pretranscribe, selector, transcriber, uploads
 from .clipper import ClipOptions, generate_clip, target_size
 from .models import (
+    LANGUAGE_NAMES,
     ClipGenerationError,
     GenerateRequest,
     InvalidVideoURLError,
@@ -50,6 +53,28 @@ STAGE_LABELS = {
     "selecting": "Analyze",
     "rendering": "Render",
 }
+
+# Characters not allowed in filenames on Windows (and best avoided elsewhere).
+_BAD_FILENAME_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]+')
+
+
+def download_filename(title: str, language: Optional[str], index: int) -> str:
+    """Suggested download name for a clip, written in the caption's language.
+
+    Prefixes the language's native name (e.g. "اردو", "हिन्दी", "English") so the
+    file is clearly named in the language its captions are in, then the clip
+    title (already in that language, since it's drawn from the transcript). Falls
+    back to a numbered name when the title is empty. Always ends in ``.mp4``.
+    """
+    lang = (language or "").strip().lower()
+    native = LANGUAGE_NAMES.get(lang, lang.upper() if lang else "Clip")
+    clean_title = _BAD_FILENAME_CHARS.sub(" ", (title or "").strip()).strip()
+    clean_title = re.sub(r"\s+", " ", clean_title)
+    if clean_title:
+        name = f"{native} - {clean_title}"
+    else:
+        name = f"{native} - clip {index + 1}"
+    return name[:120].strip() + ".mp4"
 
 
 class Job:
@@ -210,21 +235,46 @@ def _run_pipeline(job: Job) -> None:
         device_label = {"auto": "Auto", "cuda": "GPU", "cpu": "CPU"}.get(
             req.device.value, "Auto"
         )
-        if pretranscribe.cached(source_id) is not None:
+        def on_transcribe(frac: float, msg: str) -> None:
+            job.set_stage("transcribing", frac, msg)
+
+        if pretranscribe.cached(source_id, req.language) is not None:
             job.set_stage(
                 "transcribing", 1.0, "Using transcript prepared while you set things up..."
             )
         else:
-            job.set_stage(
-                "transcribing", 0.0,
-                f"Transcribing audio with local Whisper ({device_label})...",
-            )
-
-        def on_transcribe(frac: float, msg: str) -> None:
-            job.set_stage("transcribing", frac, msg)
+            # A background pre-transcription (started on Step 2) may already be
+            # running and holding the shared Whisper lock. Rather than freeze the
+            # bar while we block on that lock, mirror the background job's live
+            # progress here so the user sees real movement; once it finishes,
+            # get_or_transcribe returns its cached result instantly.
+            running = pretranscribe.find_running(source_id)
+            if running is not None:
+                while True:
+                    snap = running.snapshot()
+                    if snap.get("status") != "running":
+                        break
+                    job.set_stage(
+                        "transcribing", snap.get("progress", 0.0),
+                        f"Transcribing audio with local Whisper ({device_label})... "
+                        f"{int((snap.get('progress') or 0) * 100)}%",
+                    )
+                    time.sleep(0.4)
+            else:
+                job.set_stage(
+                    "transcribing", 0.0,
+                    f"Transcribing audio with local Whisper ({device_label})...",
+                )
 
         transcript = pretranscribe.get_or_transcribe(
-            source_mp4, source_id, req.device.value, progress=on_transcribe
+            source_mp4, source_id, req.device.value,
+            progress=on_transcribe, language=req.language,
+        )
+        # The language the captions are actually in: what the user forced, or
+        # what Whisper detected. Drives the per-clip download filename.
+        forced = (req.language or "").strip().lower()
+        caption_language = (
+            forced if forced and forced != "auto" else transcript.get("language")
         )
 
         # 3) Select clips (local heuristic, optional local Ollama).
@@ -243,6 +293,14 @@ def _run_pipeline(job: Job) -> None:
         caption_overrides = (
             req.caption_overrides.model_dump() if req.caption_overrides else None
         )
+        cinematic = req.cinematic.model_dump() if req.cinematic else None
+        # Resolve the background-music track once (None if unset / missing).
+        music_path = None
+        if req.music_track:
+            try:
+                music_path = music.resolve_track(req.music_track)
+            except InvalidVideoURLError:
+                logger.warning("[%s] music track %r not found; skipping.", job.id, req.music_track)
         width, height = target_size(req.aspect_ratio, req.fit_mode)
         clip_dir = CLIPS_DIR / clip_id
         clip_dir.mkdir(parents=True, exist_ok=True)
@@ -276,15 +334,21 @@ def _run_pipeline(job: Job) -> None:
                 clip_id=clip_id,
                 index=index,
                 bar_text=req.bar_text,
+                cinematic=cinematic,
+                music_path=music_path,
+                music_volume=req.music_volume if req.music_volume is not None else 35.0,
             )
             generate_clip(source_mp4, start, end, opts)
 
+            title = win.get("title") or f"Clip {index + 1}"
             clip = {
                 "index": index,
-                "title": win.get("title") or f"Clip {index + 1}",
+                "title": title,
                 "start": round(start, 2),
                 "end": round(end, 2),
                 "url": f"/clips/{clip_id}/{index}.mp4",
+                "language": caption_language,
+                "filename": download_filename(title, caption_language, index),
             }
             results.append(clip)
             job.add_clip(clip)  # stream the finished clip to the UI immediately
@@ -310,6 +374,7 @@ def _run_pipeline(job: Job) -> None:
                     "fit_mode": req.fit_mode.value,
                     "caption_style": req.caption_style,
                     "num_clips": req.num_clips,
+                    "language": caption_language,
                 },
                 clips=results,
             )

@@ -18,6 +18,9 @@ CLIPS_DIR = ROOT_DIR / "clips"
 ASSETS_DIR = ROOT_DIR / "assets"
 FONTS_DIR = ASSETS_DIR / "fonts"
 MASKS_DIR = ASSETS_DIR / "masks"
+# Background-music library. Users can drop .mp3/.m4a/.wav files straight in here,
+# or upload them through the UI — both show up as track options.
+MUSIC_DIR = ASSETS_DIR / "music"
 STATIC_DIR = ROOT_DIR / "static"
 
 
@@ -30,6 +33,7 @@ def ensure_dirs() -> None:
         ASSETS_DIR,
         FONTS_DIR,
         MASKS_DIR,
+        MUSIC_DIR,
         STATIC_DIR,
     ):
         directory.mkdir(parents=True, exist_ok=True)

@@ -5,3 +5,4 @@ pydantic>=2
 yt-dlp
 faster-whisper
 requests
+indic-transliteration

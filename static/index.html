@@ -473,8 +473,121 @@
   .cap-chip .cap-trend {
     position: absolute; top: 6px; right: 6px; font-size: 8.5px; font-weight: 800; letter-spacing: .04em;
     padding: 2px 6px; border-radius: 999px; color: #fff; background: linear-gradient(180deg,#8b6dff,var(--accent));
-    text-transform: uppercase;
+    text-transform: uppercase; z-index: 2;
   }
+  .cap-chip .cap-trend.is-custom { background: linear-gradient(180deg,#34d399,#0f9d6b); }
+
+  /* Save-as-preset toolbar + group labels */
+  .cap-style-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 22px 0 10px; }
+  .cap-style-head .fieldlabel { margin: 0; }
+  .cap-save-btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; cursor: pointer;
+    font: inherit; font-size: 11.5px; font-weight: 600; color: var(--accent-hi);
+    background: var(--accent-soft); border: 1px solid var(--line); border-radius: 999px; transition: .12s;
+  }
+  .cap-save-btn:hover { border-color: var(--accent); }
+  .cap-save-btn:active { transform: scale(.97); }
+  .cap-save-btn svg { width: 13px; height: 13px; }
+  .cap-save-form { display: flex; gap: 7px; margin: 4px 0 2px; animation: csFade .16s var(--ease); }
+  .cap-save-form input {
+    flex: 1; min-width: 0; padding: 10px 12px; font: inherit; font-size: 13px; color: var(--text);
+    background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 10px; outline: none;
+  }
+  .cap-save-form input:focus { border-color: var(--accent); }
+  .cap-save-go {
+    flex: none; padding: 0 15px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; color: #fff;
+    background: var(--accent); border: 0; border-radius: 10px; transition: .12s;
+  }
+  .cap-save-go:hover { filter: brightness(1.08); }
+  .cap-save-go:active { transform: scale(.97); }
+  .cap-save-cancel {
+    flex: none; width: 38px; font-size: 13px; cursor: pointer; color: var(--muted);
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; transition: .12s;
+  }
+  .cap-save-cancel:hover { color: var(--text); border-color: var(--line-2); }
+  .cap-group-label {
+    grid-column: 1 / -1; display: flex; align-items: center; gap: 8px;
+    font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-2);
+    padding: 8px 2px 1px;
+  }
+  .cap-group-label:first-child { padding-top: 2px; }
+  .cap-group-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  /* Delete (×) on a custom chip */
+  .cap-chip .cap-del {
+    position: absolute; top: 5px; left: 5px; z-index: 3; width: 20px; height: 20px; border-radius: 50%;
+    display: grid; place-items: center; cursor: pointer; padding: 0; line-height: 1;
+    color: #fff; background: rgba(0,0,0,.62); border: 1px solid rgba(255,255,255,.18);
+    opacity: 0; transform: scale(.85); transition: .13s;
+  }
+  .cap-chip:hover .cap-del, .cap-chip.active .cap-del { opacity: 1; transform: none; }
+  .cap-chip .cap-del:hover { background: var(--danger); }
+  .cap-chip .cap-del svg { width: 11px; height: 11px; }
+
+  /* Customizer section headers */
+  .cap-grouphd {
+    display: flex; align-items: center; gap: 9px; margin: 6px 0 -3px;
+    font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; color: var(--muted-2);
+  }
+  .cap-grouphd:first-child { margin-top: 0; }
+  .cap-grouphd::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  /* ---- AutoCaption-style "Captions" studio panel ---- */
+  .cap-studio {
+    margin-top: 22px; border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    background: linear-gradient(180deg, var(--surface) 0%, var(--bg-2) 100%);
+    box-shadow: 0 24px 60px -36px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  .studio-head { display: flex; align-items: center; gap: 9px; padding: 14px 16px 0; }
+  .studio-title { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+  .studio-title .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 8px; vertical-align: middle; box-shadow: 0 0 10px var(--accent); }
+  .studio-tabs { display: flex; gap: 4px; padding: 12px 12px 0; }
+  .studio-tab {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 11px 8px; background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer;
+    color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; transition: color .15s, border-color .15s;
+  }
+  .studio-tab svg { width: 15px; height: 15px; }
+  .studio-tab:hover { color: var(--text); }
+  .studio-tab.active { color: var(--accent-hi); border-bottom-color: var(--accent); }
+  .studio-pane { padding: 16px; border-top: 1px solid var(--line); }
+  .studio-pane.hidden { display: none; }
+
+  /* Gallery filter chips (Trending / All / My Styles) */
+  .gallery-filters { display: flex; gap: 6px; margin: 2px 0 12px; }
+  .gfilter {
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; cursor: pointer;
+    font: inherit; font-size: 12px; font-weight: 600; color: var(--muted);
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; transition: .12s;
+  }
+  .gfilter svg { width: 13px; height: 13px; }
+  .gfilter:hover { color: var(--text); border-color: var(--line-2); }
+  .gfilter.active { color: var(--accent-hi); background: var(--accent-soft); border-color: var(--accent); }
+  .gallery-empty { grid-column: 1 / -1; padding: 26px 14px; text-align: center; font-size: 12.5px; color: var(--muted-2); line-height: 1.5; }
+
+  /* "Preview" pill on the phone frame (AutoCaption style) */
+  .preview-pill {
+    position: absolute; top: 12px; left: 12px; z-index: 4; display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 600; color: var(--text);
+    background: rgba(10,10,16,.6); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(6px);
+  }
+  .preview-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+  /* Quick font + colour bar at the bottom of the Templates tab */
+  .studio-fontbar {
+    display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 10px;
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .studio-fontbar select { flex: 1; min-width: 0; }
+  .studio-fontbar .sfb-swatch { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9px; color: var(--muted-2); font-weight: 600; }
+  .studio-fontbar .sfb-swatch .cp-trigger { width: 34px; height: 30px; }
+
+  /* In the studio, the customizer/cinematic shells go borderless (the tab frames them) */
+  .studio-pane .customizer { margin-top: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+  .studio-pane .customizer + .customizer { margin-top: 6px; border-top: 1px solid var(--line); }
+  .studio-pane .cust-body { border-top: 0; }
+  .studio-pane #capCustBody:not(.hidden) { display: block; }
+  .studio-pane .cap-cust-grid { padding: 4px 0 4px; }
+  .studio-pane .cs-foot { padding: 12px 0 2px; }
 
   /* ---- Caption customizer rows (reuses .customizer / .cust-* shells) ---- */
   .cap-cust-grid { display: grid; gap: 15px; padding: 16px 15px 4px; }
@@ -582,6 +695,16 @@
   .cap-tg.active { border-color: var(--accent); color: var(--accent-hi); background: var(--accent-soft); }
   .cap-upnote { font-size: 11.5px; color: var(--muted-2); }
   .cap-upnote.err { color: var(--danger); }
+
+  /* ---- Cinematic FX preview overlay (inside the phone frame) ---- */
+  .cine-overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; border-radius: inherit; }
+  .cine-overlay .cine-grad, .cine-overlay .cine-vig, .cine-overlay .cine-bar { position: absolute; left: 0; right: 0; display: none; }
+  .cine-grad-bottom { bottom: 0; height: 60%; }
+  .cine-grad-top { top: 0; height: 60%; }
+  .cine-vig { inset: 0; }
+  .cine-bar { left: 0; right: 0; height: 9%; background: #000; }
+  .cine-bar-top { top: 0; }
+  .cine-bar-bottom { bottom: 0; }
 
   /* ---- Live caption preview inside the phone frame ---- */
   .cap-preview {
@@ -1061,9 +1184,71 @@
             <button id="plus" type="button">+</button>
           </div>
 
-          <label class="fieldlabel">Caption style</label>
-          <div class="cap-presets" id="capPresets"></div>
+          <div class="cap-studio">
+            <div class="studio-head"><span class="studio-title"><span class="dot"></span>Captions</span></div>
+            <div class="studio-tabs">
+              <button type="button" class="studio-tab active" data-stab="templates">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                Templates
+              </button>
+              <button type="button" class="studio-tab" data-stab="customize">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                Customize styles
+              </button>
+            </div>
 
+          <div class="studio-pane" id="stabTemplates">
+          <label class="fieldlabel">Caption language</label>
+          <select id="capLang" class="dropdown">
+            <option value="auto">Auto-detect</option>
+            <option value="en">English</option>
+            <option value="hinglish">Hinglish — Roman Urdu / Hindi</option>
+            <option value="ur">Urdu — اردو</option>
+            <option value="hi">Hindi — हिन्दी</option>
+            <option value="ar">Arabic — العربية</option>
+            <option value="fa">Persian — فارسی</option>
+            <option value="pa">Punjabi — ਪੰਜਾਬੀ</option>
+            <option value="bn">Bengali — বাংলা</option>
+            <option value="es">Spanish — Español</option>
+            <option value="fr">French — Français</option>
+            <option value="de">German — Deutsch</option>
+            <option value="pt">Portuguese — Português</option>
+            <option value="ru">Russian — Русский</option>
+            <option value="tr">Turkish — Türkçe</option>
+            <option value="id">Indonesian — Bahasa</option>
+            <option value="ja">Japanese — 日本語</option>
+            <option value="ko">Korean — 한국어</option>
+            <option value="zh">Chinese — 中文</option>
+          </select>
+          <div class="cap-upnote" id="capLangNote">Captions are transcribed in this language; clip files are named in it too.</div>
+
+          <div class="cap-style-head">
+            <label class="fieldlabel">Caption style</label>
+            <button type="button" class="cap-save-btn" id="capSaveBtn" title="Save the current look as a reusable preset">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Save current
+            </button>
+          </div>
+          <div class="cap-save-form hidden" id="capSaveForm">
+            <input type="text" id="capSaveName" placeholder="Name your style…" maxlength="40" autocomplete="off" />
+            <button type="button" class="cap-save-go" id="capSaveGo">Save</button>
+            <button type="button" class="cap-save-cancel" id="capSaveCancel" title="Cancel">✕</button>
+          </div>
+          <div class="gallery-filters" id="galleryFilters">
+            <button type="button" class="gfilter active" data-gf="all">All</button>
+            <button type="button" class="gfilter" data-gf="trending">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4 4 8a4 4 0 0 1-8 0c0-1 .3-2 .7-2.7C9 8 9 9 10 9c0-2 1-5 2-7z"/></svg>
+              Trending
+            </button>
+            <button type="button" class="gfilter" data-gf="mine">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9.5 17 14 18.5 21 12 17.5 5.5 21 7 14 2 9.5 9 9"/></svg>
+              My Styles
+            </button>
+          </div>
+          <div class="cap-presets" id="capPresets"></div>
+          </div><!-- /stabTemplates -->
+
+          <div class="studio-pane hidden" id="stabCustomize">
           <div class="customizer" id="capCustomizer">
             <button type="button" class="cust-toggle" id="capCustToggle">
               <span class="cust-ic">
@@ -1074,6 +1259,7 @@
             </button>
             <div class="cust-body hidden" id="capCustBody">
               <div class="cap-cust-grid">
+                <div class="cap-grouphd"><span>Typography</span></div>
                 <div class="cap-ctl">
                   <label>Font <span class="cap-val" id="capFontVal">Roboto</span></label>
                   <div class="cap-font-row">
@@ -1098,6 +1284,7 @@
                   </select>
                 </div>
 
+                <div class="cap-grouphd"><span>Colours</span></div>
                 <div class="cap-ctl">
                   <label>Colours</label>
                   <div class="cap-swatches">
@@ -1107,6 +1294,7 @@
                   </div>
                 </div>
 
+                <div class="cap-grouphd"><span>Size &amp; spacing</span></div>
                 <div class="cap-ctl">
                   <label>Size <span class="cap-num"><input type="number" id="capSizeNum" min="60" max="180" step="5" value="100" />%</span></label>
                   <input type="range" class="cap-range" id="capSize" min="0.6" max="1.8" step="0.05" value="1" />
@@ -1122,8 +1310,8 @@
                   <input type="range" class="cap-range" id="capOutline" min="0" max="16" step="1" value="5" />
                 </div>
 
+                <div class="cap-grouphd"><span>Position</span></div>
                 <div class="cap-ctl">
-                  <label>Position</label>
                   <div class="cap-upnote">Drag the caption in the preview (snaps to edges &amp; centre), or fine-tune with the sliders.</div>
                 </div>
                 <div class="cap-ctl">
@@ -1139,6 +1327,7 @@
                   <div class="cap-rot-wrap"><input type="range" class="cap-range cap-range-bi" id="capRotation" min="-180" max="180" step="1" value="0" /></div>
                 </div>
 
+                <div class="cap-grouphd"><span>Emphasis &amp; effects</span></div>
                 <div class="cap-ctl">
                   <label>Style</label>
                   <div class="cap-toggles cap-tg2">
@@ -1183,6 +1372,89 @@
             </div>
           </div>
 
+          <!-- Cinematic effects (applied to the footage, under the captions) -->
+          <div class="customizer" id="capCine">
+            <button type="button" class="cust-toggle" id="capCineToggle">
+              <span class="cust-ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h20M2 17h20M7 2v20M17 2v20"/><rect x="2" y="2" width="20" height="20" rx="3"/></svg>
+              </span>
+              <span>Cinematic effects<span class="cust-sub">Gradient · glow · vignette · grain · colour grade · bars</span></span>
+              <svg class="cust-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <div class="cust-body hidden" id="capCineBody">
+              <div class="cap-cust-grid">
+                <div class="cap-grouphd"><span>Colour grade</span></div>
+                <div class="cap-ctl">
+                  <label>Look</label>
+                  <select id="cineGrade" class="dropdown">
+                    <option value="none">None — original</option>
+                    <option value="warm">Warm</option>
+                    <option value="cool">Cool</option>
+                    <option value="teal_orange">Teal &amp; Orange</option>
+                    <option value="vintage">Vintage</option>
+                    <option value="vibrant">Vibrant</option>
+                    <option value="bw">Black &amp; White</option>
+                  </select>
+                </div>
+
+                <div class="cap-grouphd"><span>Gradients</span></div>
+                <div class="cap-ctl">
+                  <div class="cap-fxrow">
+                    <button class="cap-tg cap-fxtoggle" data-cine="bottom_gradient" type="button">Bottom fade</button>
+                    <div class="cap-fxbody hidden" id="cineBottomFx">
+                      <div class="cap-sub"><label>Height <span class="cap-num"><input type="number" id="cineBottomHNum" min="0" max="80" value="25" />%</span></label><input type="range" class="cap-range" id="cineBottomH" min="0" max="80" value="25" /></div>
+                      <div class="cap-sub"><label>Strength <span class="cap-num"><input type="number" id="cineBottomSNum" min="0" max="100" value="70" />%</span></label><input type="range" class="cap-range" id="cineBottomS" min="0" max="100" value="70" /></div>
+                    </div>
+                  </div>
+                  <div class="cap-fxrow">
+                    <button class="cap-tg cap-fxtoggle" data-cine="top_gradient" type="button">Top fade</button>
+                    <div class="cap-fxbody hidden" id="cineTopFx">
+                      <div class="cap-sub"><label>Height <span class="cap-num"><input type="number" id="cineTopHNum" min="0" max="80" value="20" />%</span></label><input type="range" class="cap-range" id="cineTopH" min="0" max="80" value="20" /></div>
+                      <div class="cap-sub"><label>Strength <span class="cap-num"><input type="number" id="cineTopSNum" min="0" max="100" value="60" />%</span></label><input type="range" class="cap-range" id="cineTopS" min="0" max="100" value="60" /></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="cap-grouphd"><span>Atmosphere</span></div>
+                <div class="cap-ctl">
+                  <div class="cap-fxrow">
+                    <button class="cap-tg cap-fxtoggle" data-cine="vignette" type="button">Vignette</button>
+                    <div class="cap-fxbody hidden" id="cineVigFx">
+                      <div class="cap-sub"><label>Strength <span class="cap-num"><input type="number" id="cineVigSNum" min="0" max="100" value="50" />%</span></label><input type="range" class="cap-range" id="cineVigS" min="0" max="100" value="50" /></div>
+                    </div>
+                  </div>
+                  <div class="cap-fxrow">
+                    <button class="cap-tg cap-fxtoggle" data-cine="glow" type="button">Glow</button>
+                    <div class="cap-fxbody hidden" id="cineGlowFx">
+                      <div class="cap-sub"><label>Strength <span class="cap-num"><input type="number" id="cineGlowSNum" min="0" max="100" value="50" />%</span></label><input type="range" class="cap-range" id="cineGlowS" min="0" max="100" value="50" /></div>
+                    </div>
+                  </div>
+                  <div class="cap-fxrow">
+                    <button class="cap-tg cap-fxtoggle" data-cine="grain" type="button">Film grain</button>
+                    <div class="cap-fxbody hidden" id="cineGrainFx">
+                      <div class="cap-sub"><label>Strength <span class="cap-num"><input type="number" id="cineGrainSNum" min="0" max="100" value="40" />%</span></label><input type="range" class="cap-range" id="cineGrainS" min="0" max="100" value="40" /></div>
+                      <div class="cap-upnote">Grain appears in the exported clip.</div>
+                    </div>
+                  </div>
+                  <div class="cap-fxrow">
+                    <button class="cap-tg cap-fxtoggle" data-cine="letterbox" type="button">Cinematic bars</button>
+                    <div class="cap-fxbody hidden" id="cineBarsFx">
+                      <div class="cap-sub"><label>Size <span class="cap-num"><input type="number" id="cineBarsNum" min="0" max="100" value="50" />%</span></label><input type="range" class="cap-range" id="cineBars" min="0" max="100" value="50" /></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="cs-foot">
+                <button type="button" class="cust-reset" id="cineReset">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  Reset effects
+                </button>
+              </div>
+            </div>
+          </div>
+          </div><!-- /stabCustomize -->
+          </div><!-- /cap-studio -->
+
           <button class="generate" id="generateBtn">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z"/></svg>
             Generate Shorts
@@ -1204,11 +1476,20 @@
           <div class="phone" id="phone">
             <div class="phone-screen empty" id="phoneScreen">
               <div class="island"></div>
+              <div class="preview-pill"><span class="dot"></span>Preview</div>
               <div class="ph-placeholder" id="phPlaceholder">Upload a video or paste a link to preview it here</div>
               <div class="media-box" id="mediaBox">
                 <video id="previewVideo" class="hidden" muted loop autoplay playsinline></video>
                 <iframe id="previewEmbed" class="hidden" allow="autoplay; encrypted-media; picture-in-picture"
                         allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+              </div>
+              <!-- Cinematic FX preview (under the captions, over the media) -->
+              <div class="cine-overlay" id="cineOverlay">
+                <div class="cine-bar cine-bar-top" id="cineBarTop"></div>
+                <div class="cine-bar cine-bar-bottom" id="cineBarBottom"></div>
+                <div class="cine-grad cine-grad-top" id="cineGradTop"></div>
+                <div class="cine-grad cine-grad-bottom" id="cineGradBottom"></div>
+                <div class="cine-vig" id="cineVig"></div>
               </div>
               <div class="frame-title hidden" id="phoneTitle">Title of vid</div>
               <div class="cap-guides" id="capGuides"><i></i><i></i><i></i></div>
@@ -1296,6 +1577,7 @@ const state = {
   aspect: "9:16",
   fit: "crop",
   device: "auto",
+  language: "auto",     // caption transcription language (Whisper code or 'auto')
   numClips: 3,
   evtSource: null,
   renderedCount: 0,
@@ -1308,10 +1590,22 @@ const state = {
   pretranscribeId: null,  // id of the in-flight background transcription
   pretranscribeSource: null, // source file id that pretranscribe is for
   transcriptReady: false, // true once the background transcript is cached
-  captionStyle: "bold_white", // selected caption preset id
+  captionStyle: "bold_white", // base server preset id (sent as caption_style)
+  activeStyleKey: "bold_white", // which gallery chip is highlighted (server id OR user_… id)
+  userPresets: [],        // user-saved caption styles (localStorage)
+  galleryFilter: "all",   // template gallery filter: all | trending | mine
   captionOverrides: {},   // user tweaks layered over the preset (sent to /generate)
+  cinematic: {            // reel-style video effects (sent to /generate as `cinematic`)
+    color_grade: "none",
+    bottom_gradient: false, bottom_gradient_height: 25, bottom_gradient_strength: 70,
+    top_gradient: false, top_gradient_height: 20, top_gradient_strength: 60,
+    vignette: false, vignette_strength: 50,
+    glow: false, glow_strength: 50,
+    grain: false, grain_strength: 40,
+    letterbox: false, letterbox_size: 50,
+  },
   presets: [],            // /api/caption-styles
-  fontsData: { bundled: [], user: [] }, // /api/fonts
+  fontsData: { bundled: [], multilingual: [], user: [] }, // /api/fonts
   fontFiles: {},          // family -> filename (for @font-face)
 };
 
@@ -1402,6 +1696,30 @@ const deviceSel = document.getElementById("device");
 deviceSel.addEventListener("change", () => {
   state.device = deviceSel.value;
   warmDevice(state.device);
+});
+
+// ---- Caption language ----
+const langSel = document.getElementById("capLang");
+langSel.addEventListener("change", () => {
+  state.language = langSel.value;
+  // Auto-swap to a script-capable font for non-Latin languages (Urdu/Hindi/…),
+  // so captions don't render as tofu boxes with a Latin-only default.
+  const def = LANG_DEFAULT_FONT[state.language];
+  if (def && state.fontFiles[def]) {
+    const sel = document.getElementById("capFont");
+    sel.value = def;
+    document.getElementById("capFontVal").textContent = def;
+    setCaptionOverride("font_family", def);   // also refreshes the preview
+  }
+  // Refresh the in-frame preview so it shows the new language's sample phrase
+  // (setCaptionOverride above only runs for the non-Latin auto-font case).
+  updateCaptionPreview();
+  // The cached background transcript was decoded in the previous language —
+  // re-prepare it in the new one so Generate stays instant (and correct).
+  if (state.pretranscribeSource) {
+    state.transcriptReady = false;
+    startPretranscribe(state.pretranscribeSource);
+  }
 });
 
 function setDeviceStatus(cls, text) {
@@ -1572,8 +1890,35 @@ function updatePreviewFrame() {
 }
 
 // ---- Caption styles: presets + customizer + live in-frame preview ----
-const CAP_SAMPLE = ["Make", "it", "go", "viral"];   // preview phrase
-const CAP_HL = 2;                                    // which word is "active"
+// Preview phrase per caption language, so the in-frame preview reads in the
+// language the captions will actually be generated in — e.g. picking Hindi shows
+// "कैप्शन अब हिंदी में" instead of the English "Make it go viral". hl = the word
+// that highlights for the active-word/karaoke animations.
+const CAP_SAMPLES = {
+  en:       { words: ["Make", "it", "go", "viral"], hl: 3 },
+  hinglish: { words: ["Caption", "ab", "Hinglish", "mein"], hl: 2 },
+  hi:       { words: ["कैप्शन", "अब", "हिंदी", "में"], hl: 2 },
+  ur:       { words: ["کیپشن", "اب", "اردو", "میں"], hl: 2 },
+  ar:       { words: ["التعليقات", "الآن", "بالعربية"], hl: 2 },
+  fa:       { words: ["زیرنویس", "به", "فارسی"], hl: 2 },
+  pa:       { words: ["ਕੈਪਸ਼ਨ", "ਹੁਣ", "ਪੰਜਾਬੀ"], hl: 2 },
+  bn:       { words: ["ক্যাপশন", "এখন", "বাংলা"], hl: 2 },
+  es:       { words: ["Hazlo", "volverse", "viral"], hl: 2 },
+  fr:       { words: ["Rends-le", "viral"], hl: 1 },
+  de:       { words: ["Mach", "es", "viral"], hl: 2 },
+  pt:       { words: ["Torne-o", "viral"], hl: 1 },
+  ru:       { words: ["Сделай", "это", "вирусным"], hl: 2 },
+  tr:       { words: ["Onu", "viral", "yap"], hl: 1 },
+  id:       { words: ["Buat", "jadi", "viral"], hl: 2 },
+  ja:       { words: ["バズら", "せよう"], hl: 1 },
+  ko:       { words: ["떡상", "가자"], hl: 0 },
+  zh:       { words: ["让它", "爆红"], hl: 1 },
+};
+const CAP_SAMPLE = CAP_SAMPLES.en.words;   // default fallback (used by styleCaptionEl)
+const CAP_HL = CAP_SAMPLES.en.hl;
+
+// The preview phrase for the currently-selected caption language.
+function captionSample() { return CAP_SAMPLES[state.language] || CAP_SAMPLES.en; }
 
 function presetById(id) { return state.presets.find(p => p.id === id) || state.presets[0] || {}; }
 function effectiveCaptionCfg() { return Object.assign({}, presetById(state.captionStyle), state.captionOverrides); }
@@ -1589,6 +1934,28 @@ function captionToggleOn(cfg, key) {
   }
   return !!cfg[key];
 }
+
+// All known fonts across groups (used to register @font-face for previews).
+function allFonts() {
+  return [
+    ...(state.fontsData.user || []),
+    ...(state.fontsData.multilingual || []),
+    ...(state.fontsData.bundled || []),
+  ];
+}
+
+// A sensible default caption font per non-Latin language, so picking the
+// language auto-swaps to a typeface that can actually render the script.
+const LANG_DEFAULT_FONT = {
+  ur: "Noto Nastaliq Urdu",
+  fa: "Noto Naskh Arabic",
+  ar: "Noto Sans Arabic",
+  hi: "Noto Sans Devanagari",
+  mr: "Noto Sans Devanagari",
+  ne: "Noto Sans Devanagari",
+  bn: "Noto Sans Devanagari",
+  pa: "Noto Sans Devanagari",
+};
 
 function injectFontFaces(list) {
   let css = "";
@@ -1783,29 +2150,143 @@ function styleCaptionEl(el, cfg, opts) {
   el.style.textShadow = shadows.length ? shadows.join(",") : "none";
 }
 
+// ---- Caption preset gallery (server presets + user-saved custom styles) ----
+const USER_PRESETS_LS = "clipforge_caption_presets_v1";
+
+function loadUserPresets() {
+  try { state.userPresets = JSON.parse(localStorage.getItem(USER_PRESETS_LS)) || []; }
+  catch (e) { state.userPresets = []; }
+}
+function persistUserPresets() {
+  try { localStorage.setItem(USER_PRESETS_LS, JSON.stringify(state.userPresets)); } catch (e) { /* quota — non-fatal */ }
+}
+
+// Full caption config for a saved style = its base preset with the saved tweaks layered on.
+function cfgForUserPreset(up) {
+  return Object.assign({}, presetById(up.base), up.overrides || {});
+}
+
+function buildChip({ key, label, cfg, trending, custom }) {
+  const chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = "cap-chip" + (key === state.activeStyleKey ? " active" : "");
+  chip.dataset.key = key;
+  const badge = custom ? '<span class="cap-trend is-custom">Custom</span>'
+              : trending ? '<span class="cap-trend">Trending</span>' : "";
+  // A <span> (not <button>) so it can legally live inside the chip's <button>.
+  const del = custom
+    ? '<span class="cap-del" role="button" title="Delete this style"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>'
+    : "";
+  chip.innerHTML = del + badge +
+    `<span class="cap-stage"><span class="cap-sample"></span></span>` +
+    `<span class="cap-name">${escapeHtml(label)}</span>`;
+  // Show the style's own NAME rendered in that style (AutoCaption-like tiles).
+  const words = (label || "Aa").split(/\s+/).slice(0, 3);
+  styleCaptionEl(chip.querySelector(".cap-sample"), cfg, { fontPx: 20, scale: 0.2, words, hlIndex: words.length - 1 });
+  return chip;
+}
+
+function groupLabel(text) {
+  const el = document.createElement("div");
+  el.className = "cap-group-label";
+  el.innerHTML = `<span>${escapeHtml(text)}</span>`;
+  return el;
+}
+
 function renderPresetChips() {
   const root = document.getElementById("capPresets");
   root.innerHTML = "";
-  state.presets.forEach(p => {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "cap-chip" + (p.id === state.captionStyle ? " active" : "");
-    chip.dataset.id = p.id;
-    chip.innerHTML = `${p.trending ? '<span class="cap-trend">Trending</span>' : ""}` +
-      `<span class="cap-stage"><span class="cap-sample"></span></span>` +
-      `<span class="cap-name">${escapeHtml(p.label)}</span>`;
-    styleCaptionEl(chip.querySelector(".cap-sample"), p, { fontPx: 21, scale: 0.22, words: ["Viral"], hlIndex: 0 });
-    chip.addEventListener("click", () => selectPreset(p.id));
-    root.appendChild(chip);
-  });
+  const f = state.galleryFilter || "all";
+  const showMine = (f === "all" || f === "mine");
+  const showTrend = (f === "all" || f === "trending");
+  const showStd = (f === "all");
+
+  // 1) The user's own saved styles, first (mirrors the fonts ordering they liked).
+  if (showMine && state.userPresets.length) {
+    if (f === "all") root.appendChild(groupLabel("My styles"));
+    state.userPresets.forEach(up => {
+      const chip = buildChip({ key: up.id, label: up.label, cfg: cfgForUserPreset(up), custom: true });
+      chip.addEventListener("click", e => { if (e.target.closest(".cap-del")) return; selectUserPreset(up); });
+      chip.querySelector(".cap-del").addEventListener("click", () => removeUserPreset(up.id));
+      root.appendChild(chip);
+    });
+  }
+  if (f === "mine" && !state.userPresets.length) {
+    const empty = document.createElement("div");
+    empty.className = "gallery-empty";
+    empty.textContent = "No saved styles yet — tune a look and hit “Save current”.";
+    root.appendChild(empty);
+  }
+
+  // 2) Built-in presets, split into Trending and Standard.
+  const trending = state.presets.filter(p => p.trending);
+  const standard = state.presets.filter(p => !p.trending);
+  const addServer = (title, list, show) => {
+    if (!show || !list.length) return;
+    if (f === "all") root.appendChild(groupLabel(title));
+    list.forEach(p => {
+      const chip = buildChip({ key: p.id, label: p.label, cfg: p, trending: p.trending });
+      chip.addEventListener("click", () => selectPreset(p.id));
+      root.appendChild(chip);
+    });
+  };
+  addServer("Trending", trending, showTrend);
+  addServer("Standard", standard, showStd);
+}
+
+// Highlight the active chip across every group without a full re-render.
+function markActiveChips() {
+  document.querySelectorAll("#capPresets .cap-chip").forEach(c =>
+    c.classList.toggle("active", c.dataset.key === state.activeStyleKey));
+}
+
+// Keep a script-capable font for non-Latin languages when starting from a preset.
+function applyLanguageFont() {
+  const def = LANG_DEFAULT_FONT[state.language];
+  if (def && state.fontFiles[def]) state.captionOverrides.font_family = def;
 }
 
 function selectPreset(id) {
   state.captionStyle = id;
+  state.activeStyleKey = id;
   state.captionOverrides = {};   // start clean from the preset; tweaks become overrides
-  document.querySelectorAll("#capPresets .cap-chip").forEach(c => c.classList.toggle("active", c.dataset.id === id));
+  applyLanguageFont();
+  markActiveChips();
   syncCustomizerToPreset();
   updateCaptionPreview();
+}
+
+function selectUserPreset(up) {
+  state.captionStyle = up.base;          // server base (sent as caption_style)
+  state.activeStyleKey = up.id;
+  state.captionOverrides = JSON.parse(JSON.stringify(up.overrides || {}));  // its tweaks
+  markActiveChips();
+  syncCustomizerToPreset();
+  updateCaptionPreview();
+}
+
+function removeUserPreset(id) {
+  state.userPresets = state.userPresets.filter(p => p.id !== id);
+  persistUserPresets();
+  if (state.activeStyleKey === id) state.activeStyleKey = state.captionStyle;  // fall back to its base
+  renderPresetChips();
+}
+
+// Save the current look (base preset + live tweaks) as a reusable custom style.
+function saveCurrentPreset(name) {
+  const label = (name || "").trim();
+  if (!label) return false;
+  const up = {
+    id: "user_" + Date.now().toString(36),
+    label,
+    base: state.captionStyle,
+    overrides: JSON.parse(JSON.stringify(state.captionOverrides)),
+  };
+  state.userPresets.unshift(up);
+  persistUserPresets();
+  state.activeStyleKey = up.id;
+  renderPresetChips();
+  return true;
 }
 
 function populateFontSelect() {
@@ -1818,8 +2299,11 @@ function populateFontSelect() {
     fams.forEach(f => { const o = document.createElement("option"); o.value = f.family; o.textContent = f.family; og.appendChild(o); });
     sel.appendChild(og);
   };
-  add("Trending", state.fontsData.bundled || []);
+  // Imported (uploaded) fonts first so the user's own fonts sit at the top,
+  // then the Urdu/Hindi set, then the trending Latin display fonts.
   add("Your fonts", state.fontsData.user || []);
+  add("Urdu / Hindi", state.fontsData.multilingual || []);
+  add("Trending", state.fontsData.bundled || []);
   if (prev) sel.value = prev;
 }
 
@@ -1871,7 +2355,8 @@ function updateCaptionPreview() {
   const screen = document.getElementById("phoneScreen");
   const scale = (screen ? screen.clientWidth : 200) / 1080;
   const fontPx = Math.max(9, (cfg.font_size || 90) * (cfg.font_scale || 1) * scale);
-  styleCaptionEl(document.getElementById("capPreviewLine"), cfg, { fontPx, scale, words: CAP_SAMPLE, hlIndex: CAP_HL });
+  const samp = captionSample();
+  styleCaptionEl(document.getElementById("capPreviewLine"), cfg, { fontPx, scale, words: samp.words, hlIndex: samp.hl });
   syncPosControls();
   updateFxPanels();
   paintRanges();
@@ -2000,7 +2485,7 @@ function initCaptionDrag() {
 async function loadFonts() {
   try {
     state.fontsData = await fetch("/api/fonts").then(r => r.json());
-    injectFontFaces([...(state.fontsData.bundled || []), ...(state.fontsData.user || [])]);
+    injectFontFaces(allFonts());
     populateFontSelect();
   } catch (e) { /* fonts are best-effort */ }
 }
@@ -2012,9 +2497,10 @@ async function loadCaptionData() {
       fetch("/api/fonts").then(r => r.json()),
     ]);
     state.presets = ps || [];
-    state.fontsData = fs || { bundled: [], user: [] };
-    injectFontFaces([...(state.fontsData.bundled || []), ...(state.fontsData.user || [])]);
+    state.fontsData = fs || { bundled: [], multilingual: [], user: [] };
+    injectFontFaces(allFonts());
     populateFontSelect();
+    loadUserPresets();
     renderPresetChips();
     syncCustomizerToPreset();
     updateCaptionPreview();
@@ -2038,6 +2524,139 @@ async function uploadCaptionFont(file) {
   } catch (e) {
     note.className = "cap-upnote err"; note.textContent = e.message;
   }
+}
+
+// ---- Cinematic effects (footage FX under the captions) ----
+// CSS approximation of each colour grade for the live preview (render uses ffmpeg).
+const CINE_GRADE_CSS = {
+  none: "",
+  warm: "saturate(1.1) sepia(.18) hue-rotate(-8deg) brightness(1.02)",
+  cool: "saturate(1.05) hue-rotate(12deg) contrast(1.03)",
+  teal_orange: "saturate(1.18) contrast(1.06) sepia(.12) hue-rotate(-6deg)",
+  vintage: "sepia(.35) saturate(.85) contrast(.95) brightness(1.03)",
+  vibrant: "saturate(1.4) contrast(1.08) brightness(1.01)",
+  bw: "grayscale(1) contrast(1.1)",
+};
+
+// True if any cinematic effect is active (so we only send/preview when needed).
+function cineActive() {
+  const c = state.cinematic;
+  return (c.color_grade && c.color_grade !== "none") || c.bottom_gradient || c.top_gradient
+      || c.vignette || c.glow || c.grain || c.letterbox;
+}
+
+function updateCinePreview() {
+  const c = state.cinematic;
+  const show = (el, on) => { if (el) el.style.display = on ? "block" : "none"; };
+  const gb = document.getElementById("cineGradBottom");
+  const gt = document.getElementById("cineGradTop");
+  const vg = document.getElementById("cineVig");
+  const bt = document.getElementById("cineBarTop"), bb = document.getElementById("cineBarBottom");
+
+  // Bottom / top dark gradients.
+  show(gb, c.bottom_gradient);
+  if (c.bottom_gradient) {
+    const m = (c.bottom_gradient_strength || 0) / 100, h = c.bottom_gradient_height || 25;
+    gb.style.height = Math.max(h, 1) + "%";
+    gb.style.background = `linear-gradient(to top, rgba(0,0,0,${m.toFixed(3)}) 0%, rgba(0,0,0,0) 100%)`;
+  }
+  show(gt, c.top_gradient);
+  if (c.top_gradient) {
+    const m = (c.top_gradient_strength || 0) / 100, h = c.top_gradient_height || 20;
+    gt.style.height = Math.max(h, 1) + "%";
+    gt.style.background = `linear-gradient(to bottom, rgba(0,0,0,${m.toFixed(3)}) 0%, rgba(0,0,0,0) 100%)`;
+  }
+  // Vignette.
+  show(vg, c.vignette);
+  if (c.vignette) {
+    const v = (c.vignette_strength || 0) / 100 * 0.9;
+    vg.style.background = `radial-gradient(ellipse 75% 75% at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,${v.toFixed(3)}) 115%)`;
+  }
+  // Letterbox bars.
+  show(bt, c.letterbox); show(bb, c.letterbox);
+  if (c.letterbox) {
+    const sz = 5 + (c.letterbox_size || 50) / 100 * 9;  // 5%..14% (matches the render map)
+    bt.style.height = sz + "%"; bb.style.height = sz + "%";
+  }
+  // Colour grade + glow → CSS filter on the media itself.
+  const mediaBox = document.getElementById("mediaBox");
+  if (mediaBox) {
+    let f = CINE_GRADE_CSS[c.color_grade] || "";
+    if (c.glow) { const g = 1 + (c.glow_strength || 0) / 100 * 0.12; f += ` brightness(${g.toFixed(3)}) contrast(1.03)`; }
+    mediaBox.style.filter = f.trim();
+  }
+}
+
+function bindCineControls() {
+  const $ = id => document.getElementById(id);
+  $("capCineToggle").addEventListener("click", () => {
+    const body = $("capCineBody");
+    const open = body.classList.toggle("hidden");
+    $("capCine").classList.toggle("open", !open);
+  });
+  // Toggle buttons reveal their controls + flip the effect on.
+  const FX = {
+    bottom_gradient: "cineBottomFx", top_gradient: "cineTopFx",
+    vignette: "cineVigFx", glow: "cineGlowFx", grain: "cineGrainFx", letterbox: "cineBarsFx",
+  };
+  document.querySelectorAll("#capCineBody .cap-tg[data-cine]").forEach(b => {
+    b.addEventListener("click", () => {
+      const k = b.dataset.cine;
+      const now = !state.cinematic[k];
+      state.cinematic[k] = now;
+      b.classList.toggle("active", now);
+      const panel = $(FX[k]); if (panel) panel.classList.toggle("hidden", !now);
+      updateCinePreview();
+    });
+  });
+  $("cineGrade").addEventListener("change", e => { state.cinematic.color_grade = e.target.value; updateCinePreview(); });
+  // Slider ↔ number badge pairs, each writing one cinematic key.
+  const slider = (rangeId, numId, key, min, max) => {
+    const r = $(rangeId);
+    r.addEventListener("input", e => { setNum(numId, Math.round(e.target.value)); state.cinematic[key] = parseFloat(e.target.value); updateCinePreview(); });
+    bindNum(numId, min, max, n => { r.value = n; state.cinematic[key] = n; updateCinePreview(); });
+  };
+  slider("cineBottomH", "cineBottomHNum", "bottom_gradient_height", 0, 80);
+  slider("cineBottomS", "cineBottomSNum", "bottom_gradient_strength", 0, 100);
+  slider("cineTopH", "cineTopHNum", "top_gradient_height", 0, 80);
+  slider("cineTopS", "cineTopSNum", "top_gradient_strength", 0, 100);
+  slider("cineVigS", "cineVigSNum", "vignette_strength", 0, 100);
+  slider("cineGlowS", "cineGlowSNum", "glow_strength", 0, 100);
+  slider("cineGrainS", "cineGrainSNum", "grain_strength", 0, 100);
+  slider("cineBars", "cineBarsNum", "letterbox_size", 0, 100);
+  $("cineReset").addEventListener("click", () => {
+    Object.assign(state.cinematic, {
+      color_grade: "none", bottom_gradient: false, top_gradient: false,
+      vignette: false, glow: false, grain: false, letterbox: false,
+    });
+    $("cineGrade").value = "none";
+    document.querySelectorAll("#capCineBody .cap-tg[data-cine]").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("#capCineBody .cap-fxbody").forEach(p => p.classList.add("hidden"));
+    updateCinePreview();
+  });
+  paintRanges();
+}
+
+// ---- Studio tabs (Templates / Customize styles) + gallery filters ----
+function bindStudioTabs() {
+  const panes = { templates: "stabTemplates", customize: "stabCustomize" };
+  document.querySelectorAll(".studio-tab").forEach(t => t.addEventListener("click", () => {
+    const tab = t.dataset.stab;
+    document.querySelectorAll(".studio-tab").forEach(x => x.classList.toggle("active", x === t));
+    Object.entries(panes).forEach(([k, id]) =>
+      document.getElementById(id).classList.toggle("hidden", k !== tab));
+    if (tab === "customize") {
+      // Show the controls directly (editor-style), not collapsed behind a toggle.
+      document.getElementById("capCustBody").classList.remove("hidden");
+      document.getElementById("capCustomizer").classList.add("open");
+      updateCaptionPreview();
+    }
+  }));
+  document.querySelectorAll(".gfilter").forEach(b => b.addEventListener("click", () => {
+    state.galleryFilter = b.dataset.gf;
+    document.querySelectorAll(".gfilter").forEach(x => x.classList.toggle("active", x === b));
+    renderPresetChips();
+  }));
 }
 
 function bindCaptionControls() {
@@ -2101,7 +2720,31 @@ function bindCaptionControls() {
   bindNum("capShadowOpacityNum", 0, 100, n => { $("capShadowOpacity").value = n; setCaptionOverride("shadow_opacity", n); });
   $("capGlow").addEventListener("input", e => { setNum("capGlowNum", Math.round(e.target.value)); setCaptionOverride("glow_intensity", parseFloat(e.target.value)); });
   bindNum("capGlowNum", 0, 30, n => { $("capGlow").value = n; setCaptionOverride("glow_intensity", n); });
-  $("capReset").addEventListener("click", () => { state.captionOverrides = {}; syncCustomizerToPreset(); updateCaptionPreview(); });
+  $("capReset").addEventListener("click", () => {
+    state.captionOverrides = {}; applyLanguageFont();
+    state.activeStyleKey = state.captionStyle;  // highlight the base preset, not a stale custom chip
+    markActiveChips();
+    syncCustomizerToPreset(); updateCaptionPreview();
+  });
+
+  // ---- Save-as-preset toolbar ----
+  const saveForm = $("capSaveForm"), saveName = $("capSaveName");
+  const openSaveForm = (open) => {
+    saveForm.classList.toggle("hidden", !open);
+    $("capSaveBtn").classList.toggle("hidden", open);
+    if (open) { saveName.value = ""; saveName.focus(); }
+  };
+  const commitSave = () => {
+    if (saveCurrentPreset(saveName.value)) openSaveForm(false);
+    else saveName.focus();
+  };
+  $("capSaveBtn").addEventListener("click", () => openSaveForm(true));
+  $("capSaveCancel").addEventListener("click", () => openSaveForm(false));
+  $("capSaveGo").addEventListener("click", commitSave);
+  saveName.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); commitSave(); }
+    else if (e.key === "Escape") openSaveForm(false);
+  });
 }
 
 function removeUpload() {
@@ -2209,7 +2852,7 @@ function renderClip(c) {
       <h3>${escapeHtml(c.title)}</h3>
       <div class="sub">${dur}s · ${c.start.toFixed(1)}–${c.end.toFixed(1)}s</div>
       <div class="actions">
-        <a href="${c.url}" download>${ICONS.download} Download</a>
+        <a href="${c.url}" download="${escapeHtml(c.filename || '')}">${ICONS.download} Download</a>
         <button class="copy" data-url="${c.url}">Copy link</button>
       </div>
     </div>`;
@@ -2279,8 +2922,10 @@ btn.addEventListener("click", async () => {
     num_clips: state.numClips,
     device: state.device,
     caption_style: state.captionStyle,
+    language: state.language === "auto" ? null : state.language,
   };
   if (Object.keys(state.captionOverrides).length) payload.caption_overrides = state.captionOverrides;
+  if (cineActive()) payload.cinematic = state.cinematic;
 
   if (state.source === "upload") {
     if (!state.upload_id) { showError("Please upload a video file first (wait for it to finish)."); return; }
@@ -2528,7 +3173,7 @@ function buildHistoryClipCard(clipId, c) {
       <h3>${escapeHtml(c.title || ("Clip " + (c.index + 1)))}</h3>
       <div class="sub">${dur}s · ${(+c.start).toFixed(1)}–${(+c.end).toFixed(1)}s</div>
       <div class="actions">
-        <a href="${c.url}" download>${ICONS.download} Download</a>
+        <a href="${c.url}" download="${escapeHtml(c.filename || '')}">${ICONS.download} Download</a>
         <button class="copy" data-url="${c.url}">Copy link</button>
       </div>
     </div>`;
@@ -2736,7 +3381,7 @@ async function startPretranscribe(sourceId) {
   try {
     const res = await fetch("/api/pretranscribe", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source_id: sourceId, device: state.device }),
+      body: JSON.stringify({ source_id: sourceId, device: state.device, language: state.language === "auto" ? null : state.language }),
     });
     const snap = await res.json();
     if (!res.ok) throw new Error(snap.detail || ("Request failed (" + res.status + ")"));
@@ -2777,7 +3422,10 @@ document.getElementById("toStep2").addEventListener("click", () => {
 document.getElementById("backToStep1").addEventListener("click", () => goToStep(1));
 
 loadCompute();
+bindStudioTabs();
 bindCaptionControls();
+bindCineControls();
+updateCinePreview();
 loadCaptionData();
 updatePreviewFrame();
 loadSidebar();

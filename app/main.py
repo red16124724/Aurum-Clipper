@@ -15,6 +15,7 @@ import logging
 import subprocess
 import sys
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,9 +23,9 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import captions, fonts, history, jobs, prefetch, pretranscribe, transcriber, uploads
+from . import captions, fonts, history, jobs, music, prefetch, pretranscribe, transcriber, uploads
 from .models import Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
-from .paths import CLIPS_DIR, FONTS_DIR, STATIC_DIR, ensure_dirs
+from .paths import CLIPS_DIR, FONTS_DIR, MUSIC_DIR, STATIC_DIR, ensure_dirs
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,6 +62,8 @@ app.add_middleware(
 app.mount("/clips", StaticFiles(directory=str(CLIPS_DIR)), name="clips")
 # Serve caption fonts so the UI can @font-face them for an accurate live preview.
 app.mount("/fonts", StaticFiles(directory=str(FONTS_DIR)), name="fonts")
+# Serve the music library so the UI can preview tracks with an <audio> element.
+app.mount("/music", StaticFiles(directory=str(MUSIC_DIR)), name="music")
 
 
 @app.get("/health")
@@ -143,6 +146,24 @@ def upload_font(file: UploadFile = File(...)) -> dict:
     return {"status": "ok", **info}
 
 
+@app.get("/api/music")
+def get_music() -> dict:
+    """List background-music tracks (files in assets/music + uploads)."""
+    return {"tracks": music.list_tracks()}
+
+
+@app.post("/api/music/upload")
+def upload_music(file: UploadFile = File(...)) -> dict:
+    """Accept a user audio file and add it to the background-music library."""
+    try:
+        info = music.save_track(file.filename, file.file)
+    except InvalidVideoURLError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    finally:
+        file.file.close()
+    return {"status": "ok", **info}
+
+
 class PrefetchRequest(BaseModel):
     """Body for POST /api/prefetch — start fetching a URL video in the background."""
 
@@ -178,6 +199,7 @@ class PretranscribeRequest(BaseModel):
 
     source_id: str
     device: Device = Device.AUTO
+    language: Optional[str] = None
 
 
 @app.post("/api/pretranscribe")
@@ -191,7 +213,7 @@ def pretranscribe_start(req: PretranscribeRequest) -> dict:
     source_id = (req.source_id or "").strip()
     if not source_id:
         raise HTTPException(status_code=400, detail="No source id was provided.")
-    job = pretranscribe.start(source_id, req.device.value)
+    job = pretranscribe.start(source_id, req.device.value, req.language)
     return {"pretranscribe_id": job.id, **job.snapshot()}
 
 

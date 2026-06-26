@@ -12,6 +12,32 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+# ISO language code -> native display name, used to name downloaded clip files in
+# the caption's own language (e.g. an Urdu clip downloads as "اردو - ….mp4").
+# Codes match what faster-whisper reports in `info.language`.
+LANGUAGE_NAMES: dict[str, str] = {
+    "en": "English",
+    "hinglish": "Hinglish",
+    "ur": "اردو",
+    "hi": "हिन्दी",
+    "ar": "العربية",
+    "fa": "فارسی",
+    "pa": "ਪੰਜਾਬੀ",
+    "bn": "বাংলা",
+    "mr": "मराठी",
+    "ne": "नेपाली",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "pt": "Português",
+    "ru": "Русский",
+    "tr": "Türkçe",
+    "id": "Bahasa",
+    "ja": "日本語",
+    "ko": "한국어",
+    "zh": "中文",
+}
+
 
 # --------------------------------------------------------------------------- #
 # Enums
@@ -162,6 +188,38 @@ class CaptionOverrides(BaseModel):
     )
 
 
+class CinematicEffects(BaseModel):
+    """Reel-style cinematic effects applied to the footage (under the captions).
+
+    All optional / off by default. Strengths are 0-100; gradient heights are a %
+    of the frame height. Mirrored by the frontend so the live preview matches the
+    burned-in render. See ``app.effects.cinematic_stages``.
+    """
+
+    color_grade: Optional[str] = Field(
+        default="none",
+        description="Colour look: none, warm, cool, teal_orange, vintage, vibrant, bw.",
+    )
+    glow: Optional[bool] = Field(default=False, description="Soft bloom/glow on highlights.")
+    glow_strength: Optional[float] = Field(default=50, ge=0, le=100)
+    grain: Optional[bool] = Field(default=False, description="Film grain.")
+    grain_strength: Optional[float] = Field(default=40, ge=0, le=100)
+    vignette: Optional[bool] = Field(default=False, description="Darkened corners.")
+    vignette_strength: Optional[float] = Field(default=50, ge=0, le=100)
+    bottom_gradient: Optional[bool] = Field(
+        default=False, description="Dark scrim rising from the bottom (caption legibility)."
+    )
+    bottom_gradient_height: Optional[float] = Field(default=25, ge=0, le=80)
+    bottom_gradient_strength: Optional[float] = Field(default=70, ge=0, le=100)
+    top_gradient: Optional[bool] = Field(default=False, description="Dark scrim from the top.")
+    top_gradient_height: Optional[float] = Field(default=20, ge=0, le=80)
+    top_gradient_strength: Optional[float] = Field(default=60, ge=0, le=100)
+    letterbox: Optional[bool] = Field(
+        default=False, description="Cinematic black bars (top + bottom)."
+    )
+    letterbox_size: Optional[float] = Field(default=50, ge=0, le=100)
+
+
 class GenerateRequest(BaseModel):
     """Body for POST /api/generate.
 
@@ -199,10 +257,32 @@ class GenerateRequest(BaseModel):
     caption_style: str = Field(
         default="bold_white", description="Caption style preset id."
     )
+    language: Optional[str] = Field(
+        default=None,
+        description="Language the captions are transcribed in (ISO code, e.g. "
+        "'en', 'ur', 'hi'). None / 'auto' lets Whisper auto-detect. Forcing a "
+        "language helps when auto-detect confuses e.g. Urdu and Hindi, and also "
+        "names the downloaded clip files in that language.",
+    )
     caption_overrides: Optional[CaptionOverrides] = Field(
         default=None,
         description="Per-render tweaks (position, rotation, stroke, shadow, "
         "background) layered over the chosen preset.",
+    )
+    cinematic: Optional[CinematicEffects] = Field(
+        default=None,
+        description="Cinematic video effects (gradients, glow, vignette, grain, "
+        "colour grade, letterbox) burned under the captions.",
+    )
+    music_track: Optional[str] = Field(
+        default=None,
+        description="Background-music filename from the music library (assets/music). "
+        "Mixed UNDER the original audio and ducked when speech is present.",
+    )
+    music_volume: Optional[float] = Field(
+        default=35, ge=0, le=100,
+        description="Background-music loudness (0-100). Kept subtle/reels-style; "
+        "ducks down further while the speaker is talking.",
     )
     device: Device = Field(
         default=Device.AUTO,

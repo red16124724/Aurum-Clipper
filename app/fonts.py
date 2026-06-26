@@ -68,6 +68,47 @@ TRENDING_FONTS: dict[str, tuple[str, str]] = {
     "DM Serif Display": ("DMSerifDisplay-Regular.ttf", f"{_GF}/ofl/dmserifdisplay/DMSerifDisplay-Regular.ttf"),
 }
 
+# Multilingual fonts for non-Latin captions (Urdu / Hindi / Arabic). Whisper
+# emits Urdu in the Arabic script and Hindi in Devanagari, neither of which the
+# Latin display fonts above can draw — so these are bundled and offered as their
+# own group. Family name (as embedded / used in the ASS Fontname) -> (file, url).
+MULTILINGUAL_FONTS: dict[str, tuple[str, str]] = {
+    # --- Urdu / Arabic ---
+    "Noto Nastaliq Urdu": (
+        "NotoNastaliqUrdu-Regular.ttf",
+        f"{_GF}/ofl/notonastaliqurdu/NotoNastaliqUrdu%5Bwght%5D.ttf",
+    ),
+    "Noto Naskh Arabic": (
+        "NotoNaskhArabic-Regular.ttf",
+        f"{_GF}/ofl/notonaskharabic/NotoNaskhArabic%5Bwght%5D.ttf",
+    ),
+    "Noto Sans Arabic": (
+        "NotoSansArabic-Regular.ttf",
+        f"{_GF}/ofl/notosansarabic/NotoSansArabic%5Bwdth%2Cwght%5D.ttf",
+    ),
+    # --- Hindi (Devanagari) ---
+    "Noto Sans Devanagari": (
+        "NotoSansDevanagari-Regular.ttf",
+        f"{_GF}/ofl/notosansdevanagari/NotoSansDevanagari%5Bwdth%2Cwght%5D.ttf",
+    ),
+    "Noto Serif Devanagari": (
+        "NotoSerifDevanagari-Regular.ttf",
+        f"{_GF}/ofl/notoserifdevanagari/NotoSerifDevanagari%5Bwdth%2Cwght%5D.ttf",
+    ),
+}
+
+# A sensible default caption font per non-Latin language code, so picking the
+# language can auto-swap the typeface to one that can actually render the script
+# (avoids tofu boxes when the user leaves the Latin default selected).
+LANG_DEFAULT_FONT: dict[str, str] = {
+    "ur": "Noto Nastaliq Urdu",   # Urdu
+    "ar": "Noto Sans Arabic",     # Arabic
+    "fa": "Noto Naskh Arabic",    # Persian
+    "hi": "Noto Sans Devanagari",  # Hindi
+    "mr": "Noto Sans Devanagari",  # Marathi
+    "ne": "Noto Sans Devanagari",  # Nepali
+}
+
 # Always-offered core families -> their file (so the UI can @font-face them too).
 _CORE_FAMILY_FILES = {"Roboto": "Roboto-Regular.ttf"}
 
@@ -104,11 +145,13 @@ def ensure_core_fonts() -> None:
 
 
 def ensure_trending_fonts() -> None:
-    """Download the trending display fonts (slow on first run -> call in a thread)."""
+    """Download the trending + multilingual fonts (slow on first run -> thread)."""
     FONTS_DIR.mkdir(parents=True, exist_ok=True)
     for filename, url in TRENDING_FONTS.values():
         _download(filename, url)
-    logger.info("Trending fonts ready in %s", FONTS_DIR)
+    for filename, url in MULTILINGUAL_FONTS.values():
+        _download(filename, url)
+    logger.info("Trending + multilingual fonts ready in %s", FONTS_DIR)
 
 
 def ensure_fonts() -> None:
@@ -235,4 +278,11 @@ def list_fonts() -> dict:
     """
     bundled = [{"family": fam, "file": fn} for fam, fn in _CORE_FAMILY_FILES.items()]
     bundled += [{"family": fam, "file": fn} for fam, (fn, _url) in TRENDING_FONTS.items()]
-    return {"bundled": bundled, "user": _read_user_registry()}
+    multilingual = [
+        {"family": fam, "file": fn} for fam, (fn, _url) in MULTILINGUAL_FONTS.items()
+    ]
+    return {
+        "bundled": bundled,
+        "multilingual": multilingual,
+        "user": _read_user_registry(),
+    }
