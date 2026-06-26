@@ -101,6 +101,7 @@ class ClipOptions:
     cinematic: Optional[dict] = None  # cinematic effects config (see app.effects)
     music_path: Optional[Path] = None  # background-music track to mix under the audio
     music_volume: float = 35.0         # 0-100, reels-style (ducked under speech)
+    music_duck: float = 70.0           # 0-100, how hard music dips under the voice
 
 
 def _rel_for_filter(target: Path, start_dir: Path) -> str:
@@ -135,15 +136,22 @@ def _ass_filter(opts: ClipOptions, work_dir: Path) -> str:
     )
 
 
+def _caption_stage(in_label: str, opts: ClipOptions, work_dir: Path) -> str:
+    """The final stage that burns the captions onto ``in_label`` -> ``[outv]``."""
+    return f"[{in_label}]{_ass_filter(opts, work_dir)}[outv]"
+
+
 def _finish_stages(in_label: str, vw: int, vh: int, opts: ClipOptions, work_dir: Path) -> list[str]:
     """Append the cinematic stages (under the captions) then the caption burn.
 
     Returns the stages that take ``in_label`` -> cinematic effects -> ``[outv]``.
     With no effects this is just the single caption-burn stage, so the default
-    render is unchanged.
+    render is unchanged. Used by crop mode, where the footage fills the whole
+    frame so the effects land on the video. (Square mode applies the effects to
+    the square itself — see ``_build_square_filter_complex``.)
     """
     cine_stages, cap_in = effects.cinematic_stages(opts.cinematic, in_label, vw, vh)
-    return cine_stages + [f"[{cap_in}]{_ass_filter(opts, work_dir)}[outv]"]
+    return cine_stages + [_caption_stage(cap_in, opts, work_dir)]
 
 
 def _build_crop_filter_complex(width: int, height: int, opts: ClipOptions, work_dir: Path) -> str:
@@ -175,7 +183,17 @@ def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
         f"[base]scale={w}:{h}:force_original_aspect_ratio=increase,"
         f"crop={w}:{h},drawbox=0:0:iw:ih:black:t=fill[bg]",
         f"[fg]scale={s}:{s}:force_original_aspect_ratio=increase,"
-        f"crop={s}:{s},format=yuva420p[sq]",
+        f"crop={s}:{s}[fgsq]",
+    ]
+
+    # Cinematic FX go on the SQUARE itself (vw=vh=s) — exactly the region the live
+    # preview grades — so gradients/vignette/grade land on the footage, not on the
+    # black canvas around it. (Crop mode applies them to the full frame instead.)
+    cine_stages, sq_cine = effects.cinematic_stages(opts.cinematic, "fgsq", s, s)
+    stages += cine_stages
+
+    stages += [
+        f"[{sq_cine}]format=yuva420p[sq]",
         f"[1:v]format=gray,scale={s}:{s}[m]",
         "[sq][m]alphamerge[r]",
         f"[bg][r]overlay={mx}:{my}[ov]",
@@ -193,11 +211,12 @@ def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
         )
         last = "titled"
 
-    stages += _finish_stages(last, w, h, opts, work_dir)
+    # Captions burn on the composited canvas (effects already applied to the square).
+    stages.append(_caption_stage(last, opts, work_dir))
     return ";".join(stages)
 
 
-def _music_audio_graph(mus_idx: int, volume: float) -> str:
+def _music_audio_graph(mus_idx: int, volume: float, duck: float = 70.0) -> str:
     """Filtergraph that mixes a background track UNDER the original audio, reels-style.
 
     The voice is split: one copy is the sidechain key for ``sidechaincompress``,
@@ -206,14 +225,21 @@ def _music_audio_graph(mus_idx: int, volume: float) -> str:
     filling the gaps — never a wall of loud music. ``normalize=0`` keeps the voice
     at unity gain instead of amix halving everything.
 
+    ``volume`` (0-100) sets the music's resting loudness; ``duck`` (0-100) sets how
+    hard the music dips while someone is talking, by scaling the sidechain
+    compression ratio: 0 leaves the music steady (ratio ≈ 1), 100 pulls it down
+    aggressively (ratio ≈ 20) so the voice always cuts through.
+
     Input 0's audio is the source voice; ``mus_idx`` is the music input's index.
     Produces the ``[aout]`` label the caller maps as the output audio.
     """
     base = max(0.0, min(1.0, (volume if volume is not None else 35) / 100.0 * 0.7))
+    d = max(0.0, min(1.0, (duck if duck is not None else 70) / 100.0))
+    ratio = 1.0 + d * 19.0  # 0 → 1 (no ducking), 100 → 20 (hard ducking)
     return (
         f"[0:a]asplit=2[__v1][__v2];"
         f"[{mus_idx}:a]volume={base:.3f},aresample=async=1[__m];"
-        f"[__m][__v2]sidechaincompress=threshold=0.02:ratio=8:attack=15:release=300[__md];"
+        f"[__m][__v2]sidechaincompress=threshold=0.02:ratio={ratio:.2f}:attack=15:release=300[__md];"
         f"[__v1][__md]amix=inputs=2:duration=first:normalize=0[aout]"
     )
 
@@ -259,7 +285,7 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions)
     # Background music: loop the track, mix it under the audio, duck it under speech.
     if has_music:
         inputs += ["-stream_loop", "-1", "-i", str(Path(opts.music_path).resolve())]
-        fc = fc + ";" + _music_audio_graph(music_idx, opts.music_volume)
+        fc = fc + ";" + _music_audio_graph(music_idx, opts.music_volume, opts.music_duck)
         audio_map = ["-map", "[aout]"]
     else:
         audio_map = ["-map", "0:a?"]

@@ -284,6 +284,12 @@ class GenerateRequest(BaseModel):
         description="Background-music loudness (0-100). Kept subtle/reels-style; "
         "ducks down further while the speaker is talking.",
     )
+    music_duck: Optional[float] = Field(
+        default=70, ge=0, le=100,
+        description="How hard the music dips under the voice (0-100). 0 keeps the "
+        "music steady; higher values pull it down further whenever someone is "
+        "talking so the original voice stays clear.",
+    )
     device: Device = Field(
         default=Device.AUTO,
         description="Compute device for transcription: auto, cuda (GPU), or cpu.",

@@ -13,6 +13,7 @@ export default defineConfig({
       "/api": { target: backend, changeOrigin: true },
       "/clips": { target: backend, changeOrigin: true },
       "/fonts": { target: backend, changeOrigin: true },
+      "/music": { target: backend, changeOrigin: true },
       "/health": { target: backend, changeOrigin: true },
     },
   },

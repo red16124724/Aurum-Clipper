@@ -32,8 +32,10 @@ COLOR_GRADES: dict[str, str] = {
     "bw": "hue=s=0,eq=contrast=1.10",
 }
 
-# Bands used to fake a smooth gradient from stacked semi-transparent boxes.
-_GRAD_BANDS = 14
+# Strips used to fake a smooth gradient. Each is a thin, non-overlapping band
+# whose opacity steps linearly toward the dark edge — enough of them (and small
+# enough steps) that the ramp reads as smooth, not banded.
+_GRAD_BANDS = 48
 
 
 def _f(x: float, lo: float, hi: float) -> float:
@@ -55,28 +57,39 @@ def _num(cfg: dict, key: str, default: float) -> float:
 
 
 def _gradient_bands(vw: int, vh: int, height_pct: float, strength: float, top: bool) -> str:
-    """A comma-chain of drawbox bands approximating a dark gradient.
+    """A comma-chain of drawbox strips approximating a *smooth* dark gradient.
+
+    The region is sliced into ``_GRAD_BANDS`` thin, non-overlapping strips, each a
+    solid box whose opacity follows a linear ramp: ~0 at the soft (faded) edge up
+    to ``strength`` at the dark edge. Because the strips don't stack, the opacity
+    step between neighbours is just ``strength / n`` (≈2%), so there's no hard
+    accumulation edge — it reads as a smooth fade instead of visible bands.
 
     ``top=False`` darkens the bottom (fading up); ``top=True`` darkens the top.
-    The bands all share one edge (bottom or top) so overlaps accumulate there,
-    landing at ~``strength`` opacity at the darkest edge and fading to ~0.
     """
     h_grad = max(1, int(vh * max(0.0, min(0.8, height_pct / 100.0))))
     n = _GRAD_BANDS
     step = h_grad / n
     m = max(0.0, min(0.96, strength / 100.0))
-    # Per-band alpha so n overlapping layers reach max opacity m: 1-(1-a)^n = m.
-    a = 1.0 - (1.0 - m) ** (1.0 / n)
+    base = 0 if top else (vh - h_grad)  # top of the gradient region
+
     boxes: List[str] = []
     for k in range(n):
-        if top:
-            y, h = 0, int(round(h_grad - k * step))
-        else:
-            y = int(round(vh - h_grad + k * step))
-            h = vh - y
+        # Strips tile the region EXACTLY: each one runs from one rounded boundary
+        # to the next, so there's no gap (a bright seam) and — crucially — no
+        # overlap (where two semi-transparent blacks would stack into a dark line
+        # and re-introduce banding). k counts strips from the top of the region.
+        y = base + int(round(k * step))
+        h = base + int(round((k + 1) * step)) - y
         if h <= 0:
             continue
-        boxes.append(f"drawbox=x=0:y={y}:w=iw:h={h}:color=black@{a:.3f}:t=fill")
+        # Opacity ramps toward the dark edge: bottom-gradient darkens downward,
+        # top-gradient darkens upward.
+        frac = (k + 0.5) / n
+        alpha = m * frac if not top else m * (1.0 - frac)
+        if alpha <= 0.002:
+            continue
+        boxes.append(f"drawbox=x=0:y={y}:w=iw:h={h}:color=black@{alpha:.4f}:t=fill")
     return ",".join(boxes)
 
 
@@ -109,15 +122,26 @@ def cinematic_stages(
     if grade:
         push(grade)
 
-    # 2) Glow / bloom — split, blur one copy, screen-blend it back.
+    # 2) Glow / bloom — isolate the HIGHLIGHTS, blur those, screen-blend back, and
+    #    keep the bloom COLOUR-NEUTRAL. Three things have to be true or it looks
+    #    wrong:
+    #      a) threshold first (curves crush mids/shadows to black) so only bright
+    #         areas bloom — without it the whole frame lifts into a milky haze;
+    #      b) desaturate the bloom to grey (format=gray) so the glow adds soft
+    #         *light*, never colour — without it a magenta/purple-lit scene blooms
+    #         its own colour and washes the entire frame purple (the reported bug);
+    #      c) blend in RGB (gbrp) — on YUV the screen hits the chroma planes and
+    #         tints the frame purple no matter what. Back to yuv420p afterwards.
     if _on(cfg, "glow"):
-        s = _f(_num(cfg, "glow_strength", 50), 4.0, 18.0)       # blur sigma
-        o = _f(_num(cfg, "glow_strength", 50), 0.15, 0.5)       # blend opacity
+        s = _f(_num(cfg, "glow_strength", 50), 6.0, 22.0)       # blur sigma
+        o = _f(_num(cfg, "glow_strength", 50), 0.35, 0.85)      # bloom opacity
         nxt = f"cine{idx}"
         stages.append(
-            f"[{cur}]split=2[{nxt}a][{nxt}b];"
-            f"[{nxt}b]gblur=sigma={s:.1f}[{nxt}c];"
-            f"[{nxt}a][{nxt}c]blend=all_mode=screen:all_opacity={o:.3f}[{nxt}]"
+            f"[{cur}]format=gbrp,split=2[{nxt}a][{nxt}b];"
+            f"[{nxt}b]curves=all='0/0 0.55/0 0.8/0.55 1/1',format=gray,format=gbrp,"
+            f"gblur=sigma={s:.1f}[{nxt}c];"
+            f"[{nxt}a][{nxt}c]blend=all_mode=screen:all_opacity={o:.3f},"
+            f"format=yuv420p[{nxt}]"
         )
         cur, idx = nxt, idx + 1
 

@@ -78,7 +78,7 @@ button { font-family: inherit; }
 .badge.ok .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
 .badge.warn .dot { background: var(--danger); }
 
-.content { padding: 26px 30px 60px; max-width: 1180px; width: 100%; }
+.content { padding: 26px 30px 60px; max-width: 1500px; width: 100%; }
 
 /* ---------- Generic ---------- */
 .card {
@@ -201,12 +201,22 @@ select { appearance: none; cursor: pointer;
 }
 
 /* ================= Editor (Step 2) ================= */
-.editor { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
-.editor-right { position: sticky; top: 90px; }
+.editor { display: grid; grid-template-columns: 1fr 380px; gap: 18px; align-items: start; }
+.editor-right {
+  position: sticky; top: 90px; display: flex; flex-direction: column; gap: 14px;
+  /* Pinned, but NOT height-capped — capping it hid the download bar just under the
+     frame behind an inner scroll. The rail flows naturally; the tall options column
+     on the left gives the page enough length to scroll to the Generate button. */
+}
+/* Generate + progress live in the sticky right rail, under the preview, so the
+   action is always on screen — no scrolling past the options to reach it. */
+.gen-card { margin: 0; }
+.gen-card .btn-block { padding: 16px; font-size: 16px; }
+.editor-right .prep { margin-top: 0; }
 
 /* ---- Phone preview · iPhone 17 Pro Max (titanium frame, Dynamic Island) ---- */
 .phone {
-  width: 264px; margin: 0 auto; position: relative; padding: 6px; border-radius: 52px;
+  width: 236px; margin: 0 auto; position: relative; padding: 6px; border-radius: 52px;
   background: linear-gradient(145deg, #5b5b62 0%, #2a2a30 18%, #16161a 48%, #2f2f36 82%, #555 100%);
   box-shadow: 0 44px 90px -30px rgba(0,0,0,.92), 0 0 0 1px rgba(0,0,0,.55),
     inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(255,255,255,.06);
@@ -291,7 +301,7 @@ select { appearance: none; cursor: pointer;
 .cine-sep { display: flex; align-items: center; gap: 10px; margin: 18px 0 14px; font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--accent-hi); }
 .cine-sep::before, .cine-sep::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
-@media (max-width: 980px) { .editor { grid-template-columns: 1fr; } .editor-right { position: static; } .phone { width: 232px; } }
+@media (max-width: 980px) { .editor { grid-template-columns: 1fr; } .editor-right { position: static; max-height: none; overflow: visible; } .phone { width: 232px; } }
 
 /* ---- Background prep (download → transcribe) status ---- */
 .prep { margin-top: 16px; padding: 13px 15px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
@@ -303,6 +313,28 @@ select { appearance: none; cursor: pointer;
 .prep-error { border-color: rgba(241,85,108,.3); }
 .prep-error .prep-msg { color: #ffb3bd; }
 .prep-top { margin: 0 0 18px; }
+
+/* ---- Collapsible option sections (Output / Captions / Music) ----
+   Each option group is a <details> so the column stays short — collapse what
+   you're done with and the Generate button + clips sit right under the fold. */
+.sect > summary { cursor: pointer; list-style: none; }
+.sect > summary::-webkit-details-marker { display: none; }
+.sect.card > .sect-h { margin-bottom: 0; }          /* tight when collapsed */
+.sect.card[open] > .sect-h { margin-bottom: 16px; } /* breathe when open */
+.sect-h { align-items: center; }
+.sect-h-r { display: inline-flex; align-items: center; gap: 8px; }
+.sect-badge { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--accent-hi); background: var(--accent-soft); padding: 2px 7px; border-radius: 999px; margin-left: 9px; vertical-align: middle; }
+/* studio-head wasn't a flex row before — make the summary lay out like one. */
+.studio.sect > .sect-h { display: flex; align-items: center; justify-content: space-between; }
+.studio.sect:not([open]) > .sect-h { padding-bottom: 14px; }
+/* Chevron — rotates when the section is open. */
+.sect-x { flex: none; width: 9px; height: 9px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg); transition: transform .2s ease; margin-left: 4px; }
+.sect[open] > .sect-h .sect-x { transform: rotate(-135deg); }
+.sect > summary:hover .sect-x { border-color: var(--text); }
+
+.ctl-hint { font-size: 11.5px; color: var(--muted-2); line-height: 1.45; }
 
 /* ---- Background music ---- */
 .music-row { display: flex; gap: 8px; align-items: center; }

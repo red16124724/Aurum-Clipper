@@ -29,14 +29,17 @@ export function usePrep(device, language) {
         setPrep({ phase: "downloaded", message: "Downloaded — preparing transcript…", pct: 100 });
         startTranscribe(s.download_id, lang());
       } else if (s.status === "error") {
+        r.current.urlKey = null;  // allow an automatic retry on re-entry
         setPrep({ phase: "error", message: s.error || s.message || "Download failed.", pct: null });
       } else {
         const total = s.total_bytes || 0, done = s.downloaded_bytes || 0;
         setPrep({ phase: "downloading", pct: total ? Math.round((done / total) * 100) : null,
-          message: total ? `Downloading ${mb(done)} / ${mb(total)} MB` : (s.message || "Starting download…") });
+          message: total ? `Downloading ${mb(done)} / ${mb(total)} MB`
+            : done ? `Downloading ${mb(done)} MB…`
+            : (s.message || "Starting download…") });
         r.current.pf = setTimeout(() => pollPrefetch(id), 500);
       }
-    } catch { setPrep((p) => ({ ...p, phase: "error", message: "Lost contact with the download." })); }
+    } catch { r.current.urlKey = null; setPrep((p) => ({ ...p, phase: "error", message: "Lost contact with the download." })); }
   }
 
   async function pollTranscribe(id) {
@@ -67,7 +70,10 @@ export function usePrep(device, language) {
     api.prefetch(url).then((s) => {
       if (s.status === "done") { setDownloadId(s.download_id); startTranscribe(s.download_id, lang()); }
       else r.current.pf = setTimeout(() => pollPrefetch(s.prefetch_id), 500);
-    }).catch((e) => setPrep({ phase: "error", message: "Could not start download: " + e.message, pct: null }));
+    }).catch((e) => {
+      r.current.urlKey = null;  // let re-entering Step 2 retry this URL
+      setPrep({ phase: "error", message: "Could not start download: " + e.message, pct: null });
+    });
   }
 
   function startUpload(uploadId) {

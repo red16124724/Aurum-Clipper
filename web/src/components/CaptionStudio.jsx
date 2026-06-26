@@ -36,8 +36,8 @@ export default function CaptionStudio({ studio, language, onLanguageFontHint, on
   const commitSave = () => { if (s.saveCurrentPreset(saveName)) { setSaveOpen(false); setSaveName(""); } };
 
   return (
-    <div className="studio">
-      <div className="studio-head"><span className="studio-title"><span className="dot" />Captions</span></div>
+    <details className="studio sect" open>
+      <summary className="studio-head sect-h"><span className="studio-title"><span className="dot" />Captions</span><span className="sect-x" /></summary>
       <div className="studio-tabs">
         <button className={"studio-tab" + (tab === "templates" ? " active" : "")} onClick={() => setTab("templates")}><Icons.library /> Templates</button>
         <button className={"studio-tab" + (tab === "customize" ? " active" : "")} onClick={() => setTab("customize")}><Icons.create /> Customize styles</button>
@@ -88,6 +88,6 @@ export default function CaptionStudio({ studio, language, onLanguageFontHint, on
           <Cinematic cinematic={s.cinematic} setCine={s.setCine} resetCine={s.resetCine} />
         </div>
       )}
-    </div>
+    </details>
   );
 }

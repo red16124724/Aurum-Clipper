@@ -36,6 +36,7 @@ export default function Create() {
   const [tracks, setTracks] = useState([]);
   const [musicTrack, setMusicTrack] = useState("");
   const [musicVolume, setMusicVolume] = useState(35);
+  const [musicDuck, setMusicDuck] = useState(70);
 
   // Generate
   const [busy, setBusy] = useState(false);
@@ -44,6 +45,7 @@ export default function Create() {
   const [error, setError] = useState("");
   const closeRef = useRef(null);
   const fileRef = useRef(null);
+  const clipsRef = useRef(null);
 
   const studio = useStudio(presets, fonts, language);
   const prep = usePrep(device, language);
@@ -68,6 +70,12 @@ export default function Create() {
     api.music().then((m) => setTracks(m.tracks || [])).catch(() => {});
     return () => closeRef.current && closeRef.current();
   }, []);
+
+  // As soon as the first clip lands, jump straight to it so the user never has to
+  // scroll the whole options column to reach the downloads.
+  useEffect(() => {
+    if (clips.length === 1) clipsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [clips.length]);
 
   const refreshMusic = () => api.music().then((m) => setTracks(m.tracks || [])).catch(() => {});
   async function onMusicUpload(file) { const t = await api.uploadMusic(file); await refreshMusic(); return t; }
@@ -110,6 +118,18 @@ export default function Create() {
 
   const sourceReady = source === "upload" ? !!(upload || objUrl) : !!url.trim();
 
+  // What the prep box shows. While an uploaded source file is still streaming to
+  // the backend (you can move to Step 2 before it finishes), surface that upload's
+  // progress here instead of a blank "Preparing video…". Otherwise show the normal
+  // download/transcribe prep state.
+  const prepView = useMemo(() => {
+    if (source === "upload" && upPct != null && !upload) {
+      return { phase: "downloading", pct: upPct,
+        message: upPct >= 100 ? "Processing upload…" : "Uploading your video…" };
+    }
+    return prep;
+  }, [source, upPct, upload, prep]);
+
   async function generate() {
     setError("");
     const payload = {
@@ -120,7 +140,7 @@ export default function Create() {
     };
     if (Object.keys(studio.overrides).length) payload.caption_overrides = studio.overrides;
     if (cineActive(studio.cinematic)) payload.cinematic = studio.cinematic;
-    if (musicTrack) { payload.music_track = musicTrack; payload.music_volume = musicVolume; }
+    if (musicTrack) { payload.music_track = musicTrack; payload.music_volume = musicVolume; payload.music_duck = musicDuck; }
     if (source === "upload") {
       if (!upload) { setError("Wait for the upload to finish."); return; }
       payload.upload_id = upload.upload_id; payload.upload_name = upload.filename;
@@ -186,8 +206,8 @@ export default function Create() {
 
       <div className="editor">
         <div className="editor-left">
-          <div className="card">
-            <div className="card-h"><h2>Output</h2></div>
+          <details className="card sect" open>
+            <summary className="card-h sect-h"><h2>Output</h2><span className="sect-x" /></summary>
             <div className="row" style={{ flexWrap: "wrap", gap: 18 }}>
               <div><label className="fieldlabel">Aspect</label>
                 <div className="toggle">{["9:16", "16:9"].map((a) => <button key={a} className={aspect === a ? "active" : ""} onClick={() => setAspect(a)}>{a}</button>)}</div>
@@ -215,14 +235,32 @@ export default function Create() {
                   {["auto", ...devices.filter((d) => d !== "auto")].filter((v, i, a) => a.indexOf(v) === i).map((d) => <option key={d} value={d}>{d === "cuda" ? "GPU (CUDA)" : d.toUpperCase()}</option>)}
                 </select></div>
             </div>
-          </div>
+          </details>
 
           <CaptionStudio studio={studio} language={language} onFontUpload={onFontUpload} />
 
-          <Music tracks={tracks} track={musicTrack} volume={musicVolume}
-            onTrack={setMusicTrack} onVolume={setMusicVolume} onUpload={onMusicUpload} onRefresh={refreshMusic} />
+          <Music tracks={tracks} track={musicTrack} volume={musicVolume} duck={musicDuck}
+            onTrack={setMusicTrack} onVolume={setMusicVolume} onDuck={setMusicDuck} onUpload={onMusicUpload} onRefresh={refreshMusic} />
+        </div>
 
-          <div className="card">
+        <div className="editor-right">
+          <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
+            aspect={aspect} fit={fit} barText={barText} overrides={studio.overrides} setOverride={studio.setOverride} />
+
+          <div className={"prep prep-" + (prepView.phase || "idle")}>
+            <div className="prep-row">
+              <span className="prep-msg">
+                {["downloading", "transcribing", "downloaded", "idle"].includes(prepView.phase) && <span className="spinner" />}
+                {prepView.phase === "ready" && <span className="prep-ok">✓</span>}
+                {prepView.phase === "error" && <span className="prep-ok" style={{ color: "var(--danger)" }}>!</span>}
+                {prepView.message || "Preparing video…"}
+              </span>
+              {prepView.pct != null && <span className="prep-pct">{prepView.pct}%</span>}
+            </div>
+            <div className="track"><div className={"fill" + (prepView.pct == null ? " indeterminate" : "")} style={prepView.pct == null ? {} : { width: prepView.pct + "%" }} /></div>
+          </div>
+
+          <div className="card gen-card">
             <button className="btn btn-primary btn-block" disabled={busy} onClick={generate}>
               {busy ? <><span className="spinner" /> Working…</> : <><Icons.bolt /> Generate {numClips} clip{numClips > 1 ? "s" : ""}</>}
             </button>
@@ -242,28 +280,10 @@ export default function Create() {
             )}
           </div>
         </div>
-
-        <div className="editor-right">
-          <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
-            aspect={aspect} fit={fit} barText={barText} overrides={studio.overrides} setOverride={studio.setOverride} />
-
-          <div className={"prep prep-" + (prep.phase || "idle")}>
-            <div className="prep-row">
-              <span className="prep-msg">
-                {["downloading", "transcribing", "downloaded", "idle"].includes(prep.phase) && <span className="spinner" />}
-                {prep.phase === "ready" && <span className="prep-ok">✓</span>}
-                {prep.phase === "error" && <span className="prep-ok" style={{ color: "var(--danger)" }}>!</span>}
-                {prep.message || "Preparing video…"}
-              </span>
-              {prep.pct != null && <span className="prep-pct">{prep.pct}%</span>}
-            </div>
-            <div className="track"><div className={"fill" + (prep.pct == null ? " indeterminate" : "")} style={prep.pct == null ? {} : { width: prep.pct + "%" }} /></div>
-          </div>
-        </div>
       </div>
 
       {clips.length > 0 && (
-        <div className="card" style={{ marginTop: 18 }}>
+        <div className="card" style={{ marginTop: 18 }} ref={clipsRef}>
           <div className="card-h"><h2>Your clips</h2><span className="hint">{clips.length} ready</span></div>
           <div className="clips">
             {clips.map((c) => (
