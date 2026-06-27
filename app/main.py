@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 from . import captions, fonts, history, jobs, music, prefetch, pretranscribe, transcriber, uploads
 from .models import Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
-from .paths import CLIPS_DIR, FONTS_DIR, MUSIC_DIR, STATIC_DIR, ensure_dirs
+from .paths import CLIPS_DIR, FONTS_DIR, MUSIC_DIR, STATIC_DIR, WEB_DIST_DIR, ensure_dirs
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,6 +64,10 @@ app.mount("/clips", StaticFiles(directory=str(CLIPS_DIR)), name="clips")
 app.mount("/fonts", StaticFiles(directory=str(FONTS_DIR)), name="fonts")
 # Serve the music library so the UI can preview tracks with an <audio> element.
 app.mount("/music", StaticFiles(directory=str(MUSIC_DIR)), name="music")
+# Serve the built React dashboard's hashed JS/CSS bundles (web/dist/assets) when a
+# production build exists, so the backend can serve the React app at "/" directly.
+if (WEB_DIST_DIR / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=str(WEB_DIST_DIR / "assets")), name="assets")
 
 
 @app.get("/health")
@@ -289,8 +293,16 @@ def reveal_clip(ref: ClipRef) -> dict:
 
 @app.get("/")
 def index() -> FileResponse:
-    """Serve the single-page frontend."""
-    return FileResponse(str(STATIC_DIR / "index.html"))
+    """Serve the frontend.
+
+    Prefer the built React dashboard (web/dist) so the backend and the dev server
+    show the SAME app; fall back to the legacy vanilla page only if no build exists.
+    ``no-store`` keeps the browser from pinning a stale index that points at old,
+    since-rebuilt asset hashes (the "old UI until hard refresh" bug).
+    """
+    react_index = WEB_DIST_DIR / "index.html"
+    target = react_index if react_index.is_file() else (STATIC_DIR / "index.html")
+    return FileResponse(str(target), headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/generate")

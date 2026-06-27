@@ -20,72 +20,82 @@ function Chip({ label, cfg, active, trending, custom, onClick, onDelete }) {
   );
 }
 
-export default function CaptionStudio({ studio, language, onLanguageFontHint, onFontUpload }) {
-  const [tab, setTab] = useState("templates");
+function SaveBlock({ s, open, setOpen }) {
+  const [name, setName] = useState("");
+  const commit = () => { if (s.saveCurrentPreset(name)) { setOpen(false); setName(""); } };
+  if (!open) return null;
+  return (
+    <div className="save-form">
+      <input type="text" placeholder="Name your style…" value={name} maxLength={40} autoFocus
+        onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") setOpen(false); }} />
+      <button className="btn btn-primary" onClick={commit}>Save</button>
+      <button className="btn" onClick={() => setOpen(false)}>✕</button>
+    </div>
+  );
+}
+
+export default function CaptionStudio({ studio, onFontUpload }) {
+  const [tab, setTab] = useState("style");
   const [saveOpen, setSaveOpen] = useState(false);
-  const [saveName, setSaveName] = useState("");
   const s = studio;
 
-  const f = s.galleryFilter;
-  const showMine = f === "all" || f === "mine";
-  const showTrend = f === "all" || f === "trending";
-  const showStd = f === "all";
   const trending = s.presets.filter((p) => p.trending);
   const standard = s.presets.filter((p) => !p.trending);
-
-  const commitSave = () => { if (s.saveCurrentPreset(saveName)) { setSaveOpen(false); setSaveName(""); } };
 
   return (
     <details className="studio sect" open>
       <summary className="studio-head sect-h"><span className="studio-title"><span className="dot" />Captions</span><span className="sect-x" /></summary>
+
       <div className="studio-tabs">
-        <button className={"studio-tab" + (tab === "templates" ? " active" : "")} onClick={() => setTab("templates")}><Icons.library /> Templates</button>
-        <button className={"studio-tab" + (tab === "customize" ? " active" : "")} onClick={() => setTab("customize")}><Icons.create /> Customize styles</button>
+        <button className={"studio-tab" + (tab === "style" ? " active" : "")} onClick={() => setTab("style")}><Icons.create /> Style</button>
+        <button className={"studio-tab" + (tab === "themes" ? " active" : "")} onClick={() => setTab("themes")}><Icons.film /> Themes</button>
+        <button className={"studio-tab" + (tab === "presets" ? " active" : "")} onClick={() => setTab("presets")}><Icons.library /> Presets</button>
       </div>
 
-      {tab === "templates" && (
+      {tab === "style" && (
         <div className="studio-pane">
           <div className="style-head">
-            <span className="eyebrow">Caption style</span>
+            <span className="eyebrow">Customize</span>
             <button className="save-btn" onClick={() => setSaveOpen((v) => !v)}><Icons.download /> Save current</button>
           </div>
-          {saveOpen && (
-            <div className="save-form">
-              <input type="text" placeholder="Name your style…" value={saveName} maxLength={40} autoFocus
-                onChange={(e) => setSaveName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") commitSave(); if (e.key === "Escape") setSaveOpen(false); }} />
-              <button className="btn btn-primary" onClick={commitSave}>Save</button>
-              <button className="btn" onClick={() => setSaveOpen(false)}>✕</button>
-            </div>
-          )}
-          <div className="gfilters">
-            {[["all", "All"], ["trending", "Trending"], ["mine", "My Styles"]].map(([v, l]) => (
-              <button key={v} className={"gfilter" + (f === v ? " active" : "")} onClick={() => s.setGalleryFilter(v)}>{l}</button>
-            ))}
-          </div>
+          <SaveBlock s={s} open={saveOpen} setOpen={setSaveOpen} />
+          <Customizer studio={s} onFontUpload={onFontUpload} />
+          <div className="cine-sep"><span>Cinematic effects</span></div>
+          <Cinematic cinematic={s.cinematic} setCine={s.setCine} resetCine={s.resetCine} />
+        </div>
+      )}
+
+      {tab === "themes" && (
+        <div className="studio-pane">
+          <div className="style-head"><span className="eyebrow">Built-in themes</span></div>
           <div className="chips">
-            {showMine && s.userPresets.map((up) => (
-              <Chip key={up.id} label={up.label} custom active={s.activeKey === up.id}
-                cfg={effectiveCfg(s.presets, up.base, up.overrides)}
-                onClick={() => s.selectUserPreset(up)} onDelete={() => s.removeUserPreset(up.id)} />
-            ))}
-            {showMine && f === "mine" && !s.userPresets.length && (
-              <div className="empty" style={{ gridColumn: "1/-1", padding: 24 }}>No saved styles yet — tune a look and hit “Save current”.</div>
-            )}
-            {showTrend && trending.map((p) => (
+            {trending.map((p) => (
               <Chip key={p.id} label={p.label} trending cfg={p} active={s.activeKey === p.id} onClick={() => s.selectPreset(p.id)} />
             ))}
-            {showStd && standard.map((p) => (
+            {standard.map((p) => (
               <Chip key={p.id} label={p.label} cfg={p} active={s.activeKey === p.id} onClick={() => s.selectPreset(p.id)} />
             ))}
           </div>
         </div>
       )}
 
-      {tab === "customize" && (
+      {tab === "presets" && (
         <div className="studio-pane">
-          <Customizer studio={s} onFontUpload={onFontUpload} />
-          <div className="cine-sep"><span>Cinematic effects</span></div>
-          <Cinematic cinematic={s.cinematic} setCine={s.setCine} resetCine={s.resetCine} />
+          <div className="style-head">
+            <span className="eyebrow">My styles</span>
+            <button className="save-btn" onClick={() => setSaveOpen((v) => !v)}><Icons.download /> Save current</button>
+          </div>
+          <SaveBlock s={s} open={saveOpen} setOpen={setSaveOpen} />
+          <div className="chips">
+            {s.userPresets.map((up) => (
+              <Chip key={up.id} label={up.label} custom active={s.activeKey === up.id}
+                cfg={effectiveCfg(s.presets, up.base, up.overrides)}
+                onClick={() => s.selectUserPreset(up)} onDelete={() => s.removeUserPreset(up.id)} />
+            ))}
+            {!s.userPresets.length && (
+              <div className="empty" style={{ gridColumn: "1/-1", padding: 24 }}>No saved styles yet — tune a look in <b>Style</b> and hit “Save current”.</div>
+            )}
+          </div>
         </div>
       )}
     </details>

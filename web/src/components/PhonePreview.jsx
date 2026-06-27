@@ -39,7 +39,7 @@ function CaptionLine({ cfg, language, fontPx, scale }) {
   );
 }
 
-export default function PhonePreview({ cfg, cinematic, language, media, aspect, fit, barText, setOverride }) {
+export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, setOverride }) {
   const screenRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const reg = regions(aspect, fit);
@@ -93,7 +93,13 @@ export default function PhonePreview({ cfg, cinematic, language, media, aspect, 
         <div className="media-box" style={{ ...reg.box, filter: mediaFilter }}>
           {media?.kind === "video" && <video src={media.src} muted loop autoPlay playsInline />}
           {(!media || media.kind === "unknown") && (
-            <div className="media-ph">{media?.kind === "unknown" ? "Can't embed this link — it'll still render" : "Add a video to preview"}</div>
+            <div className="media-ph">
+              {preparing
+                ? <><span className="spinner" /> Preparing preview…</>
+                : media?.kind === "unknown"
+                  ? "Can't embed this link — it'll still render"
+                  : "Add a video to preview"}
+            </div>
           )}
           {/* Cinematic overlay (inside the clip region, under captions) */}
           {c.bottom_gradient && <div className="ov" style={{ left: 0, right: 0, bottom: 0, height: (c.bottom_gradient_height || 25) + "%", background: `linear-gradient(to top, rgba(0,0,0,${((c.bottom_gradient_strength || 0) / 100).toFixed(3)}), rgba(0,0,0,0))` }} />}

@@ -22,6 +22,8 @@ MASKS_DIR = ASSETS_DIR / "masks"
 # or upload them through the UI — both show up as track options.
 MUSIC_DIR = ASSETS_DIR / "music"
 STATIC_DIR = ROOT_DIR / "static"
+# Built React dashboard (web/dist) — served as the primary frontend when present.
+WEB_DIST_DIR = ROOT_DIR / "web" / "dist"
 
 
 def ensure_dirs() -> None:

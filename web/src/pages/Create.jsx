@@ -10,8 +10,45 @@ import Music from "../components/Music.jsx";
 
 const STEPS = [["downloading", "Download"], ["transcribing", "Transcribe"], ["selecting", "Analyze"], ["rendering", "Render"]];
 
-export default function Create() {
-  const [step, setStep] = useState(1);
+// Social handles shown on the landing — brand colour drives the hover glow/fill.
+const SOCIALS = [
+  {
+    label: "Instagram", href: "https://www.instagram.com/theharis.ai/", color: "#E1306C",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+        <rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" />
+        <circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
+    label: "TikTok", href: "https://www.tiktok.com/@theharis.ai", color: "#FE2C55",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M16.5 3c.3 2.2 1.6 3.6 3.8 3.85v2.6c-1.3.05-2.5-.32-3.8-1.02v5.93c0 3.6-2.62 5.74-5.6 5.74A5.36 5.36 0 0 1 5.5 14.6c0-3.02 2.5-5.2 5.6-4.9v2.74c-.4-.13-.8-.2-1.2-.2-1.3 0-2.36 1.05-2.36 2.36 0 1.3 1.06 2.36 2.36 2.36 1.4 0 2.5-1.02 2.5-2.6V3h2.6z" />
+      </svg>
+    ),
+  },
+  {
+    label: "LinkedIn", href: "https://www.linkedin.com/in/ai-haris/", color: "#0A66C2",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20.4 3H3.6a.6.6 0 0 0-.6.6v16.8a.6.6 0 0 0 .6.6h16.8a.6.6 0 0 0 .6-.6V3.6a.6.6 0 0 0-.6-.6zM8.3 18.3H5.5V9.7h2.8v8.6zM6.9 8.5a1.63 1.63 0 1 1 0-3.26 1.63 1.63 0 0 1 0 3.26zm11.4 9.8h-2.8v-4.18c0-1 0-2.28-1.4-2.28-1.4 0-1.6 1.08-1.6 2.2v4.26H9.7V9.7h2.7v1.18h.04a2.96 2.96 0 0 1 2.66-1.46c2.85 0 3.38 1.87 3.38 4.3v4.58z" />
+      </svg>
+    ),
+  },
+  {
+    label: "YouTube", href: "https://www.youtube.com/@harisailab", color: "#FF0000",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M23 12s0-3.2-.4-4.7a2.5 2.5 0 0 0-1.77-1.77C19.27 5.1 12 5.1 12 5.1s-7.27 0-8.83.43A2.5 2.5 0 0 0 1.4 7.3C1 8.8 1 12 1 12s0 3.2.4 4.7a2.5 2.5 0 0 0 1.77 1.77C4.73 18.9 12 18.9 12 18.9s7.27 0 8.83-.43a2.5 2.5 0 0 0 1.77-1.77C23 15.2 23 12 23 12z" />
+        <path d="M9.75 15.3V8.7L15.5 12z" fill="#fff" />
+      </svg>
+    ),
+  },
+];
+
+export default function Create({ step, setStep }) {
   const [presets, setPresets] = useState([]);
   const [fonts, setFonts] = useState({ bundled: [], multilingual: [], user: [] });
   const [devices, setDevices] = useState(["auto"]);
@@ -170,32 +207,79 @@ export default function Create() {
   const done = snap?.status === "done";
   const pct = Math.round((snap?.progress || 0) * 100);
 
-  /* ---------- STEP 1 ---------- */
+  /* ---------- STEP 1 · Landing ---------- */
   if (step === 1) {
+    const uploading = source === "upload" && upPct != null && !upload;
+    const fileChosen = source === "upload" && (upload || upPct != null);
+    const clearFile = () => {
+      setSource("url"); setUpload(null); setUpPct(null);
+      if (objUrl) { URL.revokeObjectURL(objUrl); setObjUrl(null); }
+    };
     return (
-      <div className="card" style={{ maxWidth: 720, margin: "0 auto" }}>
-        <span className="eyebrow">Step 1 of 2</span>
-        <h2 style={{ margin: "6px 0 18px", fontSize: 22 }}>Add your video</h2>
-        <div className="toggle" style={{ marginBottom: 16 }}>
-          <button className={source === "url" ? "active" : ""} onClick={() => setSource("url")}>Paste link</button>
-          <button className={source === "upload" ? "active" : ""} onClick={() => setSource("upload")}>Upload file</button>
+    <>
+      <div className="landing">
+        <div className="brand-hero">
+          <span className="brand-mark"><Icons.bolt /></span>
+          <span className="brand-word">ClipForge</span>
         </div>
-        {source === "url" ? (
-          <input type="text" placeholder="https://youtube.com/watch?v=…" value={url} onChange={(e) => setUrl(e.target.value)} />
-        ) : (
-          <div className={"dropzone" + (drag ? " drag" : "")} onClick={() => fileRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
-            onDrop={(e) => { e.preventDefault(); setDrag(false); doUpload(e.dataTransfer.files[0]); }}>
-            <input ref={fileRef} type="file" accept="video/*" hidden onChange={(e) => doUpload(e.target.files[0])} />
-            <div className="dz-main">{upPct != null ? `Uploading… ${upPct}%` : upload ? `✓ ${upload.filename}` : "Drop a video or click to browse"}</div>
-            <div className="dz-sub">MP4 · MOV · WEBM</div>
-          </div>
-        )}
-        {error && <div className="error">{error}</div>}
-        <button className="btn btn-primary btn-block" style={{ marginTop: 22 }} disabled={!sourceReady} onClick={() => { setStep(2); startPrep(); }}>
-          Continue →
-        </button>
+        <span className="eyebrow">100% local pipeline · no API keys</span>
+        <h1 className="landing-title">Turn any video into <span className="grad">captioned shorts</span></h1>
+        <p className="landing-sub">
+          Paste a link or drop a file — ClipForge finds the best moments, reframes them
+          vertical, and burns on styled captions, right on your own machine.
+        </p>
+
+        <div
+          className={"cmdbar" + (drag ? " drag" : "")}
+          onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={(e) => { e.preventDefault(); setDrag(false); doUpload(e.dataTransfer.files[0]); }}
+        >
+          <input ref={fileRef} type="file" accept="video/*" hidden onChange={(e) => doUpload(e.target.files[0])} />
+          <button className="cmd-upload" onClick={() => fileRef.current?.click()} title="Upload a video file">
+            <Icons.upload /><span>Upload</span>
+          </button>
+
+          {fileChosen ? (
+            <div className="cmd-file">
+              <span className="cmd-file-name">{uploading ? `Uploading… ${upPct}%` : `✓ ${upload?.filename}`}</span>
+              <button className="cmd-clear" onClick={clearFile} title="Remove">✕</button>
+            </div>
+          ) : (
+            <input
+              className="cmd-input"
+              type="text"
+              placeholder="Paste a YouTube or video link…"
+              value={url}
+              onChange={(e) => { setSource("url"); setUrl(e.target.value); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && sourceReady) setStep(2); }}
+            />
+          )}
+
+          <button className="cmd-go" disabled={!sourceReady} onClick={() => setStep(2)}>
+            <Icons.bolt /> Generate
+          </button>
+        </div>
+
+        {error && <div className="error landing-error">{error}</div>}
+
+        <div className="landing-hints">
+          <span>Drag &amp; drop a file onto the bar</span>
+          <span className="sep">·</span><span>9:16 &amp; 1:1 square</span>
+          <span className="sep">·</span><span>19 caption styles</span>
+          <span className="sep">·</span><span>background music</span>
+        </div>
       </div>
+
+      <footer className="landing-social">
+        {SOCIALS.map((s) => (
+          <a key={s.label} className="soc" href={s.href} target="_blank" rel="noreferrer"
+            title={s.label} aria-label={s.label} style={{ "--soc": s.color }}>
+            {s.icon}
+          </a>
+        ))}
+      </footer>
+    </>
     );
   }
 
@@ -204,48 +288,17 @@ export default function Create() {
     <>
       <button className="btn btn-ghost" style={{ marginBottom: 16 }} onClick={() => setStep(1)}>← Back to source</button>
 
-      <div className="editor">
-        <div className="editor-left">
-          <details className="card sect" open>
-            <summary className="card-h sect-h"><h2>Output</h2><span className="sect-x" /></summary>
-            <div className="row" style={{ flexWrap: "wrap", gap: 18 }}>
-              <div><label className="fieldlabel">Aspect</label>
-                <div className="toggle">{["9:16", "16:9"].map((a) => <button key={a} className={aspect === a ? "active" : ""} onClick={() => setAspect(a)}>{a}</button>)}</div>
-              </div>
-              <div><label className="fieldlabel">Fit</label>
-                <div className="toggle">{["crop", "square"].map((x) => <button key={x} className={fit === x ? "active" : ""} onClick={() => setFit(x)}>{x[0].toUpperCase() + x.slice(1)}</button>)}</div>
-              </div>
-              <div><label className="fieldlabel">Clips</label>
-                <div className="counter">
-                  <button onClick={() => setNumClips((n) => Math.max(1, n - 1))}>−</button>
-                  <input type="number" min="1" max="10" value={numClips} onChange={(e) => setNumClips(Math.max(1, Math.min(10, +e.target.value || 1)))} />
-                  <button onClick={() => setNumClips((n) => Math.min(10, n + 1))}>+</button>
-                </div>
-              </div>
-            </div>
-            {fit === "square" && (
-              <div style={{ marginTop: 14 }}><label className="fieldlabel">Title text (top)</label>
-                <input type="text" placeholder="Title shown over the square…" value={barText} onChange={(e) => setBarText(e.target.value)} /></div>
-            )}
-            <div className="grid-2" style={{ marginTop: 14 }}>
-              <div><label className="fieldlabel">Caption language</label>
-                <select value={language} onChange={(e) => changeLanguage(e.target.value)}>{LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
-              <div><label className="fieldlabel">Compute</label>
-                <select value={device} onChange={(e) => setDevice(e.target.value)}>
-                  {["auto", ...devices.filter((d) => d !== "auto")].filter((v, i, a) => a.indexOf(v) === i).map((d) => <option key={d} value={d}>{d === "cuda" ? "GPU (CUDA)" : d.toUpperCase()}</option>)}
-                </select></div>
-            </div>
-          </details>
-
+      <div className="editor3">
+        {/* LEFT — Captions */}
+        <div className="editor-captions">
           <CaptionStudio studio={studio} language={language} onFontUpload={onFontUpload} />
-
-          <Music tracks={tracks} track={musicTrack} volume={musicVolume} duck={musicDuck}
-            onTrack={setMusicTrack} onVolume={setMusicVolume} onDuck={setMusicDuck} onUpload={onMusicUpload} onRefresh={refreshMusic} />
         </div>
 
-        <div className="editor-right">
+        {/* CENTER — Live preview + Generate */}
+        <div className="editor-center">
           <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
-            aspect={aspect} fit={fit} barText={barText} overrides={studio.overrides} setOverride={studio.setOverride} />
+            preparing={!media && sourceReady} aspect={aspect} fit={fit} barText={barText}
+            overrides={studio.overrides} setOverride={studio.setOverride} />
 
           <div className={"prep prep-" + (prepView.phase || "idle")}>
             <div className="prep-row">
@@ -280,6 +333,46 @@ export default function Create() {
             )}
           </div>
         </div>
+
+        {/* RIGHT — Output settings */}
+        <div className="editor-output">
+          <details className="card sect" open>
+            <summary className="card-h sect-h"><h2>Output</h2><span className="sect-x" /></summary>
+            <div className="row" style={{ flexWrap: "wrap", gap: 16 }}>
+              <div><label className="fieldlabel">Aspect</label>
+                <div className="toggle">{["9:16", "16:9"].map((a) => <button key={a} className={aspect === a ? "active" : ""} onClick={() => setAspect(a)}>{a}</button>)}</div>
+              </div>
+              <div><label className="fieldlabel">Fit</label>
+                <div className="toggle">{["crop", "square"].map((x) => <button key={x} className={fit === x ? "active" : ""} onClick={() => setFit(x)}>{x[0].toUpperCase() + x.slice(1)}</button>)}</div>
+              </div>
+              <div><label className="fieldlabel">Clips</label>
+                <div className="counter">
+                  <button onClick={() => setNumClips((n) => Math.max(1, n - 1))}>−</button>
+                  <input type="number" min="1" max="10" value={numClips} onChange={(e) => setNumClips(Math.max(1, Math.min(10, +e.target.value || 1)))} />
+                  <button onClick={() => setNumClips((n) => Math.min(10, n + 1))}>+</button>
+                </div>
+              </div>
+            </div>
+            {fit === "square" && (
+              <div style={{ marginTop: 14 }}><label className="fieldlabel">Title text (top)</label>
+                <input type="text" placeholder="Title shown over the square…" value={barText} onChange={(e) => setBarText(e.target.value)} /></div>
+            )}
+            <div style={{ marginTop: 14, display: "grid", gap: 14 }}>
+              <div><label className="fieldlabel">Caption language</label>
+                <select value={language} onChange={(e) => changeLanguage(e.target.value)}>{LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+              <div><label className="fieldlabel">Compute</label>
+                <select value={device} onChange={(e) => setDevice(e.target.value)}>
+                  {["auto", ...devices.filter((d) => d !== "auto")].filter((v, i, a) => a.indexOf(v) === i).map((d) => <option key={d} value={d}>{d === "cuda" ? "GPU (CUDA)" : d.toUpperCase()}</option>)}
+                </select></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      {/* BOTTOM — full-width background music */}
+      <div className="editor-music">
+        <Music tracks={tracks} track={musicTrack} volume={musicVolume} duck={musicDuck}
+          onTrack={setMusicTrack} onVolume={setMusicVolume} onDuck={setMusicDuck} onUpload={onMusicUpload} onRefresh={refreshMusic} />
       </div>
 
       {clips.length > 0 && (

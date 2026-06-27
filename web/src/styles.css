@@ -201,18 +201,34 @@ select { appearance: none; cursor: pointer;
 }
 
 /* ================= Editor (Step 2) ================= */
-.editor { display: grid; grid-template-columns: 1fr 380px; gap: 18px; align-items: start; }
-.editor-right {
-  position: sticky; top: 90px; display: flex; flex-direction: column; gap: 14px;
-  /* Pinned, but NOT height-capped — capping it hid the download bar just under the
-     frame behind an inner scroll. The rail flows naturally; the tall options column
-     on the left gives the page enough length to scroll to the Generate button. */
+/* Three columns: Captions (left) · live preview + Generate (centre) · Output
+   (right). Background music spans full width below. Centre & right are pinned so
+   the phone and the action stay in view while the caption gallery scrolls. */
+.editor3 {
+  display: grid; grid-template-columns: minmax(300px, 1fr) 360px 330px;
+  gap: 18px; align-items: start;
 }
-/* Generate + progress live in the sticky right rail, under the preview, so the
-   action is always on screen — no scrolling past the options to reach it. */
+.editor-captions { min-width: 0; }
+.editor-center {
+  position: sticky; top: 90px; display: flex; flex-direction: column; gap: 14px;
+}
+.editor-output { position: sticky; top: 90px; }
+.editor-music { margin-top: 18px; }
+.editor-center .prep { margin-top: 0; }
+/* Generate + progress live under the preview so the action is always on screen. */
 .gen-card { margin: 0; }
 .gen-card .btn-block { padding: 16px; font-size: 16px; }
-.editor-right .prep { margin-top: 0; }
+
+@media (max-width: 1200px) {
+  .editor3 { grid-template-columns: 1fr 340px; }
+  .editor-captions { grid-column: 1 / -1; order: 3; }
+  .editor-center { order: 1; }
+  .editor-output { order: 2; }
+}
+@media (max-width: 820px) {
+  .editor3 { grid-template-columns: 1fr; }
+  .editor-center, .editor-output { position: static; }
+}
 
 /* ---- Phone preview · iPhone 17 Pro Max (titanium frame, Dynamic Island) ---- */
 .phone {
@@ -342,3 +358,262 @@ select { appearance: none; cursor: pointer;
 .music-row .btn { flex: none; padding: 11px 13px; height: 44px; }
 .music-prev { width: 100%; margin-top: 12px; height: 36px; border-radius: 8px; }
 .embed-fill { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; z-index: 1; background: #000; }
+
+/* ================= Landing (Step 1) ================= */
+/* Full-screen, chrome-less: brand mark centred, command bar, social rail pinned
+   to the bottom. Rendered without the sidebar/topbar (see App.jsx chromeless). */
+.landing-shell {
+  position: relative; min-height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  background:
+    radial-gradient(1100px 620px at 50% -8%, rgba(124,77,255,.18), transparent 60%),
+    radial-gradient(900px 700px at 100% 100%, rgba(154,107,255,.10), transparent 60%),
+    var(--bg);
+}
+/* Faint grid texture so the empty space reads as a designed surface, not a void */
+.landing-shell::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: .5;
+  background-image:
+    linear-gradient(rgba(124,77,255,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,77,255,.045) 1px, transparent 1px);
+  background-size: 46px 46px;
+  -webkit-mask-image: radial-gradient(circle at 50% 38%, #000 0%, transparent 72%);
+          mask-image: radial-gradient(circle at 50% 38%, #000 0%, transparent 72%);
+}
+
+/* Slow-drifting glow orbs — the landing's "art" / depth layer */
+.landing-orbs { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.landing-orbs .orb { position: absolute; border-radius: 50%; filter: blur(72px); will-change: transform; }
+.orb-1 { width: 440px; height: 440px; left: -110px; top: -70px; background: radial-gradient(circle, rgba(124,77,255,.55), transparent 70%); animation: orb-a 19s ease-in-out infinite; }
+.orb-2 { width: 520px; height: 520px; right: -160px; top: 16%; background: radial-gradient(circle, rgba(178,102,255,.42), transparent 70%); animation: orb-b 23s ease-in-out infinite; }
+.orb-3 { width: 620px; height: 620px; left: 26%; bottom: -300px; background: radial-gradient(circle, rgba(90,50,204,.5), transparent 70%); animation: orb-c 27s ease-in-out infinite; }
+.orb-4 { width: 320px; height: 320px; left: 8%; bottom: 8%; background: radial-gradient(circle, rgba(124,77,255,.35), transparent 70%); animation: orb-b 21s ease-in-out infinite reverse; }
+@keyframes orb-a { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(70px,50px) scale(1.12); } }
+@keyframes orb-b { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-60px,40px) scale(1.1); } }
+@keyframes orb-c { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(50px,-40px) scale(1.15); } }
+
+.landing {
+  position: relative; z-index: 1;
+  flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
+  text-align: center; padding: 40px 20px 16px; max-width: 880px; margin: 0 auto;
+  animation: landing-in .5s var(--ease) both;
+}
+.landing-social { position: relative; z-index: 1; }
+@keyframes landing-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* Big centred brand mark + wordmark */
+.brand-hero { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 22px; }
+.brand-mark {
+  width: 90px; height: 90px; border-radius: 26px; display: grid; place-items: center;
+  background: linear-gradient(150deg, var(--accent-hi) -10%, var(--accent) 45%, #5a32cc 110%);
+  color: #fff; box-shadow: 0 26px 60px -18px rgba(124,77,255,.75), inset 0 1px 0 rgba(255,255,255,.3);
+  animation: mark-pop .6s var(--ease) both, mark-float 5s ease-in-out 0.6s infinite;
+}
+.brand-mark svg { width: 46px; height: 46px; }
+.brand-word { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
+@keyframes mark-pop { from { opacity: 0; transform: scale(.8) translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes mark-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+
+.landing .eyebrow { display: inline-block; }
+.landing-title {
+  font-size: clamp(34px, 5vw, 56px); line-height: 1.06; font-weight: 800;
+  letter-spacing: -0.025em; margin: 16px auto 0; max-width: 14ch;
+}
+.landing-title .grad {
+  background: linear-gradient(100deg, var(--accent-hi), var(--accent) 55%, #d9b8ff);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.landing-sub { color: var(--muted); font-size: 17px; line-height: 1.6; max-width: 600px; margin: 18px auto 34px; }
+
+/* Command bar: [Upload]  [ link input ]  [Generate] */
+.cmdbar {
+  display: flex; align-items: center; gap: 8px; max-width: 720px; margin: 0 auto;
+  background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 999px;
+  padding: 8px 8px 8px 10px;
+  box-shadow: 0 28px 70px -30px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.03);
+  transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
+}
+.cmdbar:focus-within { border-color: var(--accent); box-shadow: 0 28px 70px -26px rgba(124,77,255,.45), 0 0 0 3px var(--accent-soft); }
+.cmdbar.drag { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.cmd-upload {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  background: var(--surface-3); color: var(--text); border: 1px solid var(--line-2);
+  border-radius: 999px; padding: 11px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.cmd-upload:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-hi); }
+.cmd-upload svg { width: 17px; height: 17px; }
+
+.cmd-input { flex: 1 1 auto; min-width: 0; background: transparent; border: 0; outline: none; color: var(--text); font-size: 15.5px; padding: 0 14px; }
+.cmd-input::placeholder { color: var(--muted-2); }
+
+.cmd-file { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0 14px; }
+.cmd-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: var(--accent-hi); font-size: 15px; font-weight: 600; }
+.cmd-clear { flex: none; background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 13px; padding: 5px 7px; border-radius: 8px; line-height: 1; }
+.cmd-clear:hover { color: var(--danger); background: var(--danger-soft); }
+
+.cmd-go {
+  flex: none; position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 8px;
+  background: linear-gradient(115deg, #8a5cff, #6d3cff 48%, #9f72ff);
+  background-size: 200% 200%;
+  color: #fff; border: 0; border-radius: 999px;
+  padding: 12px 22px; font-size: 15px; font-weight: 700; letter-spacing: .2px; cursor: pointer;
+  box-shadow: 0 12px 30px -14px rgba(124,77,255,.85), inset 0 1px 0 rgba(255,255,255,.2);
+  transition: transform .4s var(--ease), box-shadow .4s var(--ease);
+  animation: go-breathe 5s ease-in-out infinite, go-drift 9s ease-in-out infinite;
+}
+/* soft, occasional sheen — one smooth pass, then a long rest (not a constant strobe) */
+.cmd-go::after {
+  content: ""; position: absolute; top: -60%; left: 0; width: 34%; height: 220%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.26), transparent);
+  filter: blur(7px); transform: translateX(-280%) rotate(10deg);
+  animation: go-sheen 7s ease-in-out infinite;
+}
+.cmd-go svg { width: 16px; height: 16px; }
+.cmd-go:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 50px -16px rgba(124,77,255,1), 0 0 34px -4px rgba(124,77,255,.55), inset 0 1px 0 rgba(255,255,255,.28);
+  animation: go-drift 9s ease-in-out infinite;
+}
+.cmd-go:active:not(:disabled) { transform: translateY(-1px); }
+.cmd-go:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; animation: none; }
+.cmd-go:disabled::after { display: none; }
+/* gentle glow breathe — no scale, so it reads as calm and premium */
+@keyframes go-breathe {
+  0%,100% { box-shadow: 0 12px 30px -14px rgba(124,77,255,.7), 0 0 0 0 rgba(124,77,255,0), inset 0 1px 0 rgba(255,255,255,.2); }
+  50%     { box-shadow: 0 16px 40px -14px rgba(124,77,255,.95), 0 0 26px -3px rgba(124,77,255,.42), inset 0 1px 0 rgba(255,255,255,.2); }
+}
+/* slow gradient drift so the fill subtly lives */
+@keyframes go-drift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+/* one smooth sheen pass (0–16%), then off-screen at rest */
+@keyframes go-sheen { 0% { transform: translateX(-280%) rotate(10deg); } 16%,100% { transform: translateX(720%) rotate(10deg); } }
+
+.landing-error { max-width: 680px; margin: 16px auto 0; }
+.landing-hints { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; color: var(--muted-2); font-size: 13px; margin-top: 24px; }
+.landing-hints .sep { opacity: .45; }
+
+/* Animated social rail pinned to the bottom of the landing */
+.landing-social { display: flex; justify-content: center; gap: 13px; padding: 10px 20px 34px; }
+.soc {
+  position: relative; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--soc, var(--accent)); background: var(--surface-2); border: 1px solid var(--line-2);
+  text-decoration: none;
+  transition: transform .35s var(--ease), color .3s, background .35s, border-color .35s, box-shadow .4s;
+  animation: soc-rise .6s var(--ease) both, soc-glow 5s ease-in-out infinite;
+}
+.soc:nth-child(1) { animation-delay: .12s, 0s; }
+.soc:nth-child(2) { animation-delay: .22s, .6s; }
+.soc:nth-child(3) { animation-delay: .32s, 1.2s; }
+.soc:nth-child(4) { animation-delay: .42s, 1.8s; }
+.soc svg { width: 17px; height: 17px; transition: transform .35s var(--ease); }
+/* soft halo ring that eases outward on hover */
+.soc::after {
+  content: ""; position: absolute; inset: -2px; border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--soc, var(--accent)); opacity: 0; transform: scale(.9);
+  transition: opacity .5s var(--ease), transform .6s var(--ease); pointer-events: none;
+}
+.soc:hover {
+  color: #fff; background: var(--soc, var(--accent)); border-color: transparent;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 26px -10px var(--soc, var(--accent));
+  animation: none;
+}
+.soc:hover::after { opacity: .4; transform: scale(1.45); }
+.soc:hover svg { transform: scale(1.12); }
+@keyframes soc-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+/* slow, soft brand-colour glow breathe — calm, never a blink */
+@keyframes soc-glow {
+  0%,100% { box-shadow: 0 4px 16px -8px rgba(0,0,0,.6), 0 0 8px -3px var(--soc, var(--accent)); }
+  50%     { box-shadow: 0 4px 16px -8px rgba(0,0,0,.6), 0 0 20px -3px var(--soc, var(--accent)); }
+}
+@media (prefers-reduced-motion: reduce) { .brand-mark, .soc { animation: none; } }
+
+@media (max-width: 620px) {
+  .cmdbar { flex-wrap: wrap; border-radius: 22px; padding: 10px; }
+  .cmd-input, .cmd-file { flex-basis: 100%; order: 3; padding: 10px 14px; }
+  .cmd-upload { order: 1; } .cmd-go { order: 2; flex: 1; justify-content: center; }
+}
+
+/* Native dropdown lists: dark to match the theme (browsers render the popup with
+   the OS default white otherwise). Applies to every <select> in the app. */
+select option, select optgroup {
+  background: #16161f; color: #f3f3f8;
+}
+select optgroup { font-weight: 700; }
+
+/* ================= Caption Customizer — premium Style panel ================= */
+.cz { display: flex; flex-direction: column; gap: 18px; }
+.cz-field { display: flex; flex-direction: column; gap: 10px; }
+.cz-label { font-size: 12.5px; font-weight: 600; color: var(--muted); letter-spacing: .2px; }
+
+/* Select with leading icon + chevron (the reference's dropdowns) */
+.cz-select { position: relative; display: flex; align-items: center; gap: 8px;
+  background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 12px; padding: 0 12px; height: 46px;
+  transition: border-color .18s, box-shadow .18s; }
+.cz-select:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cz-select > svg { width: 16px; height: 16px; color: var(--muted-2); flex: none; }
+.cz-select select { appearance: none; background: transparent; border: 0; outline: none; color: var(--text);
+  font-size: 14.5px; font-weight: 500; width: 100%; padding: 0 20px 0 0; cursor: pointer; }
+.cz-select .cz-chev { position: absolute; right: 14px; width: 7px; height: 7px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: translateY(-2px) rotate(45deg); pointer-events: none; }
+
+/* Aa option cards (Theme + Animation) */
+.cz-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.cz-card { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 4px 9px;
+  background: var(--surface-2); border: 1.5px solid var(--line-2); border-radius: 13px; cursor: pointer;
+  transition: border-color .18s, background .18s, transform .12s; }
+.cz-card:hover { background: var(--surface-3); transform: translateY(-1px); }
+.cz-card.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cz-aa { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1; }
+.cz-card-l { font-size: 10.5px; color: var(--muted); }
+
+/* Highlight colour dots */
+.cz-colors { display: flex; gap: 11px; align-items: center; flex-wrap: wrap; }
+.cz-dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); transition: transform .15s, box-shadow .18s; }
+.cz-dot:hover { transform: scale(1.12); }
+.cz-dot.active { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.cz-dot-rainbow { position: relative; overflow: hidden;
+  background: conic-gradient(from 0deg, #ff3b81, #ffd400, #27e36b, #3b82f6, #7c4dff, #ff3b81); }
+.cz-dot-rainbow input { position: absolute; inset: -4px; width: 200%; height: 200%; opacity: 0; cursor: pointer; }
+
+/* Text settings row */
+.cz-row3 { display: grid; grid-template-columns: 1.5fr 1.1fr .8fr; gap: 8px; }
+.cz-row3 .cz-select { padding: 0 10px; }
+.cz-select-sm select { text-align: center; }
+.cz-upload { margin-top: 2px; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; border: 1px dashed var(--line-2); color: var(--muted); border-radius: 9px;
+  padding: 7px 12px; font-size: 12px; cursor: pointer; transition: color .15s, border-color .15s; }
+.cz-upload:hover { color: var(--accent-hi); border-color: var(--accent); }
+.cz-upload svg { width: 14px; height: 14px; }
+
+/* Position + Background side by side */
+.cz-row2 { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
+.cz-posgrid { display: grid; grid-template-columns: repeat(3, 16px); grid-template-rows: repeat(3, 16px);
+  gap: 9px; background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 13px; padding: 13px; width: max-content; }
+.cz-posdot { width: 16px; height: 16px; border-radius: 50%; background: var(--line-2); border: 0; cursor: pointer;
+  transition: background .15s, transform .15s, box-shadow .18s; padding: 0; }
+.cz-posdot:hover { background: var(--muted-2); transform: scale(1.1); }
+.cz-posdot.active { background: var(--accent); box-shadow: 0 0 12px -1px var(--accent); }
+
+.cz-bgcards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cz-bgcard { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 13px 4px;
+  background: var(--surface-2); border: 1.5px solid var(--line-2); border-radius: 13px; cursor: pointer;
+  transition: border-color .18s, background .18s; }
+.cz-bgcard:hover { background: var(--surface-3); }
+.cz-bgcard.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cz-bgicon { width: 24px; height: 24px; border-radius: 6px; }
+.cz-bg-none { position: relative; border: 1.5px solid var(--muted-2); background: transparent; }
+.cz-bg-none::after { content: ""; position: absolute; inset: 1px; border-radius: 4px;
+  background: linear-gradient(45deg, transparent 44%, var(--danger) 44%, var(--danger) 56%, transparent 56%); }
+.cz-bg-semi { background: repeating-linear-gradient(45deg, rgba(255,255,255,.28) 0 3px, transparent 3px 6px); border: 1px solid var(--line-2); }
+.cz-bg-solid { background: #dcdce6; }
+
+/* Advanced (collapsible) */
+.cz-adv { border-top: 1px solid var(--line); padding-top: 12px; }
+.cz-adv > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); list-style: none; }
+.cz-adv > summary::-webkit-details-marker { display: none; }
+.cz-adv > summary::before { content: "▸ "; color: var(--muted-2); }
+.cz-adv[open] > summary { color: var(--accent-hi); margin-bottom: 12px; }
+.cz-adv[open] > summary::before { content: "▾ "; }
+.cz-adv-body { display: flex; flex-direction: column; gap: 12px; }

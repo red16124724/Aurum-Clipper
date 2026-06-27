@@ -19,6 +19,7 @@ const TITLES = {
 
 export default function App() {
   const [page, setPage] = useState("create");
+  const [step, setStep] = useState(1);
   const [device, setDevice] = useState(null);
   const [online, setOnline] = useState(null);
 
@@ -33,8 +34,24 @@ export default function App() {
     return () => { alive = false; clearInterval(t); };
   }, []);
 
-  const t = TITLES[page];
+  // The Create landing (step 1) is a clean, full-screen page with NO app chrome —
+  // the sidebar + topbar only appear once you start (step 2) or open another page.
+  const chromeless = page === "create" && step === 1;
+  if (chromeless) {
+    return (
+      <div className="landing-shell">
+        <div className="landing-orbs" aria-hidden="true">
+          <span className="orb orb-1" />
+          <span className="orb orb-2" />
+          <span className="orb orb-3" />
+          <span className="orb orb-4" />
+        </div>
+        <Create step={step} setStep={setStep} />
+      </div>
+    );
+  }
 
+  const t = TITLES[page];
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -44,7 +61,11 @@ export default function App() {
         </div>
         <nav className="nav">
           {NAV.map((n) => (
-            <button key={n.id} className={"nav-item" + (page === n.id ? " active" : "")} onClick={() => setPage(n.id)}>
+            <button
+              key={n.id}
+              className={"nav-item" + (page === n.id ? " active" : "")}
+              onClick={() => { setPage(n.id); if (n.id === "create") setStep(1); }}
+            >
               <n.icon /> {n.label}
             </button>
           ))}
@@ -69,7 +90,7 @@ export default function App() {
         </header>
 
         <div className="content">
-          {page === "create" && <Create />}
+          {page === "create" && <Create step={step} setStep={setStep} />}
           {page === "library" && <Library />}
           {page === "settings" && <Settings />}
         </div>
