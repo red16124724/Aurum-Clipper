@@ -102,6 +102,7 @@ class ClipOptions:
     music_path: Optional[Path] = None  # background-music track to mix under the audio
     music_volume: float = 35.0         # 0-100, reels-style (ducked under speech)
     music_duck: float = 70.0           # 0-100, how hard music dips under the voice
+    music_start: float = 0.0           # seconds into the track to start from (beat-aligned)
 
 
 def _rel_for_filter(target: Path, start_dir: Path) -> str:
@@ -283,8 +284,11 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions)
         tail = []
 
     # Background music: loop the track, mix it under the audio, duck it under speech.
+    # ``music_start`` seeks into the track first (so a chosen beat lands at the clip
+    # start); ``-ss`` before ``-i`` applies to the looped input's first pass.
     if has_music:
-        inputs += ["-stream_loop", "-1", "-i", str(Path(opts.music_path).resolve())]
+        seek = ["-ss", f"{max(0.0, opts.music_start):.2f}"] if opts.music_start and opts.music_start > 0 else []
+        inputs += ["-stream_loop", "-1", *seek, "-i", str(Path(opts.music_path).resolve())]
         fc = fc + ";" + _music_audio_graph(music_idx, opts.music_volume, opts.music_duck)
         audio_map = ["-map", "[aout]"]
     else:

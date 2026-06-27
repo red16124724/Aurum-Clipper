@@ -48,7 +48,10 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
   const free = cfg.pos_x != null && cfg.pos_y != null;
   const yFrac = free ? cfg.pos_y / 100 : ({ top: 0.12, center: 0.5, bottom: 0.88 }[cfg.position || "bottom"]);
   const x = free ? cfg.pos_x : 50;
-  const y = reg.top + yFrac * reg.height;
+  // Square mode (un-dragged): caption sits in the black band JUST BELOW the square,
+  // top-anchored — matching the burned render (title above, caption hugging below).
+  const squareBelow = fit === "square" && !free;
+  const y = squareBelow ? (reg.top + reg.height + 2) : (reg.top + yFrac * reg.height);
 
   function onDown(e) {
     e.preventDefault();
@@ -114,7 +117,7 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
         {fit === "square" && barText && <div className="frame-title" style={{ top: "22%" }}>{barText}</div>}
 
         <div className={"cap-preview" + (dragging ? " dragging" : "")}
-          style={{ left: x + "%", top: y + "%", transform: "translate(-50%, -50%)", right: "auto", bottom: "auto", maxWidth: "92%" }}>
+          style={{ left: x + "%", top: y + "%", transform: `translate(-50%, ${squareBelow ? "0" : "-50%"})`, right: "auto", bottom: "auto", maxWidth: "92%" }}>
           <span className="cap-line-wrap" onMouseDown={onDown} onTouchStart={onDown}>
             <CaptionLine cfg={cfg} language={language} fontPx={fontPx} scale={0.16} />
           </span>

@@ -252,7 +252,9 @@ class GenerateRequest(BaseModel):
         description="Title text drawn over the top of the frame (square mode).",
     )
     num_clips: int = Field(
-        default=3, ge=1, le=10, description="How many clips to generate (1-10)."
+        default=3, ge=1, le=100,
+        description="How many clips to generate. The selector returns at most as "
+        "many non-overlapping windows as the transcript supports.",
     )
     caption_style: str = Field(
         default="bold_white", description="Caption style preset id."
@@ -289,6 +291,11 @@ class GenerateRequest(BaseModel):
         description="How hard the music dips under the voice (0-100). 0 keeps the "
         "music steady; higher values pull it down further whenever someone is "
         "talking so the original voice stays clear.",
+    )
+    music_start: Optional[float] = Field(
+        default=0, ge=0,
+        description="Seconds into the music track to start from (beat-aligned in the "
+        "UI), so the chosen drop/beat lands at the clip's start.",
     )
     device: Device = Field(
         default=Device.AUTO,

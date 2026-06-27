@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { toggleOn } from "../caption.js";
+import { toggleOn, captionLineStyle } from "../caption.js";
 import { Icons } from "./Icons.jsx";
 
 /* ---- small reusable controls (used in the Advanced section) ---- */
@@ -116,6 +116,14 @@ export default function Customizer({ studio, onFontUpload }) {
             {presets.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
           <span className="cz-chev" />
+        </div>
+        {/* Live preview of the current caption style */}
+        <div className="cz-preview">
+          <span className="cz-preview-cap" style={captionLineStyle(cfg, { fontPx: 25, scale: 0.2 })}>
+            {["Make", "it", "go", "viral"].map((w, i) => (
+              <span key={i} style={{ color: i === 3 && (anim === "highlight" || anim === "karaoke") ? (cfg.highlight_color || "#FFD400") : undefined }}>{w} </span>
+            ))}
+          </span>
         </div>
       </div>
 

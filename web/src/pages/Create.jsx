@@ -74,6 +74,7 @@ export default function Create({ step, setStep }) {
   const [musicTrack, setMusicTrack] = useState("");
   const [musicVolume, setMusicVolume] = useState(35);
   const [musicDuck, setMusicDuck] = useState(70);
+  const [musicStart, setMusicStart] = useState(0);  // seconds into the track to start from (beat-aligned)
 
   // Generate
   const [busy, setBusy] = useState(false);
@@ -164,8 +165,8 @@ export default function Create({ step, setStep }) {
       return { phase: "downloading", pct: upPct,
         message: upPct >= 100 ? "Processing upload…" : "Uploading your video…" };
     }
-    return prep;
-  }, [source, upPct, upload, prep]);
+    return prep.prep;  // the actual download/transcribe STATE (usePrep returns { prep, … })
+  }, [source, upPct, upload, prep.prep]);
 
   async function generate() {
     setError("");
@@ -177,7 +178,7 @@ export default function Create({ step, setStep }) {
     };
     if (Object.keys(studio.overrides).length) payload.caption_overrides = studio.overrides;
     if (cineActive(studio.cinematic)) payload.cinematic = studio.cinematic;
-    if (musicTrack) { payload.music_track = musicTrack; payload.music_volume = musicVolume; payload.music_duck = musicDuck; }
+    if (musicTrack) { payload.music_track = musicTrack; payload.music_volume = musicVolume; payload.music_duck = musicDuck; payload.music_start = musicStart; }
     if (source === "upload") {
       if (!upload) { setError("Wait for the upload to finish."); return; }
       payload.upload_id = upload.upload_id; payload.upload_name = upload.filename;
@@ -252,11 +253,11 @@ export default function Create({ step, setStep }) {
               placeholder="Paste a YouTube or video link…"
               value={url}
               onChange={(e) => { setSource("url"); setUrl(e.target.value); }}
-              onKeyDown={(e) => { if (e.key === "Enter" && sourceReady) setStep(2); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && sourceReady) { startPrep(); setStep(2); } }}
             />
           )}
 
-          <button className="cmd-go" disabled={!sourceReady} onClick={() => setStep(2)}>
+          <button className="cmd-go" disabled={!sourceReady} onClick={() => { startPrep(); setStep(2); }}>
             <Icons.bolt /> Generate
           </button>
         </div>
@@ -315,7 +316,7 @@ export default function Create({ step, setStep }) {
 
           <div className="card gen-card">
             <button className="btn btn-primary btn-block" disabled={busy} onClick={generate}>
-              {busy ? <><span className="spinner" /> Working…</> : <><Icons.bolt /> Generate {numClips} clip{numClips > 1 ? "s" : ""}</>}
+              {busy ? <><span className="spinner" /> Working…</> : <><Icons.bolt /> Generate clips</>}
             </button>
             {error && <div className="error">{error}</div>}
             {snap && (
@@ -348,8 +349,8 @@ export default function Create({ step, setStep }) {
               <div><label className="fieldlabel">Clips</label>
                 <div className="counter">
                   <button onClick={() => setNumClips((n) => Math.max(1, n - 1))}>−</button>
-                  <input type="number" min="1" max="10" value={numClips} onChange={(e) => setNumClips(Math.max(1, Math.min(10, +e.target.value || 1)))} />
-                  <button onClick={() => setNumClips((n) => Math.min(10, n + 1))}>+</button>
+                  <input type="number" min="1" max="100" value={numClips} onChange={(e) => setNumClips(Math.max(1, Math.min(100, +e.target.value || 1)))} />
+                  <button onClick={() => setNumClips((n) => Math.min(100, n + 1))}>+</button>
                 </div>
               </div>
             </div>
@@ -367,16 +368,18 @@ export default function Create({ step, setStep }) {
             </div>
           </details>
         </div>
+
+        {/* RIGHT — background music (with beat analysis) lives up here on the right */}
+        <div className="editor-musiccol">
+          <Music tracks={tracks} track={musicTrack} volume={musicVolume} duck={musicDuck} musicStart={musicStart}
+            onTrack={(t) => { setMusicTrack(t); setMusicStart(0); }} onVolume={setMusicVolume} onDuck={setMusicDuck} onStart={setMusicStart}
+            onUpload={onMusicUpload} onRefresh={refreshMusic} />
+        </div>
       </div>
 
-      {/* BOTTOM — full-width background music */}
-      <div className="editor-music">
-        <Music tracks={tracks} track={musicTrack} volume={musicVolume} duck={musicDuck}
-          onTrack={setMusicTrack} onVolume={setMusicVolume} onDuck={setMusicDuck} onUpload={onMusicUpload} onRefresh={refreshMusic} />
-      </div>
-
+      {/* BOTTOM — generated clips, full width */}
       {clips.length > 0 && (
-        <div className="card" style={{ marginTop: 18 }} ref={clipsRef}>
+        <div className="clips-bottom card" ref={clipsRef}>
           <div className="card-h"><h2>Your clips</h2><span className="hint">{clips.length} ready</span></div>
           <div className="clips">
             {clips.map((c) => (

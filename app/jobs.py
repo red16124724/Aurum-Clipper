@@ -339,6 +339,7 @@ def _run_pipeline(job: Job) -> None:
                 music_path=music_path,
                 music_volume=req.music_volume if req.music_volume is not None else 35.0,
                 music_duck=req.music_duck if req.music_duck is not None else 70.0,
+                music_start=req.music_start if req.music_start is not None else 0.0,
             )
             generate_clip(source_mp4, start, end, opts)
 

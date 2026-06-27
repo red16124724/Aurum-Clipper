@@ -337,13 +337,16 @@ def build_ass(
     bg_on = bool(cfg.get("background_enabled"))
     border_style = 3 if bg_on else 1
     # Vertical margin for top/bottom-anchored captions. In square mode the footage
-    # only fills a centered 1:1 square, so the default 8% (measured from the canvas
-    # edge) drops the captions into the black band BELOW the square. Instead, pull
-    # them inside the square: skip the black band, then a small inset off the edge.
+    # fills a centered 1:1 square; captions sit in the black band JUST BELOW the
+    # square (top-anchored there), so the title sits above the square and the
+    # caption hugs it from below — both attached, outside the square. ``square_align``
+    # forces that top anchor regardless of the preset's position.
+    square_align = None
     if fit_mode == "square":
         inner = max(0, video_w - 60)              # square side (matches clipper geometry)
         band = max(0, (video_h - inner) // 2)     # black band above & below the square
-        margin_v = band + int(round(inner * 0.05))
+        square_align = 8                          # top-anchored, in the band below the square
+        margin_v = band + inner + int(round(inner * 0.03))   # just below the square's bottom edge
     else:
         margin_v = int(round(video_h * 0.08))
 
@@ -365,6 +368,8 @@ def build_ass(
     # Vertical placement -> ASS alignment (numpad). A pos_x/pos_y override still
     # wins, because an \an5\pos prefix is emitted per line when those are set.
     alignment = {"top": 8, "center": 5, "bottom": 2}.get(cfg.get("position", "bottom"), 2)
+    if square_align is not None:
+        alignment = square_align  # square mode anchors the caption just below the box
 
     # For karaoke, libass fills each syllable from SecondaryColour -> PrimaryColour.
     # So PrimaryColour must be the highlight colour and Secondary the base colour.
@@ -390,7 +395,7 @@ Style: Default,{cfg['font_family']},{font_size},{style_primary},{style_secondary
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
-    pos_inner = _override_inner(cfg, video_w, video_h)
+    pos_inner = _override_inner(cfg, video_w, video_h, fit_mode)
     prefix = ("{" + pos_inner + "}") if pos_inner else ""
     uppercase = cfg["uppercase"]
 
@@ -444,13 +449,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     return out_path
 
 
-def _override_inner(cfg: dict, video_w: int, video_h: int) -> str:
+def _override_inner(cfg: dict, video_w: int, video_h: int, fit_mode: str | None = None) -> str:
     """Build the inline ASS tags (no braces) for position + rotation overrides.
 
     Position uses ``\\an5`` (centre anchor) + ``\\pos`` so the X/Y sliders place
     the caption block's centre anywhere in the frame; rotation uses ``\\frz``.
     Returns "" when neither is set, leaving the style's default bottom-centre.
     Callers wrap the result in ``{...}`` (and may append further tags, e.g. glow).
+
+    In square mode ``pos_y`` is a % of the SQUARE (not the full canvas), matching
+    the live preview — otherwise a dragged caption lands in the black band below
+    the square instead of where the preview showed it.
     """
     tags: List[str] = []
 
@@ -458,7 +467,12 @@ def _override_inner(cfg: dict, video_w: int, video_h: int) -> str:
     pos_y = cfg.get("pos_y")
     if pos_x is not None and pos_y is not None:
         x = int(round(pos_x / 100.0 * video_w))
-        y = int(round(pos_y / 100.0 * video_h))
+        if fit_mode == "square":
+            inner = max(0, video_w - 60)              # square side (matches clipper)
+            band = max(0, (video_h - inner) // 2)     # black band above the square
+            y = int(round(band + pos_y / 100.0 * inner))
+        else:
+            y = int(round(pos_y / 100.0 * video_h))
         tags.append(f"\\an5\\pos({x},{y})")
 
     rotation = cfg.get("rotation")

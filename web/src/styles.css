@@ -78,7 +78,7 @@ button { font-family: inherit; }
 .badge.ok .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
 .badge.warn .dot { background: var(--danger); }
 
-.content { padding: 26px 30px 60px; max-width: 1500px; width: 100%; }
+.content { padding: 26px 30px 60px; max-width: 2000px; width: 100%; }
 
 /* ---------- Generic ---------- */
 .card {
@@ -204,30 +204,42 @@ select { appearance: none; cursor: pointer;
 /* Three columns: Captions (left) · live preview + Generate (centre) · Output
    (right). Background music spans full width below. Centre & right are pinned so
    the phone and the action stay in view while the caption gallery scrolls. */
+/* 4 columns: Captions (fixed) | Preview+Generate | Output | Music (right).
+   Captions fixed-width so nothing reflows; clips render full-width BELOW. */
 .editor3 {
-  display: grid; grid-template-columns: minmax(300px, 1fr) 360px 330px;
+  display: grid; grid-template-columns: minmax(300px, 520px) 350px 320px minmax(320px, 1fr);
   gap: 18px; align-items: start;
 }
 .editor-captions { min-width: 0; }
-.editor-center {
-  position: sticky; top: 90px; display: flex; flex-direction: column; gap: 14px;
+.editor-center { position: sticky; top: 90px; display: flex; flex-direction: column; gap: 14px; }
+.editor-output {
+  position: sticky; top: 90px; max-height: calc(100vh - 130px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px; padding-right: 2px;
 }
-.editor-output { position: sticky; top: 90px; }
-.editor-music { margin-top: 18px; }
+.editor-musiccol { position: sticky; top: 90px; max-height: calc(100vh - 130px); overflow-y: auto; min-width: 0; }
+.editor-musiccol .music-grid { grid-template-columns: 1fr; gap: 14px; }   /* stack in the narrow column */
+.editor-musiccol .music-card { margin-top: 0; }
 .editor-center .prep { margin-top: 0; }
+
+/* Generated clips — full-width row BELOW the editor */
+.clips-bottom { margin-top: 18px; }
+.clips-bottom .clips { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
 /* Generate + progress live under the preview so the action is always on screen. */
 .gen-card { margin: 0; }
 .gen-card .btn-block { padding: 16px; font-size: 16px; }
 
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
   .editor3 { grid-template-columns: 1fr 340px; }
   .editor-captions { grid-column: 1 / -1; order: 3; }
   .editor-center { order: 1; }
-  .editor-output { order: 2; }
+  .editor-output { order: 2; max-height: none; overflow: visible; }
+  .editor-musiccol { grid-column: 1 / -1; order: 4; position: static; max-height: none; overflow: visible; }
+  .editor-musiccol .music-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 820px) {
   .editor3 { grid-template-columns: 1fr; }
   .editor-center, .editor-output { position: static; }
+  .editor-musiccol .music-grid { grid-template-columns: 1fr; }
 }
 
 /* ---- Phone preview · iPhone 17 Pro Max (titanium frame, Dynamic Island) ---- */
@@ -264,7 +276,12 @@ select { appearance: none; cursor: pointer;
 .cap-line { display: inline-block; font-weight: 800; max-width: 100%; word-break: break-word; }
 
 /* ---- Studio panel ---- */
-.studio { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-top: 18px; background: linear-gradient(180deg, var(--surface), var(--bg-2)); }
+.studio {
+  border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-top: 0;
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  position: sticky; top: 90px;
+  display: flex; flex-direction: column; max-height: calc(100vh - 130px);
+}
 .studio-head { padding: 14px 16px 0; }
 .studio-title { font-size: 15px; font-weight: 700; }
 .studio-title .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 8px; box-shadow: 0 0 9px var(--accent); }
@@ -273,7 +290,8 @@ select { appearance: none; cursor: pointer;
 .studio-tab svg { width: 15px; height: 15px; }
 .studio-tab:hover { color: var(--text); }
 .studio-tab.active { color: var(--accent-hi); border-bottom-color: var(--accent); }
-.studio-pane { padding: 16px; border-top: 1px solid var(--line); }
+/* Tab content scrolls INSIDE the card (header + tabs stay fixed) when long. */
+.studio-pane { padding: 16px; border-top: 1px solid var(--line); flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
 .style-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .save-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 600; color: var(--accent-hi); background: var(--accent-soft); border: 1px solid var(--line); border-radius: 999px; }
@@ -362,15 +380,22 @@ select { appearance: none; cursor: pointer;
 /* ================= Landing (Step 1) ================= */
 /* Full-screen, chrome-less: brand mark centred, command bar, social rail pinned
    to the bottom. Rendered without the sidebar/topbar (see App.jsx chromeless). */
-.landing-shell {
-  position: relative; min-height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+/* Landing mode: hide the chrome (NOT unmount), and turn .content into the
+   full-screen canvas. <Create> stays mounted across landing→editor so the pasted
+   URL / upload survives. */
+.shell.is-landing { grid-template-columns: 1fr; }
+.shell.is-landing .sidebar,
+.shell.is-landing .topbar { display: none; }
+.shell.is-landing .content {
+  position: relative; min-height: 100vh; max-width: none; padding: 0;
+  display: flex; flex-direction: column; overflow: hidden;
   background:
     radial-gradient(1100px 620px at 50% -8%, rgba(124,77,255,.18), transparent 60%),
     radial-gradient(900px 700px at 100% 100%, rgba(154,107,255,.10), transparent 60%),
     var(--bg);
 }
 /* Faint grid texture so the empty space reads as a designed surface, not a void */
-.landing-shell::before {
+.shell.is-landing .content::before {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: .5;
   background-image:
     linear-gradient(rgba(124,77,255,.045) 1px, transparent 1px),
@@ -380,7 +405,9 @@ select { appearance: none; cursor: pointer;
           mask-image: radial-gradient(circle at 50% 38%, #000 0%, transparent 72%);
 }
 
-/* Slow-drifting glow orbs — the landing's "art" / depth layer */
+/* Slow-drifting glow orbs — the landing's "art" / depth layer.
+   Always rendered (so Create keeps its tree position), shown only on the landing. */
+.shell:not(.is-landing) .landing-orbs { display: none; }
 .landing-orbs { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
 .landing-orbs .orb { position: absolute; border-radius: 50%; filter: blur(72px); will-change: transform; }
 .orb-1 { width: 440px; height: 440px; left: -110px; top: -70px; background: radial-gradient(circle, rgba(124,77,255,.55), transparent 70%); animation: orb-a 19s ease-in-out infinite; }
@@ -534,6 +561,58 @@ select { appearance: none; cursor: pointer;
   .cmd-upload { order: 1; } .cmd-go { order: 2; flex: 1; justify-content: center; }
 }
 
+/* ===== Background music — premium ===== */
+.music-card .music-ico { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px;
+  background: var(--accent-soft); color: var(--accent-hi); margin-right: 9px; vertical-align: middle; }
+.music-card .music-ico svg { width: 15px; height: 15px; }
+.music-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+.music-pick { display: flex; flex-direction: column; gap: 10px; }
+.music-mix { display: flex; flex-direction: column; gap: 16px; }
+
+/* Now-playing mini player with animated equalizer */
+.now-playing { display: flex; align-items: center; gap: 13px; margin-top: 4px; padding: 11px 13px;
+  background: linear-gradient(100deg, var(--accent-soft), transparent 80%), var(--surface-2);
+  border: 1px solid var(--line-2); border-radius: 13px; }
+.np-play { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: #fff; border: 0; cursor: pointer; box-shadow: 0 8px 20px -8px var(--accent);
+  transition: transform .14s var(--ease), background .15s; }
+.np-play:hover { background: #8b62ff; transform: scale(1.06); }
+.np-play svg { width: 18px; height: 18px; }
+.np-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.np-name { font-size: 13.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-bars { display: flex; align-items: flex-end; gap: 3px; height: 16px; }
+.np-bars span { width: 3px; height: 30%; background: var(--accent-hi); border-radius: 2px; opacity: .55; }
+.now-playing.on .np-bars span { animation: eq 0.9s ease-in-out infinite; opacity: 1; }
+@keyframes eq { 0%, 100% { height: 25%; } 50% { height: 100%; } }
+@media (max-width: 760px) { .music-grid { grid-template-columns: 1fr; gap: 16px; } }
+
+/* Beat-analysis waveform */
+.wave { margin-top: 4px; background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 12px; padding: 11px 12px; }
+.wave-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.wave-head > span:first-child { font-size: 12px; font-weight: 600; color: var(--muted); }
+.wave-start { font-size: 11px; color: var(--accent-hi); font-weight: 600; }
+.wave-canvas { width: 100%; height: 64px; display: block; cursor: pointer; border-radius: 7px; background: var(--bg-2); }
+.wave-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 7px; }
+.wave-hint { font-size: 11px; color: var(--muted-2); line-height: 1.4; }
+.wave-reset { flex: none; background: transparent; border: 1px solid var(--line-2); color: var(--muted); border-radius: 7px; padding: 4px 9px; font-size: 11px; cursor: pointer; }
+.wave-reset:hover { color: var(--accent-hi); border-color: var(--accent); }
+
+/* Step-2 source bar (paste a URL / upload) above the live preview */
+.src-mini { display: flex; gap: 9px; align-items: center; background: var(--surface-2);
+  border: 1px solid var(--line-2); border-radius: 12px; padding: 7px 7px 7px 13px; }
+.src-mini:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.src-mini > svg { width: 16px; height: 16px; color: var(--muted-2); flex: none; }
+.src-mini input[type="text"] { flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: var(--text); font-size: 14px; }
+.src-mini input[type="text"]::placeholder { color: var(--muted-2); }
+.src-up { flex: none; width: 38px; height: 38px; display: grid; place-items: center; background: var(--surface-3);
+  border: 1px solid var(--line-2); border-radius: 9px; color: var(--muted); cursor: pointer; transition: color .15s, border-color .15s; }
+.src-up:hover { color: var(--accent-hi); border-color: var(--accent); }
+.src-up svg { width: 16px; height: 16px; }
+.src-mini-file { display: flex; align-items: center; gap: 10px; width: 100%; }
+.src-mini-file span { flex: 1; color: var(--accent-hi); font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src-mini-file button { flex: none; background: transparent; border: 1px solid var(--line-2); color: var(--muted); border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; }
+.src-mini-file button:hover { color: var(--accent-hi); border-color: var(--accent); }
+
 /* Native dropdown lists: dark to match the theme (browsers render the popup with
    the OS default white otherwise). Applies to every <select> in the app. */
 select option, select optgroup {
@@ -556,6 +635,17 @@ select optgroup { font-weight: 700; }
   font-size: 14.5px; font-weight: 500; width: 100%; padding: 0 20px 0 0; cursor: pointer; }
 .cz-select .cz-chev { position: absolute; right: 14px; width: 7px; height: 7px;
   border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: translateY(-2px) rotate(45deg); pointer-events: none; }
+
+/* Live caption-style preview under the Caption Style picker */
+.cz-preview {
+  margin-top: 6px; display: grid; place-items: center; min-height: 70px; padding: 16px;
+  border-radius: 13px; border: 1px solid var(--line-2); overflow: hidden;
+  background:
+    radial-gradient(130% 130% at 50% 0%, rgba(124,77,255,.12), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 10px, transparent 10px 20px),
+    var(--bg-2);
+}
+.cz-preview-cap { line-height: 1.12; text-align: center; white-space: nowrap; }
 
 /* Aa option cards (Theme + Animation) */
 .cz-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }

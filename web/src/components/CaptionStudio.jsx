@@ -48,8 +48,9 @@ export default function CaptionStudio({ studio, onFontUpload }) {
 
       <div className="studio-tabs">
         <button className={"studio-tab" + (tab === "style" ? " active" : "")} onClick={() => setTab("style")}><Icons.create /> Style</button>
-        <button className={"studio-tab" + (tab === "themes" ? " active" : "")} onClick={() => setTab("themes")}><Icons.film /> Themes</button>
-        <button className={"studio-tab" + (tab === "presets" ? " active" : "")} onClick={() => setTab("presets")}><Icons.library /> Presets</button>
+        <button className={"studio-tab" + (tab === "effects" ? " active" : "")} onClick={() => setTab("effects")}><Icons.film /> Effects</button>
+        <button className={"studio-tab" + (tab === "themes" ? " active" : "")} onClick={() => setTab("themes")}><Icons.library /> Themes</button>
+        <button className={"studio-tab" + (tab === "presets" ? " active" : "")} onClick={() => setTab("presets")}><Icons.download /> Presets</button>
       </div>
 
       {tab === "style" && (
@@ -60,7 +61,12 @@ export default function CaptionStudio({ studio, onFontUpload }) {
           </div>
           <SaveBlock s={s} open={saveOpen} setOpen={setSaveOpen} />
           <Customizer studio={s} onFontUpload={onFontUpload} />
-          <div className="cine-sep"><span>Cinematic effects</span></div>
+        </div>
+      )}
+
+      {tab === "effects" && (
+        <div className="studio-pane">
+          <div className="style-head"><span className="eyebrow">Cinematic effects</span></div>
           <Cinematic cinematic={s.cinematic} setCine={s.setCine} resetCine={s.resetCine} />
         </div>
       )}

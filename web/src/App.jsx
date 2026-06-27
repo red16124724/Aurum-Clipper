@@ -34,26 +34,15 @@ export default function App() {
     return () => { alive = false; clearInterval(t); };
   }, []);
 
-  // The Create landing (step 1) is a clean, full-screen page with NO app chrome —
-  // the sidebar + topbar only appear once you start (step 2) or open another page.
+  // The Create landing (step 1) is a clean, full-screen page: the sidebar + topbar
+  // are HIDDEN (via the .is-landing class), not unmounted. Crucially, <Create>
+  // stays mounted at the SAME tree position across the landing→editor switch, so
+  // its source/url/upload state survives (re-mounting it would wipe the pasted URL).
   const chromeless = page === "create" && step === 1;
-  if (chromeless) {
-    return (
-      <div className="landing-shell">
-        <div className="landing-orbs" aria-hidden="true">
-          <span className="orb orb-1" />
-          <span className="orb orb-2" />
-          <span className="orb orb-3" />
-          <span className="orb orb-4" />
-        </div>
-        <Create step={step} setStep={setStep} />
-      </div>
-    );
-  }
-
   const t = TITLES[page];
+
   return (
-    <div className="shell">
+    <div className={"shell" + (chromeless ? " is-landing" : "")}>
       <aside className="sidebar">
         <div className="brand">
           <span className="logo"><Icons.bolt /></span>
@@ -90,7 +79,16 @@ export default function App() {
         </header>
 
         <div className="content">
-          {page === "create" && <Create step={step} setStep={setStep} />}
+          {/* Orbs are ALWAYS in the tree (hidden via CSS off the landing) so that
+              <Create> never changes sibling-index — otherwise toggling them would
+              remount Create and wipe its in-flight download/prep state. */}
+          <div className="landing-orbs" aria-hidden="true">
+            <span className="orb orb-1" />
+            <span className="orb orb-2" />
+            <span className="orb orb-3" />
+            <span className="orb orb-4" />
+          </div>
+          {page === "create" && <Create key="create" step={step} setStep={setStep} />}
           {page === "library" && <Library />}
           {page === "settings" && <Settings />}
         </div>
