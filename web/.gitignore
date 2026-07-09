@@ -1,3 +1,6 @@
 node_modules
-dist
 *.local
+
+# NOTE: web/dist (built frontend) is intentionally COMMITTED so the one-file
+# GitHub installer ships a ready UI (end users have no Node to build it).
+# Rebuild with `npm run build`, then commit the updated dist.

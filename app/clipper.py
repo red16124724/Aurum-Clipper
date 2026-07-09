@@ -98,11 +98,14 @@ class ClipOptions:
     clip_id: str
     index: int
     bar_text: Optional[str] = None
+    bar_text_color: str = "#FFFFFF"     # square title colour
+    bar_text_anim: str = "none"         # square title entrance: none | fade | slide
     cinematic: Optional[dict] = None  # cinematic effects config (see app.effects)
     music_path: Optional[Path] = None  # background-music track to mix under the audio
     music_volume: float = 35.0         # 0-100, reels-style (ducked under speech)
     music_duck: float = 70.0           # 0-100, how hard music dips under the voice
     music_start: float = 0.0           # seconds into the track to start from (beat-aligned)
+    signature: Optional[dict] = None   # burned-in watermark (see app.models.Signature)
 
 
 def _rel_for_filter(target: Path, start_dir: Path) -> str:
@@ -142,6 +145,30 @@ def _caption_stage(in_label: str, opts: ClipOptions, work_dir: Path) -> str:
     return f"[{in_label}]{_ass_filter(opts, work_dir)}[outv]"
 
 
+def _signature_stages(in_label: str, sig: Optional[dict], w: int, h: int, work_dir: Path) -> tuple[list[str], str]:
+    """Burn the signature/watermark text. Returns (stages, out_label).
+
+    pos_x/pos_y are the text centre as a % of the frame; size is at 1080-wide and
+    scales to the real width; opacity 0-100. No-op when disabled/empty.
+    """
+    if not sig or not sig.get("enabled") or not (sig.get("text") or "").strip():
+        return [], in_label
+    scale = w / 1080.0
+    size = max(10, int(round(float(sig.get("size") or 34) * scale)))
+    alpha = max(0.0, min(1.0, float(sig.get("opacity") if sig.get("opacity") is not None else 75) / 100.0))
+    col = (sig.get("color") or "#FFFFFF").replace("#", "0x")
+    px = max(0.0, min(1.0, float(sig.get("pos_x") if sig.get("pos_x") is not None else 50) / 100.0))
+    py = max(0.0, min(1.0, float(sig.get("pos_y") if sig.get("pos_y") is not None else 92) / 100.0))
+    txt = _escape_drawtext(sig["text"].strip())
+    stage = (
+        f"[{in_label}]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:"
+        f"text='{txt}':fontcolor={col}@{alpha:.3f}:fontsize={size}:"
+        f"x=(w-text_w)*{px:.4f}:y=(h-text_h)*{py:.4f}:"
+        f"borderw=2:bordercolor=black@{min(0.55, alpha):.3f}:shadowcolor=black@0.4:shadowx=1:shadowy=1[sig]"
+    )
+    return [stage], "sig"
+
+
 def _finish_stages(in_label: str, vw: int, vh: int, opts: ClipOptions, work_dir: Path) -> list[str]:
     """Append the cinematic stages (under the captions) then the caption burn.
 
@@ -152,7 +179,8 @@ def _finish_stages(in_label: str, vw: int, vh: int, opts: ClipOptions, work_dir:
     the square itself — see ``_build_square_filter_complex``.)
     """
     cine_stages, cap_in = effects.cinematic_stages(opts.cinematic, in_label, vw, vh)
-    return cine_stages + [_caption_stage(cap_in, opts, work_dir)]
+    sig_stages, sig_in = _signature_stages(cap_in, opts.signature, vw, vh, work_dir)
+    return cine_stages + sig_stages + [_caption_stage(sig_in, opts, work_dir)]
 
 
 def _build_crop_filter_complex(width: int, height: int, opts: ClipOptions, work_dir: Path) -> str:
@@ -202,17 +230,33 @@ def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
     last = "ov"
 
     if opts.bar_text and opts.bar_text.strip():
+        # Title can be MULTI-LINE (the UI sends \n for Shift+Enter). Each line is a
+        # separate drawtext, stacked, so the whole block sits in the top black band
+        # just above the square.
+        lines = [ln.strip() for ln in opts.bar_text.split("\n") if ln.strip()][:3]
         font_size = max(28, int(round(h * 0.040)))
-        y = max(20, my - font_size - 40)  # sits in the black band just above the square
-        stages.append(
-            f"[{last}]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:"
-            f"text='{_escape_drawtext(opts.bar_text.strip())}':"
-            f"fontcolor=white:fontsize={font_size}:x=(w-text_w)/2:y={y}:"
-            f"borderw=3:bordercolor=black@0.85[titled]"
-        )
-        last = "titled"
+        line_h = int(round(font_size * 1.3))
+        block_h = line_h * len(lines)
+        start_y = max(16, my - block_h - 22)  # bottom of block ~22px above the square
+        col = (opts.bar_text_color or "#FFFFFF").replace("#", "0x")
+        anim = (opts.bar_text_anim or "none").lower()
+        # Entrance animation (commas escaped for the filtergraph expression parser):
+        #   fade  → alpha ramps 0→1 over 0.5s; slide → drops in from ~40px below.
+        alpha_expr = ":alpha='if(lt(t\\,0.5)\\,t/0.5\\,1)'" if anim == "fade" else ""
+        for li, ln in enumerate(lines):
+            base_y = start_y + li * line_h
+            y = (f"'{base_y}+40*(1-min(t/0.45\\,1))'" if anim == "slide" else str(base_y))
+            stages.append(
+                f"[{last}]drawtext=fontfile={_rel_for_filter(_BAR_FONT, work_dir)}:"
+                f"text='{_escape_drawtext(ln)}':"
+                f"fontcolor={col}:fontsize={font_size}:x=(w-text_w)/2:y={y}{alpha_expr}:"
+                f"borderw=3:bordercolor=black@0.85[ttl{li}]"
+            )
+            last = f"ttl{li}"
 
-    # Captions burn on the composited canvas (effects already applied to the square).
+    # Signature/watermark, then captions, on the composited canvas.
+    sig_stages, last = _signature_stages(last, opts.signature, w, h, work_dir)
+    stages += sig_stages
     stages.append(_caption_stage(last, opts, work_dir))
     return ";".join(stages)
 

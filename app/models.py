@@ -220,6 +220,18 @@ class CinematicEffects(BaseModel):
     letterbox_size: Optional[float] = Field(default=50, ge=0, le=100)
 
 
+class Signature(BaseModel):
+    """A burned-in signature / watermark (your handle) over the footage."""
+
+    enabled: Optional[bool] = Field(default=False)
+    text: Optional[str] = Field(default="@yourhandle")
+    pos_x: Optional[float] = Field(default=50, ge=0, le=100, description="X centre as % of width.")
+    pos_y: Optional[float] = Field(default=92, ge=0, le=100, description="Y centre as % of height.")
+    size: Optional[float] = Field(default=34, ge=10, le=120, description="Font size in px (at 1080-wide).")
+    color: Optional[str] = Field(default="#FFFFFF", description="Text colour (#RRGGBB).")
+    opacity: Optional[float] = Field(default=75, ge=0, le=100, description="Opacity in %.")
+
+
 class GenerateRequest(BaseModel):
     """Body for POST /api/generate.
 
@@ -251,10 +263,23 @@ class GenerateRequest(BaseModel):
         default=None,
         description="Title text drawn over the top of the frame (square mode).",
     )
+    bar_text_color: Optional[str] = Field(
+        default="#FFFFFF", description="Square title colour (#RRGGBB)."
+    )
+    bar_text_anim: Optional[str] = Field(
+        default="none", description="Square title entrance: 'none', 'fade', or 'slide'.",
+    )
     num_clips: int = Field(
         default=3, ge=1, le=100,
         description="How many clips to generate. The selector returns at most as "
         "many non-overlapping windows as the transcript supports.",
+    )
+    clip_length: Optional[float] = Field(
+        default=None, ge=5, le=600,
+        description="Target length of each clip in SECONDS (e.g. 30, 45, 60, or a "
+        "custom value). When set, each clip aims for this duration — finishing on "
+        "a sentence boundary near it — instead of dividing the video evenly by "
+        "num_clips. None keeps the adaptive length behaviour.",
     )
     caption_style: str = Field(
         default="bold_white", description="Caption style preset id."
@@ -296,6 +321,9 @@ class GenerateRequest(BaseModel):
         default=0, ge=0,
         description="Seconds into the music track to start from (beat-aligned in the "
         "UI), so the chosen drop/beat lands at the clip's start.",
+    )
+    signature: Optional[Signature] = Field(
+        default=None, description="Burned-in signature / watermark over the footage.",
     )
     device: Device = Field(
         default=Device.AUTO,

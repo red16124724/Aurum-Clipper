@@ -4,9 +4,16 @@ import { Icons } from "./Icons.jsx";
 
 /* ---- small reusable controls (used in the Advanced section) ---- */
 function Slider({ label, unit, min, max, step = 1, value, onChange }) {
+  const clamp = (v) => Math.max(min, Math.min(max, v));
   return (
     <div className="ctl">
-      <label>{label}<span className="val">{Math.round(value)}{unit}</span></label>
+      <label>{label}
+        <span className="val">
+          <input type="number" className="val-num" min={min} max={max} step={step} value={Math.round(value)}
+            onChange={(e) => onChange(e.target.value === "" ? value : clamp(parseFloat(e.target.value) || 0))} />
+          {unit}
+        </span>
+      </label>
       <input type="range" className="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))} />
     </div>
@@ -42,7 +49,11 @@ const THEMES = [
     ov: { font_family: "JetBrains Mono", primary_color: "#27E36B", highlight_color: "#27E36B", animation: "word_reveal", karaoke: false, bold: false, uppercase: false, glow_enabled: false } },
 ];
 
-const HCOLORS = ["#FFFFFF", "#7C4DFF", "#FF3B81", "#FFD400", "#27E36B", "#3B82F6"];
+// Curated, professional caption-highlight palette (creator/Hormozi-grade).
+const HCOLORS = [
+  "#FFFFFF", "#FFD400", "#FFB020", "#FF3B30", "#FF2D78",
+  "#27E36B", "#22D3EE", "#3B82F6", "#7C4DFF", "#000000",
+];
 
 const ANIMS = [
   { v: "none", label: "None" },

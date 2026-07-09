@@ -25,6 +25,8 @@ export const api = {
   fonts: () => jget("/api/fonts"),
   history: () => jget("/api/history"),
   generate: (payload) => jpost("/api/generate", payload),
+  cancel: (jobId) => jpost(`/api/cancel/${jobId}`, {}),
+  musicSuggest: (sourceId, language) => jget(`/api/music-suggest/${sourceId}` + (language ? `?language=${encodeURIComponent(language)}` : "")),
   result: (jobId) => jget(`/api/result/${jobId}`),
   prefetch: (video_url) => jpost("/api/prefetch", { video_url }),
   prefetchStatus: (id) => jget(`/api/prefetch/${id}`),

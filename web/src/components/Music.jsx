@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icons } from "./Icons.jsx";
 import Waveform from "./Waveform.jsx";
 
-export default function Music({ tracks, track, volume, duck, musicStart, onTrack, onVolume, onDuck, onStart, onUpload, onRefresh }) {
+export default function Music({ tracks, track, volume, duck, musicStart, suggest, onTrack, onVolume, onDuck, onStart, onUpload, onRefresh }) {
   const ref = useRef(null);
   const audioRef = useRef(null);
   const [note, setNote] = useState("");
@@ -41,6 +41,12 @@ export default function Music({ tracks, track, volume, duck, musicStart, onTrack
       <div className="music-grid">
         {/* Track picker + now-playing */}
         <div className="music-pick">
+          {suggest && (
+            <div className="music-suggest">
+              <span className="ms-emoji">{suggest.emoji}</span>
+              <span className="ms-text">Suggested: <b>{suggest.label}</b> — {suggest.hint}</span>
+            </div>
+          )}
           <label className="fieldlabel">Track</label>
           <div className="cz-select">
             <Icons.film />

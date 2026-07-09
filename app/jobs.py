@@ -91,8 +91,20 @@ class Job:
         self.clips: List[dict] = []
         self.error: Optional[str] = None
         self.clip_id: Optional[str] = None
+        self.cancelled = False
         self._lock = threading.Lock()
         self._rev = 0  # bumped on every change so the SSE stream only sends diffs
+
+    def cancel(self) -> None:
+        """Flag the run for cancellation; the pipeline stops at the next checkpoint."""
+        with self._lock:
+            if self.status in ("done", "error"):
+                return
+            self.cancelled = True
+            self.status = "cancelled"
+            self.stage = "cancelled"
+            self.message = "Cancelled."
+            self._rev += 1
 
     # -- mutation ---------------------------------------------------------- #
     def set_stage(self, stage: str, frac: float, message: str) -> None:
@@ -279,7 +291,7 @@ def _run_pipeline(job: Job) -> None:
 
         # 3) Select clips (local heuristic, optional local Ollama).
         job.set_stage("selecting", 0.3, "Analyzing transcript for the best moments...")
-        windows = selector.select_clips(transcript, req.num_clips)
+        windows = selector.select_clips(transcript, req.num_clips, req.clip_length)
         if not windows:
             raise ClipGenerationError(
                 "Could not find any suitable clip windows in this video. "
@@ -308,6 +320,9 @@ def _run_pipeline(job: Job) -> None:
         results: List[dict] = []
         total = len(windows)
         for index, win in enumerate(windows):
+            if job.cancelled:
+                logger.info("[%s] cancelled before clip %d", job.id, index)
+                return
             start, end = float(win["start"]), float(win["end"])
             job.set_stage(
                 "rendering",
@@ -335,11 +350,14 @@ def _run_pipeline(job: Job) -> None:
                 clip_id=clip_id,
                 index=index,
                 bar_text=req.bar_text,
+                bar_text_color=req.bar_text_color or "#FFFFFF",
+                bar_text_anim=req.bar_text_anim or "none",
                 cinematic=cinematic,
                 music_path=music_path,
                 music_volume=req.music_volume if req.music_volume is not None else 35.0,
                 music_duck=req.music_duck if req.music_duck is not None else 70.0,
                 music_start=req.music_start if req.music_start is not None else 0.0,
+                signature=req.signature.model_dump() if req.signature else None,
             )
             generate_clip(source_mp4, start, end, opts)
 

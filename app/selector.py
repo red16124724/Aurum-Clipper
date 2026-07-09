@@ -21,9 +21,12 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 # Candidate window length bounds (seconds) and the "ideal" length we score toward.
-MIN_CLIP_LEN = 20.0
-MAX_CLIP_LEN = 45.0
-IDEAL_CLIP_LEN = 30.0
+# A clip must run at least MIN, then keeps going until the sentence finishes — it is
+# never cut mid-thought. MAX is a hard safety cap (≈ for runaway monologues).
+MIN_CLIP_LEN = 30.0
+MAX_CLIP_LEN = 90.0
+IDEAL_CLIP_LEN = 40.0
+_SENT_END = (".", "!", "?", "।", "…")  # incl. Urdu/Hindi danda
 
 # Words that often mark hooks / strong or curiosity-driving statements.
 STRONG_WORDS = {
@@ -40,15 +43,40 @@ _OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3")
 # --------------------------------------------------------------------------- #
 # Public API
 # --------------------------------------------------------------------------- #
-def select_clips(transcript: dict, num_clips: int) -> List[dict]:
-    """Return up to `num_clips` non-overlapping {start, end, title} windows."""
+def select_clips(
+    transcript: dict, num_clips: int, clip_length: float | None = None
+) -> List[dict]:
+    """Return up to `num_clips` non-overlapping {start, end, title} windows.
+
+    If ``clip_length`` is given (seconds — e.g. 30 / 45 / 60 / custom), each window
+    is cut to EXACTLY that duration (30s means 30s, not "≈38s to finish a
+    sentence"); ``num_clips`` only caps the count.
+
+    Otherwise the clip length ADAPTS to how many clips were asked for: a few clips
+    → longer (~ideal) windows; many clips → shorter windows so the video can
+    actually yield that many. (You can only fit ~duration / clip-length clips.)
+    """
     segments = transcript.get("segments") or []
     if not segments:
-        return _fallback_even_split(transcript, num_clips)
+        return _fallback_even_split(transcript, num_clips, clip_length)
 
-    candidates = _build_candidate_windows(segments)
+    duration = float(transcript.get("duration") or (segments[-1].get("end") or 0.0))
+
+    if clip_length and clip_length > 0:
+        # Explicit length requested: cut each window to EXACTLY this many seconds so
+        # the clip is the duration the user asked for (no sentence-boundary overshoot).
+        candidates = _build_candidate_windows(segments, float(clip_length),
+                                              exact_len=float(clip_length))
+    else:
+        # Target window length so `num_clips` can fit the video. The ×0.85
+        # compensates for windows overshooting the target while finishing a
+        # sentence, keeping the final count close to what was requested.
+        target = (duration / num_clips) if (num_clips and duration) else IDEAL_CLIP_LEN
+        target = max(10.0, min(MAX_CLIP_LEN, target * 0.85))
+        candidates = _build_candidate_windows(segments, target)
+
     if not candidates:
-        return _fallback_even_split(transcript, num_clips)
+        return _fallback_even_split(transcript, num_clips, clip_length)
 
     # Optional local Ollama scoring (off unless explicitly enabled and available).
     if os.environ.get("USE_OLLAMA") == "1" and _ollama_available():
@@ -63,31 +91,113 @@ def select_clips(transcript: dict, num_clips: int) -> List[dict]:
 # --------------------------------------------------------------------------- #
 # Heuristic selection
 # --------------------------------------------------------------------------- #
-def _build_candidate_windows(segments: List[dict]) -> List[dict]:
-    """Build candidate windows by greedily grouping consecutive segments.
+def _build_candidate_windows(
+    segments: List[dict],
+    target_len: float = IDEAL_CLIP_LEN,
+    max_len: float | None = None,
+    exact_len: float | None = None,
+) -> List[dict]:
+    """Tile the transcript into CONTIGUOUS, non-overlapping windows ~``target_len``.
 
-    Each window starts at a segment boundary and extends until it reaches the
-    ideal length, keeping the result inside [MIN_CLIP_LEN, MAX_CLIP_LEN].
+    Walking start→end and jumping to each window's end (rather than one window per
+    segment) packs the video tightly, so the timeline yields about
+    ``duration / target_len`` windows — i.e. asking for many clips actually gives
+    many. Each window still ends on a sentence boundary when possible (capped at
+    ~1.2× target so the count stays close to what was requested).
+
+    ``max_len`` overrides the hard upper cap — passed when the user picks an
+    explicit clip length so a long custom length isn't clamped to ``MAX_CLIP_LEN``.
+
+    ``exact_len`` (when set) makes every window EXACTLY that many seconds long,
+    starting at a segment boundary — used when the user picks a fixed clip length
+    so a "30s" clip is 30s, not ~38s snapping to the next sentence end.
     """
+    if exact_len is not None and exact_len > 0:
+        return _build_exact_windows(segments, exact_len)
+
     candidates: List[dict] = []
     n = len(segments)
+    min_len = max(6.0, min(MIN_CLIP_LEN, target_len * 0.6))
+    if max_len is None:
+        max_len = min(MAX_CLIP_LEN, max(target_len * 1.2, min_len + 6))
+    else:
+        max_len = max(max_len, min_len + 6)
 
-    for i in range(n):
+    i = 0
+    while i < n:
         start = float(segments[i]["start"])
         end = start
         text_parts: List[str] = []
-
-        for j in range(i, n):
+        j = i
+        while j < n:
             seg = segments[j]
             end = float(seg["end"])
-            text_parts.append((seg["text"] or "").strip())
+            seg_text = (seg["text"] or "").strip()
+            text_parts.append(seg_text)
+            j += 1
             length = end - start
-
-            if length >= IDEAL_CLIP_LEN:
+            # Past the target, stop at a sentence boundary; a hard cap stops runaways.
+            if length >= target_len and seg_text.endswith(_SENT_END):
+                break
+            if length >= max_len:
                 break
 
+        i = j  # next window starts right after this one (contiguous, non-overlapping)
+
         length = end - start
-        if length < MIN_CLIP_LEN or length > MAX_CLIP_LEN:
+        if length < min_len:   # the inner loop already caps the upper end near max_len
+            continue
+
+        text = " ".join(p for p in text_parts if p).strip()
+        if not text:
+            continue
+
+        candidates.append(
+            {
+                "start": round(start, 2),
+                "end": round(end, 2),
+                "text": text,
+                "score": _score_window(text, length),
+            }
+        )
+
+    return candidates
+
+
+def _build_exact_windows(segments: List[dict], exact_len: float) -> List[dict]:
+    """Tile the timeline into fixed ``exact_len``-second windows.
+
+    Each window begins at a segment boundary (a natural point in the speech) and is
+    cut to EXACTLY ``exact_len`` seconds, so the rendered clip is the duration the
+    user asked for. Text from every segment overlapping the window is gathered for
+    scoring/titling. The final window is trimmed to the media end and dropped if it
+    is only a short tail.
+    """
+    n = len(segments)
+    total_end = float(segments[-1]["end"])
+    candidates: List[dict] = []
+
+    i = 0
+    while i < n:
+        start = float(segments[i]["start"])
+        end = min(start + exact_len, total_end)
+        length = end - start
+
+        # Gather text from every segment that overlaps [start, end).
+        text_parts: List[str] = []
+        j = i
+        while j < n and float(segments[j]["start"]) < end:
+            text_parts.append((segments[j]["text"] or "").strip())
+            j += 1
+
+        # Next window starts at the first segment beginning at/after this window's end.
+        nxt = i + 1
+        while nxt < n and float(segments[nxt]["start"]) < end:
+            nxt += 1
+        i = nxt
+
+        # Drop a short final tail that can't make a real clip.
+        if length < max(6.0, exact_len * 0.5):
             continue
 
         text = " ".join(p for p in text_parts if p).strip()
@@ -137,16 +247,27 @@ def _score_window(text: str, length: float) -> float:
 
 
 def _select_heuristic(candidates: List[dict], num_clips: int) -> List[dict]:
-    """Greedily pick the highest-scoring non-overlapping windows."""
+    """Pick the best non-overlapping windows, then FILL to reach `num_clips`."""
     ranked = sorted(candidates, key=lambda c: c["score"], reverse=True)
     chosen: List[dict] = []
 
+    # Pass 1 — quality: highest-scoring non-overlapping windows.
     for cand in ranked:
         if len(chosen) >= num_clips:
             break
         if any(_overlaps(cand, c) for c in chosen):
             continue
         chosen.append(cand)
+
+    # Pass 2 — fill: if we still need more, add any remaining non-overlapping
+    # windows in chronological order so a long video yields the count asked for.
+    if len(chosen) < num_clips:
+        for cand in sorted(candidates, key=lambda c: c["start"]):
+            if len(chosen) >= num_clips:
+                break
+            if any(_overlaps(cand, c) for c in chosen):
+                continue
+            chosen.append(cand)
 
     # Present clips in chronological order.
     chosen.sort(key=lambda c: c["start"])
@@ -177,14 +298,21 @@ def _derive_title(text: str, max_words: int = 7) -> str:
     return title
 
 
-def _fallback_even_split(transcript: dict, num_clips: int) -> List[dict]:
+def _fallback_even_split(
+    transcript: dict, num_clips: int, clip_length: float | None = None
+) -> List[dict]:
     """Last resort: split the duration into even windows (no segments available)."""
     duration = float(transcript.get("duration") or 0.0)
     if duration <= 0:
         return []
 
-    n = max(1, min(num_clips, 10))
-    clip_len = min(MAX_CLIP_LEN, max(MIN_CLIP_LEN, duration / n))
+    if clip_length and clip_length > 0:
+        # Honour the requested clip length; fit as many as asked for into the video.
+        clip_len = float(clip_length)
+        n = max(1, min(num_clips, int(duration // clip_len) or 1))
+    else:
+        n = max(1, min(num_clips, 10))
+        clip_len = min(MAX_CLIP_LEN, max(MIN_CLIP_LEN, duration / n))
     clips: List[dict] = []
     cursor = 0.0
     idx = 1

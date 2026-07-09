@@ -39,10 +39,34 @@ function CaptionLine({ cfg, language, fontPx, scale }) {
   );
 }
 
-export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, setOverride }) {
+export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, signature, setSig, setOverride }) {
   const screenRef = useRef(null);
   const [dragging, setDragging] = useState(false);
+  const [screenW, setScreenW] = useState(224);
   const reg = regions(aspect, fit);
+
+  // Measure the screen width so the signature's px size scales like the render.
+  useEffect(() => {
+    const el = screenRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setScreenW(el.clientWidth));
+    ro.observe(el); setScreenW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  function sigDown(e) {
+    if (!setSig) return;
+    e.preventDefault(); e.stopPropagation();
+    const move = (ev) => {
+      const r = screenRef.current.getBoundingClientRect();
+      const p = ev.touches ? ev.touches[0] : ev;
+      const px = Math.max(0, Math.min(100, ((p.clientX - r.left) / r.width) * 100));
+      const py = Math.max(0, Math.min(100, ((p.clientY - r.top) / r.height) * 100));
+      setSig("pos_x", Math.round(px)); setSig("pos_y", Math.round(py));
+    };
+    const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+    document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+  }
 
   // Caption point (x%, y%) within the SCREEN, kept inside the clip region.
   const free = cfg.pos_x != null && cfg.pos_y != null;
@@ -114,7 +138,7 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
           </>}
         </div>
 
-        {fit === "square" && barText && <div className="frame-title" style={{ top: "22%" }}>{barText}</div>}
+        {fit === "square" && barText && <div className="frame-title" style={{ top: "22%", whiteSpace: "pre-line" }}>{barText}</div>}
 
         <div className={"cap-preview" + (dragging ? " dragging" : "")}
           style={{ left: x + "%", top: y + "%", transform: `translate(-50%, ${squareBelow ? "0" : "-50%"})`, right: "auto", bottom: "auto", maxWidth: "92%" }}>
@@ -122,6 +146,20 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
             <CaptionLine cfg={cfg} language={language} fontPx={fontPx} scale={0.16} />
           </span>
         </div>
+
+        {signature?.enabled && (signature.text || "").trim() && (
+          <div className="sig-preview" onMouseDown={sigDown}
+            style={{
+              left: (signature.pos_x != null ? signature.pos_x : 50) + "%",
+              top: (signature.pos_y != null ? signature.pos_y : 92) + "%",
+              transform: `translate(${-(signature.pos_x != null ? signature.pos_x : 50)}%, ${-(signature.pos_y != null ? signature.pos_y : 92)}%)`,
+              color: signature.color || "#fff",
+              opacity: (signature.opacity != null ? signature.opacity : 75) / 100,
+              fontSize: Math.max(7, (signature.size != null ? signature.size : 34) * screenW / 1080) + "px",
+            }}>
+            {signature.text}
+          </div>
+        )}
       </div>
     </div>
   );

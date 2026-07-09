@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import captions, fonts, history, jobs, music, prefetch, pretranscribe, transcriber, uploads
+from . import captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, transcriber, uploads
 from .models import Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
 from .paths import CLIPS_DIR, FONTS_DIR, MUSIC_DIR, STATIC_DIR, WEB_DIST_DIR, ensure_dirs
 
@@ -317,6 +317,28 @@ def generate(req: GenerateRequest) -> dict:
     jobs.start_job(job)
     logger.info("[%s] job accepted", job.id)
     return {"job_id": job.id}
+
+
+@app.get("/api/music-suggest/{source_id}")
+def music_suggest(source_id: str, language: Optional[str] = None) -> dict:
+    """Suggest a music mood (sad/happy/romantic/…) from the prepared transcript."""
+    tr = pretranscribe.cached(source_id, language) or pretranscribe.cached(source_id, None)
+    if not tr:
+        return {"ready": False}
+    segs = tr.get("segments") or []
+    text = " ".join((s.get("text") or "") for s in segs)
+    return {"ready": True, **mood.suggest_mood(text)}
+
+
+@app.post("/api/cancel/{job_id}")
+def cancel(job_id: str) -> dict:
+    """Flag a running job for cancellation; it stops at the next clip boundary."""
+    job = jobs.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown job id.")
+    job.cancel()
+    logger.info("[%s] cancel requested", job_id)
+    return {"status": "cancelled"}
 
 
 @app.get("/api/progress/{job_id}")

@@ -221,6 +221,27 @@ select { appearance: none; cursor: pointer;
 .editor-musiccol .music-card { margin-top: 0; }
 .editor-center .prep { margin-top: 0; }
 
+/* Generating state — animated bar + cancel */
+.gen-busy {
+  position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 16px; border-radius: var(--radius-sm); font-size: 16px; font-weight: 700; color: #fff;
+  background: linear-gradient(100deg, var(--accent), #9a6bff);
+  box-shadow: 0 12px 30px -10px rgba(124,77,255,.7);
+}
+.gen-busy::after {
+  content: ""; position: absolute; top: 0; left: -160%; width: 55%; height: 100%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.4), transparent); transform: skewX(-20deg);
+  animation: go-shine 1.6s ease-in-out infinite;
+}
+.gen-busy-orbit { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .8s linear infinite; }
+.gen-dots i { animation: gdot 1.4s infinite; opacity: 0; }
+.gen-dots i:nth-child(2) { animation-delay: .2s; }
+.gen-dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes gdot { 0%, 60%, 100% { opacity: 0; } 30% { opacity: 1; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn-cancel { margin-top: 10px; background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); font-weight: 600; }
+.btn-cancel:hover { background: var(--danger); color: #fff; }
+
 /* Generated clips — full-width row BELOW the editor */
 .clips-bottom { margin-top: 18px; }
 .clips-bottom .clips { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
@@ -244,7 +265,7 @@ select { appearance: none; cursor: pointer;
 
 /* ---- Phone preview · iPhone 17 Pro Max (titanium frame, Dynamic Island) ---- */
 .phone {
-  width: 236px; margin: 0 auto; position: relative; padding: 6px; border-radius: 52px;
+  width: 310px; max-width: 100%; margin: 0 auto; position: relative; padding: 7px; border-radius: 58px;
   background: linear-gradient(145deg, #5b5b62 0%, #2a2a30 18%, #16161a 48%, #2f2f36 82%, #555 100%);
   box-shadow: 0 44px 90px -30px rgba(0,0,0,.92), 0 0 0 1px rgba(0,0,0,.55),
     inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(255,255,255,.06);
@@ -314,7 +335,12 @@ select { appearance: none; cursor: pointer;
 .grouphd::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .ctl { display: grid; gap: 8px; }
 .ctl > label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
-.ctl .val { font-family: var(--mono); font-size: 11px; color: var(--accent-hi); font-weight: 600; background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; }
+.ctl .val { font-family: var(--mono); font-size: 11px; color: var(--accent-hi); font-weight: 600; background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; display: inline-flex; align-items: center; gap: 1px; }
+.ctl .val .val-num {
+  width: 3.2ch; background: transparent; border: 0; outline: none; color: var(--accent-hi);
+  font: inherit; text-align: right; padding: 0; -moz-appearance: textfield;
+}
+.ctl .val .val-num::-webkit-outer-spin-button, .ctl .val .val-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .range { -webkit-appearance: none; appearance: none; width: 100%; height: 7px; border-radius: 999px; background: var(--surface-3); outline: none; cursor: pointer; }
 .range::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.45), 0 0 0 4px var(--accent-soft); }
 .range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); }
@@ -585,6 +611,24 @@ select { appearance: none; cursor: pointer;
 .now-playing.on .np-bars span { animation: eq 0.9s ease-in-out infinite; opacity: 1; }
 @keyframes eq { 0%, 100% { height: 25%; } 50% { height: 100%; } }
 @media (max-width: 760px) { .music-grid { grid-template-columns: 1fr; gap: 16px; } }
+
+/* Music mood suggestion chip */
+.music-suggest { display: flex; align-items: center; gap: 9px; padding: 9px 11px; margin-bottom: 4px;
+  background: var(--accent-soft); border: 1px solid var(--line-2); border-radius: 11px; }
+.ms-emoji { font-size: 16px; flex: none; }
+.ms-text { font-size: 12px; color: var(--text); line-height: 1.35; }
+.ms-text b { color: var(--accent-hi); }
+
+/* Multi-line square title textarea */
+.title-area { width: 100%; resize: vertical; min-height: 44px; font: inherit; line-height: 1.35;
+  background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 11px; color: var(--text);
+  padding: 10px 12px; outline: none; }
+.title-area:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* Draggable signature in the live preview */
+.sig-preview { position: absolute; z-index: 6; font-weight: 700; white-space: nowrap; cursor: grab;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6); user-select: none; }
+.sig-preview:active { cursor: grabbing; }
 
 /* Beat-analysis waveform */
 .wave { margin-top: 4px; background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 12px; padding: 11px 12px; }

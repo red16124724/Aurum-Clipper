@@ -65,7 +65,10 @@ export default function Create({ step, setStep }) {
   const [aspect, setAspect] = useState("9:16");
   const [fit, setFit] = useState("crop");
   const [barText, setBarText] = useState("");
+  const [barTextColor, setBarTextColor] = useState("#FFFFFF");
+  const [barTextAnim, setBarTextAnim] = useState("none");
   const [numClips, setNumClips] = useState(3);
+  const [clipLen, setClipLen] = useState(null);   // target clip length in seconds; null = Auto (adaptive)
   const [language, setLanguage] = useState("auto");
   const [device, setDevice] = useState("auto");
 
@@ -75,6 +78,11 @@ export default function Create({ step, setStep }) {
   const [musicVolume, setMusicVolume] = useState(35);
   const [musicDuck, setMusicDuck] = useState(70);
   const [musicStart, setMusicStart] = useState(0);  // seconds into the track to start from (beat-aligned)
+  const [musicSuggest, setMusicSuggest] = useState(null);  // {mood,label,emoji,hint} from transcript
+
+  // Signature / watermark
+  const [signature, setSignature] = useState({ enabled: false, text: "@theharis.ai", pos_x: 50, pos_y: 92, size: 34, color: "#FFFFFF", opacity: 75 });
+  const setSig = (k, v) => setSignature((s) => ({ ...s, [k]: v }));
 
   // Generate
   const [busy, setBusy] = useState(false);
@@ -82,6 +90,7 @@ export default function Create({ step, setStep }) {
   const [clips, setClips] = useState([]);
   const [error, setError] = useState("");
   const closeRef = useRef(null);
+  const jobRef = useRef(null);
   const fileRef = useRef(null);
   const clipsRef = useRef(null);
 
@@ -136,6 +145,17 @@ export default function Create({ step, setStep }) {
     return parseEmbed(url.trim());
   }, [source, objUrl, url, prep.downloadId]);
 
+  // Suggest a music mood from the prepared transcript (once it's ready).
+  const srcId = (source === "upload" ? upload?.upload_id : prep.downloadId) || null;
+  useEffect(() => {
+    if (!srcId) { setMusicSuggest(null); return; }
+    let alive = true;
+    api.musicSuggest(srcId, language === "auto" ? null : language)
+      .then((m) => { if (alive && m && m.ready) setMusicSuggest(m); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [srcId, language, prep.prep?.phase]);
+
   async function doUpload(file) {
     if (!file) return;
     setSource("upload"); setUpload(null); setUpPct(0); setError("");
@@ -173,12 +193,15 @@ export default function Create({ step, setStep }) {
     const payload = {
       aspect_ratio: aspect, fit_mode: fit,
       bar_text: fit === "square" ? (barText.trim() || null) : null,
+      bar_text_color: barTextColor, bar_text_anim: barTextAnim,
       num_clips: numClips, device, caption_style: studio.styleId,
       language: language === "auto" ? null : language,
     };
+    if (clipLen != null) payload.clip_length = clipLen;
     if (Object.keys(studio.overrides).length) payload.caption_overrides = studio.overrides;
     if (cineActive(studio.cinematic)) payload.cinematic = studio.cinematic;
     if (musicTrack) { payload.music_track = musicTrack; payload.music_volume = musicVolume; payload.music_duck = musicDuck; payload.music_start = musicStart; }
+    if (signature.enabled && (signature.text || "").trim()) payload.signature = signature;
     if (source === "upload") {
       if (!upload) { setError("Wait for the upload to finish."); return; }
       payload.upload_id = upload.upload_id; payload.upload_name = upload.filename;
@@ -192,16 +215,24 @@ export default function Create({ step, setStep }) {
     setBusy(true); setClips([]); setSnap({ stage: "queued", progress: 0.02, message: "Starting…", status: "running" });
     try {
       const { job_id } = await api.generate(payload);
+      jobRef.current = job_id;
       closeRef.current = streamProgress(job_id, (sn) => {
         setSnap(sn);
         if (sn.clips) setClips(sn.clips);
-        if (sn.status === "done" || sn.status === "error") {
+        if (sn.status === "done" || sn.status === "error" || sn.status === "cancelled") {
           setBusy(false);
           if (sn.status === "error") setError(sn.error || sn.message || "Pipeline failed.");
           closeRef.current && closeRef.current();
         }
       }, () => { setBusy(false); setError("Lost connection to the progress stream."); });
     } catch (e) { setBusy(false); setError(e.message); }
+  }
+
+  // Cancel an in-flight render: tell the backend to stop, drop the stream, reset UI.
+  function cancelGenerate() {
+    if (jobRef.current) api.cancel(jobRef.current).catch(() => {});
+    closeRef.current && closeRef.current();
+    setBusy(false); setSnap(null); setError("");
   }
 
   const curStep = STEPS.findIndex(([k]) => k === snap?.stage);
@@ -292,13 +323,14 @@ export default function Create({ step, setStep }) {
       <div className="editor3">
         {/* LEFT — Captions */}
         <div className="editor-captions">
-          <CaptionStudio studio={studio} language={language} onFontUpload={onFontUpload} />
+          <CaptionStudio studio={studio} language={language} onFontUpload={onFontUpload} signature={signature} setSig={setSig} />
         </div>
 
         {/* CENTER — Live preview + Generate */}
         <div className="editor-center">
           <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
             preparing={!media && sourceReady} aspect={aspect} fit={fit} barText={barText}
+            signature={signature} setSig={setSig}
             overrides={studio.overrides} setOverride={studio.setOverride} />
 
           <div className={"prep prep-" + (prepView.phase || "idle")}>
@@ -315,9 +347,17 @@ export default function Create({ step, setStep }) {
           </div>
 
           <div className="card gen-card">
-            <button className="btn btn-primary btn-block" disabled={busy} onClick={generate}>
-              {busy ? <><span className="spinner" /> Working…</> : <><Icons.bolt /> Generate clips</>}
-            </button>
+            {busy ? (
+              <>
+                <div className="gen-busy">
+                  <span className="gen-busy-orbit" />
+                  <span className="gen-busy-text">Generating clips<span className="gen-dots"><i>.</i><i>.</i><i>.</i></span></span>
+                </div>
+                <button className="btn btn-cancel btn-block" onClick={cancelGenerate}>Cancel</button>
+              </>
+            ) : (
+              <button className="btn btn-primary btn-block" onClick={generate}><Icons.bolt /> Generate clips</button>
+            )}
             {error && <div className="error">{error}</div>}
             {snap && (
               <div style={{ marginTop: 18 }}>
@@ -353,10 +393,41 @@ export default function Create({ step, setStep }) {
                   <button onClick={() => setNumClips((n) => Math.min(100, n + 1))}>+</button>
                 </div>
               </div>
+              <div style={{ width: "100%" }}>
+                <label className="fieldlabel">Clip length</label>
+                <div className="toggle">
+                  {[["Auto", null], ["30s", 30], ["45s", 45], ["60s", 60]].map(([lbl, v]) => (
+                    <button key={lbl} className={clipLen === v ? "active" : ""} onClick={() => setClipLen(v)}>{lbl}</button>
+                  ))}
+                  <button className={clipLen != null && ![30, 45, 60].includes(clipLen) ? "active" : ""}
+                    onClick={() => setClipLen((c) => (c != null && ![30, 45, 60].includes(c) ? c : 90))}>Custom</button>
+                </div>
+                {clipLen != null && ![30, 45, 60].includes(clipLen) && (
+                  <div className="counter" style={{ marginTop: 8, width: "fit-content" }}>
+                    <input type="number" min="5" max="600" value={clipLen}
+                      onChange={(e) => setClipLen(Math.max(5, Math.min(600, +e.target.value || 5)))} />
+                    <span style={{ padding: "0 10px", opacity: 0.7 }}>sec</span>
+                  </div>
+                )}
+              </div>
             </div>
             {fit === "square" && (
-              <div style={{ marginTop: 14 }}><label className="fieldlabel">Title text (top)</label>
-                <input type="text" placeholder="Title shown over the square…" value={barText} onChange={(e) => setBarText(e.target.value)} /></div>
+              <div style={{ marginTop: 14 }}>
+                <label className="fieldlabel">Title text (top) — Shift+Enter for a new line</label>
+                <textarea className="title-area" placeholder="Title shown over the square…&#10;Second line…" rows={2} maxLength={120}
+                  value={barText} onChange={(e) => setBarText(e.target.value)} />
+                <div className="row" style={{ gap: 12, marginTop: 10, alignItems: "center" }}>
+                  <label className="swatch">Title colour<input type="color" value={barTextColor} onChange={(e) => setBarTextColor(e.target.value)} /></label>
+                  <div style={{ flex: 1 }}>
+                    <label className="fieldlabel">Animation</label>
+                    <select value={barTextAnim} onChange={(e) => setBarTextAnim(e.target.value)}>
+                      <option value="none">None</option>
+                      <option value="fade">Fade in</option>
+                      <option value="slide">Slide up</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             )}
             <div style={{ marginTop: 14, display: "grid", gap: 14 }}>
               <div><label className="fieldlabel">Caption language</label>
@@ -371,7 +442,7 @@ export default function Create({ step, setStep }) {
 
         {/* RIGHT — background music (with beat analysis) lives up here on the right */}
         <div className="editor-musiccol">
-          <Music tracks={tracks} track={musicTrack} volume={musicVolume} duck={musicDuck} musicStart={musicStart}
+          <Music tracks={tracks} track={musicTrack} volume={musicVolume} duck={musicDuck} musicStart={musicStart} suggest={musicSuggest}
             onTrack={(t) => { setMusicTrack(t); setMusicStart(0); }} onVolume={setMusicVolume} onDuck={setMusicDuck} onStart={setMusicStart}
             onUpload={onMusicUpload} onRefresh={refreshMusic} />
         </div>

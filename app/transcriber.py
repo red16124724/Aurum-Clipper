@@ -75,6 +75,9 @@ _gpu_name_probed: bool = False
 
 # Serialises model loads so two requests warming the same device don't double-load.
 _load_lock = threading.Lock()
+# Serialises actual transcription passes — one GPU pass at a time. Concurrent passes
+# on the single model thrash each other and look "stuck at 0%"; this queues them.
+_transcribe_lock = threading.Lock()
 
 
 def cuda_available() -> bool:
@@ -255,6 +258,11 @@ def transcribe_video(
     """
     model = load_model(device)
 
+    # One transcription at a time. If another is running, surface a clear "waiting"
+    # message so the UI shows a queued state instead of a frozen 0%.
+    if progress and _transcribe_lock.locked():
+        progress(0.0, "Waiting for an earlier transcription to finish…")
+    _transcribe_lock.acquire()
     try:
         segments_gen, info = model.transcribe(
             str(video_path),
@@ -311,6 +319,8 @@ def transcribe_video(
     except Exception as exc:  # noqa: BLE001
         logger.exception("Transcription failed for %s", video_path)
         raise TranscriptionError(f"Transcription failed: {exc}") from exc
+    finally:
+        _transcribe_lock.release()
 
     # Hinglish: the audio was transcribed as Hindi (Devanagari); romanise the
     # whole transcript to readable Roman Urdu/Hindi before caching/persisting.
