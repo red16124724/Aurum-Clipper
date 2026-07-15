@@ -56,21 +56,29 @@ def ensure_rounded_mask(size: int = _SQUARE_INNER, radius: int = _SQUARE_RADIUS)
         return path
     MASKS_DIR.mkdir(parents=True, exist_ok=True)
 
-    edge = size - 1 - radius
-    # Distance from each pixel to the inner rectangle's edge (the rounded-rect SDF);
-    # a ~1.5px soft ramp around `radius` anti-aliases the corners (smooth, not jaggy).
-    # alpha = 255 inside, 0 outside. Commas are escaped for the filtergraph.
-    expr = (
-        f"255*clip(0.5+({radius}-hypot("
-        f"max(0\\,{radius}-X)+max(0\\,X-{edge})\\,"
-        f"max(0\\,{radius}-Y)+max(0\\,Y-{edge})))/1.5\\,0\\,1)"
-    )
-    cmd = [
-        "ffmpeg", "-y",
-        "-f", "lavfi", "-i", f"color=c=black:s={size}x{size}:d=0.1",
-        "-vf", f"geq=lum='{expr}':cb=128:cr=128",
-        "-frames:v", "1", str(path),
-    ]
+    if radius <= 0:
+        # Sharp corners: a fully opaque square needs no SDF ramp — solid white.
+        cmd = [
+            "ffmpeg", "-y",
+            "-f", "lavfi", "-i", f"color=c=white:s={size}x{size}:d=0.1",
+            "-frames:v", "1", str(path),
+        ]
+    else:
+        edge = size - 1 - radius
+        # Distance from each pixel to the inner rectangle's edge (the rounded-rect SDF);
+        # a ~1.5px soft ramp around `radius` anti-aliases the corners (smooth, not jaggy).
+        # alpha = 255 inside, 0 outside. Commas are escaped for the filtergraph.
+        expr = (
+            f"255*clip(0.5+({radius}-hypot("
+            f"max(0\\,{radius}-X)+max(0\\,X-{edge})\\,"
+            f"max(0\\,{radius}-Y)+max(0\\,Y-{edge})))/1.5\\,0\\,1)"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-f", "lavfi", "-i", f"color=c=black:s={size}x{size}:d=0.1",
+            "-vf", f"geq=lum='{expr}':cb=128:cr=128",
+            "-frames:v", "1", str(path),
+        ]
     try:
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               text=True, encoding="utf-8", errors="replace")
@@ -97,6 +105,7 @@ class ClipOptions:
     ass_path: Path
     clip_id: str
     index: int
+    square_corners: str = "round"      # "round" | "square" — square fit mode only
     bar_text: Optional[str] = None
     bar_text_color: str = "#FFFFFF"     # square title colour
     bar_text_anim: str = "none"         # square title entrance: none | fade | slide
@@ -315,7 +324,8 @@ def generate_clip(source_mp4: Path, start: float, end: float, opts: ClipOptions)
     # ffmpeg runs with cwd = out_dir so in-filtergraph paths can be relative (no
     # Windows drive colon / spaces). Inputs/outputs are absolute argv, which is fine.
     if opts.fit_mode == FitMode.SQUARE:
-        mask = ensure_rounded_mask()
+        radius = _SQUARE_RADIUS if opts.square_corners != "square" else 0
+        mask = ensure_rounded_mask(radius=radius)
         fc = _build_square_filter_complex(opts, out_dir)
         inputs = ["-ss", f"{start:.3f}", "-i", src, "-loop", "1", "-i", str(mask.resolve())]
         music_idx = 2  # 0 = source, 1 = mask

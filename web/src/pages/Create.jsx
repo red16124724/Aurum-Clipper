@@ -7,6 +7,8 @@ import { usePrep } from "../usePrep.js";
 import CaptionStudio from "../components/CaptionStudio.jsx";
 import PhonePreview from "../components/PhonePreview.jsx";
 import Music from "../components/Music.jsx";
+import Timeline from "../components/Timeline.jsx";
+import Transcript from "../components/Transcript.jsx";
 
 const STEPS = [["downloading", "Download"], ["transcribing", "Transcribe"], ["selecting", "Analyze"], ["rendering", "Render"]];
 
@@ -94,6 +96,15 @@ export default function Create({ step, setStep }) {
   const fileRef = useRef(null);
   const clipsRef = useRef(null);
 
+  // CapCut-style editor UI state
+  const [leftTab, setLeftTab] = useState("style");
+  const [rightTab, setRightTab] = useState("export");
+  const [squareCorners, setSquareCorners] = useState("round");
+  const videoRef = useRef(null);
+  const [curTime, setCurTime] = useState(0);
+  const [vidDuration, setVidDuration] = useState(null);
+  const [transcript, setTranscript] = useState({ ready: false, loading: false, segments: [], duration: null });
+
   const studio = useStudio(presets, fonts, language);
   const prep = usePrep(device, language);
 
@@ -156,6 +167,38 @@ export default function Create({ step, setStep }) {
     return () => { alive = false; };
   }, [srcId, language, prep.prep?.phase]);
 
+  // Fetch the transcript (timestamp + text) for the left-rail Transcript tab,
+  // once pre-transcription has produced one.
+  useEffect(() => {
+    if (!srcId) { setTranscript({ ready: false, loading: false, segments: [], duration: null }); return; }
+    let alive = true;
+    setTranscript((t) => ({ ...t, loading: true }));
+    api.transcript(srcId, language === "auto" ? null : language)
+      .then((d) => { if (alive) setTranscript({ ready: !!d.ready, loading: false, segments: d.segments || [], duration: d.duration ?? null }); })
+      .catch(() => { if (alive) setTranscript((t) => ({ ...t, loading: false })); });
+    return () => { alive = false; };
+  }, [srcId, language, prep.prep?.phase]);
+
+  // Keep curTime/vidDuration in sync with the actual <video> element so the
+  // bottom timeline can scrub it (re-attaches whenever the preview media changes).
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) { setVidDuration(null); return; }
+    const onTime = () => setCurTime(v.currentTime);
+    const onMeta = () => setVidDuration(isFinite(v.duration) ? v.duration : null);
+    v.addEventListener("timeupdate", onTime);
+    v.addEventListener("loadedmetadata", onMeta);
+    if (v.readyState >= 1 && isFinite(v.duration)) setVidDuration(v.duration);
+    return () => { v.removeEventListener("timeupdate", onTime); v.removeEventListener("loadedmetadata", onMeta); };
+  }, [media]);
+
+  function seekTo(t) {
+    if (t == null || !isFinite(t)) return;
+    const v = videoRef.current;
+    if (v) { try { v.currentTime = Math.max(0, t); } catch { /* not seekable yet */ } }
+    setCurTime(t);
+  }
+
   async function doUpload(file) {
     if (!file) return;
     setSource("upload"); setUpload(null); setUpPct(0); setError("");
@@ -196,6 +239,7 @@ export default function Create({ step, setStep }) {
       bar_text_color: barTextColor, bar_text_anim: barTextAnim,
       num_clips: numClips, device, caption_style: studio.styleId,
       language: language === "auto" ? null : language,
+      square_corners: squareCorners,
     };
     if (clipLen != null) payload.clip_length = clipLen;
     if (Object.keys(studio.overrides).length) payload.caption_overrides = studio.overrides;
@@ -254,7 +298,7 @@ export default function Create({ step, setStep }) {
           <span className="brand-mark"><Icons.bolt /></span>
           <span className="brand-word">ClipForge</span>
         </div>
-        <span className="eyebrow">100% local pipeline · no API keys</span>
+        <span className="eyebrow"><span className="eyebrow-dot" />100% local pipeline · no API keys</span>
         <h1 className="landing-title">Turn any video into <span className="grad">captioned shorts</span></h1>
         <p className="landing-sub">
           Paste a link or drop a file — ClipForge finds the best moments, reframes them
@@ -296,10 +340,9 @@ export default function Create({ step, setStep }) {
         {error && <div className="error landing-error">{error}</div>}
 
         <div className="landing-hints">
-          <span>Drag &amp; drop a file onto the bar</span>
-          <span className="sep">·</span><span>9:16 &amp; 1:1 square</span>
-          <span className="sep">·</span><span>19 caption styles</span>
-          <span className="sep">·</span><span>background music</span>
+          {["Drag & drop a file onto the bar", "9:16 & 1:1 square", "19 caption styles", "Background music"].map((h) => (
+            <span className="hint-chip" key={h}><span className="hc-check"><Icons.check /></span>{h}</span>
+          ))}
         </div>
       </div>
 
@@ -315,22 +358,32 @@ export default function Create({ step, setStep }) {
     );
   }
 
-  /* ---------- STEP 2 ---------- */
+  /* ---------- STEP 2 · CapCut-style editor ---------- */
+  const effectiveDuration = vidDuration ?? transcript.duration ?? null;
+
   return (
     <>
       <button className="btn btn-ghost" style={{ marginBottom: 16 }} onClick={() => setStep(1)}>← Back to source</button>
 
-      <div className="editor3">
-        {/* LEFT — Captions */}
-        <div className="editor-captions">
-          <CaptionStudio studio={studio} language={language} onFontUpload={onFontUpload} signature={signature} setSig={setSig} />
-        </div>
+      <div className="editorcc">
+        {/* LEFT — Caption style / Transcript */}
+        <aside className="cc-panel cc-left">
+          <div className="cc-tabs">
+            <button className={"cc-tab" + (leftTab === "style" ? " active" : "")} onClick={() => setLeftTab("style")}>Style</button>
+            <button className={"cc-tab" + (leftTab === "transcript" ? " active" : "")} onClick={() => setLeftTab("transcript")}>Transcript</button>
+          </div>
+          <div className="cc-body">
+            {leftTab === "style"
+              ? <CaptionStudio studio={studio} language={language} onFontUpload={onFontUpload} signature={signature} setSig={setSig} />
+              : <Transcript state={transcript} onSeek={seekTo} currentTime={curTime} />}
+          </div>
+        </aside>
 
-        {/* CENTER — Live preview + Generate */}
-        <div className="editor-center">
+        {/* CENTER — Canvas */}
+        <div className="cc-center">
           <PhonePreview cfg={studio.cfg} cinematic={studio.cinematic} language={language} media={media}
             preparing={!media && sourceReady} aspect={aspect} fit={fit} barText={barText}
-            signature={signature} setSig={setSig}
+            signature={signature} setSig={setSig} videoRef={videoRef}
             overrides={studio.overrides} setOverride={studio.setOverride} />
 
           <div className={"prep prep-" + (prepView.phase || "idle")}>
@@ -345,8 +398,11 @@ export default function Create({ step, setStep }) {
             </div>
             <div className="track"><div className={"fill" + (prepView.pct == null ? " indeterminate" : "")} style={prepView.pct == null ? {} : { width: prepView.pct + "%" }} /></div>
           </div>
+        </div>
 
-          <div className="card gen-card">
+        {/* RIGHT — Export + settings */}
+        <aside className="cc-panel cc-right">
+          <div className="cc-right-head">
             {busy ? (
               <>
                 <div className="gen-busy">
@@ -356,96 +412,107 @@ export default function Create({ step, setStep }) {
                 <button className="btn btn-cancel btn-block" onClick={cancelGenerate}>Cancel</button>
               </>
             ) : (
-              <button className="btn btn-primary btn-block" onClick={generate}><Icons.bolt /> Generate clips</button>
-            )}
-            {error && <div className="error">{error}</div>}
-            {snap && (
-              <div style={{ marginTop: 18 }}>
-                <div className="steps">
-                  {STEPS.map(([k, lbl], i) => (
-                    <div key={k} className={"step" + (done || i < curStep ? " done" : i === curStep ? " active" : "")}>
-                      <div className="ring">{done || i < curStep ? "✓" : i + 1}</div><div className="lbl">{lbl}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="bar-row"><span className="msg">{busy && <span className="spinner" />}{snap.message}</span><span className="pct">{pct}%</span></div>
-                <div className="track"><div className="fill" style={{ width: pct + "%" }} /></div>
-              </div>
+              <button className="btn btn-primary cc-export-btn" onClick={generate}><Icons.bolt /> Export</button>
             )}
           </div>
-        </div>
+          {error && <div className="error">{error}</div>}
+          {snap && (
+            <div className="cc-progress">
+              <div className="steps">
+                {STEPS.map(([k, lbl], i) => (
+                  <div key={k} className={"step" + (done || i < curStep ? " done" : i === curStep ? " active" : "")}>
+                    <div className="ring">{done || i < curStep ? "✓" : i + 1}</div><div className="lbl">{lbl}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="bar-row"><span className="msg">{busy && <span className="spinner" />}{snap.message}</span><span className="pct">{pct}%</span></div>
+              <div className="track"><div className="fill" style={{ width: pct + "%" }} /></div>
+            </div>
+          )}
 
-        {/* RIGHT — Output settings */}
-        <div className="editor-output">
-          <details className="card sect" open>
-            <summary className="card-h sect-h"><h2>Output</h2><span className="sect-x" /></summary>
-            <div className="row" style={{ flexWrap: "wrap", gap: 16 }}>
-              <div><label className="fieldlabel">Aspect</label>
-                <div className="toggle">{["9:16", "16:9"].map((a) => <button key={a} className={aspect === a ? "active" : ""} onClick={() => setAspect(a)}>{a}</button>)}</div>
-              </div>
-              <div><label className="fieldlabel">Fit</label>
-                <div className="toggle">{["crop", "square"].map((x) => <button key={x} className={fit === x ? "active" : ""} onClick={() => setFit(x)}>{x[0].toUpperCase() + x.slice(1)}</button>)}</div>
-              </div>
-              <div><label className="fieldlabel">Clips</label>
-                <div className="counter">
-                  <button onClick={() => setNumClips((n) => Math.max(1, n - 1))}>−</button>
-                  <input type="number" min="1" max="100" value={numClips} onChange={(e) => setNumClips(Math.max(1, Math.min(100, +e.target.value || 1)))} />
-                  <button onClick={() => setNumClips((n) => Math.min(100, n + 1))}>+</button>
+          <div className="cc-tabs">
+            <button className={"cc-tab" + (rightTab === "export" ? " active" : "")} onClick={() => setRightTab("export")}>Settings</button>
+            <button className={"cc-tab" + (rightTab === "audio" ? " active" : "")} onClick={() => setRightTab("audio")}>Audio</button>
+          </div>
+          <div className="cc-body">
+            {rightTab === "export" ? (
+              <>
+                <div className="row" style={{ flexWrap: "wrap", gap: 16 }}>
+                  <div><label className="fieldlabel">Aspect</label>
+                    <div className="toggle">{["9:16", "16:9"].map((a) => <button key={a} className={aspect === a ? "active" : ""} onClick={() => setAspect(a)}>{a}</button>)}</div>
+                  </div>
+                  <div><label className="fieldlabel">Fit</label>
+                    <div className="toggle">{["crop", "square"].map((x) => <button key={x} className={fit === x ? "active" : ""} onClick={() => setFit(x)}>{x[0].toUpperCase() + x.slice(1)}</button>)}</div>
+                  </div>
+                  {fit === "square" && (
+                    <div><label className="fieldlabel">Corners</label>
+                      <div className="toggle">{["round", "square"].map((c) => <button key={c} className={squareCorners === c ? "active" : ""} onClick={() => setSquareCorners(c)}>{c[0].toUpperCase() + c.slice(1)}</button>)}</div>
+                    </div>
+                  )}
+                  <div><label className="fieldlabel">Clips</label>
+                    <div className="counter">
+                      <button onClick={() => setNumClips((n) => Math.max(1, n - 1))}>−</button>
+                      <input type="number" min="1" max="100" value={numClips} onChange={(e) => setNumClips(Math.max(1, Math.min(100, +e.target.value || 1)))} />
+                      <button onClick={() => setNumClips((n) => Math.min(100, n + 1))}>+</button>
+                    </div>
+                  </div>
+                  <div style={{ width: "100%" }}>
+                    <label className="fieldlabel">Clip length</label>
+                    <div className="toggle">
+                      {[["Auto", null], ["30s", 30], ["45s", 45], ["60s", 60]].map(([lbl, v]) => (
+                        <button key={lbl} className={clipLen === v ? "active" : ""} onClick={() => setClipLen(v)}>{lbl}</button>
+                      ))}
+                      <button className={clipLen != null && ![30, 45, 60].includes(clipLen) ? "active" : ""}
+                        onClick={() => setClipLen((c) => (c != null && ![30, 45, 60].includes(c) ? c : 90))}>Custom</button>
+                    </div>
+                    {clipLen != null && ![30, 45, 60].includes(clipLen) && (
+                      <div className="counter" style={{ marginTop: 8, width: "fit-content" }}>
+                        <input type="number" min="5" max="600" value={clipLen}
+                          onChange={(e) => setClipLen(Math.max(5, Math.min(600, +e.target.value || 5)))} />
+                        <span style={{ padding: "0 10px", opacity: 0.7 }}>sec</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div style={{ width: "100%" }}>
-                <label className="fieldlabel">Clip length</label>
-                <div className="toggle">
-                  {[["Auto", null], ["30s", 30], ["45s", 45], ["60s", 60]].map(([lbl, v]) => (
-                    <button key={lbl} className={clipLen === v ? "active" : ""} onClick={() => setClipLen(v)}>{lbl}</button>
-                  ))}
-                  <button className={clipLen != null && ![30, 45, 60].includes(clipLen) ? "active" : ""}
-                    onClick={() => setClipLen((c) => (c != null && ![30, 45, 60].includes(c) ? c : 90))}>Custom</button>
-                </div>
-                {clipLen != null && ![30, 45, 60].includes(clipLen) && (
-                  <div className="counter" style={{ marginTop: 8, width: "fit-content" }}>
-                    <input type="number" min="5" max="600" value={clipLen}
-                      onChange={(e) => setClipLen(Math.max(5, Math.min(600, +e.target.value || 5)))} />
-                    <span style={{ padding: "0 10px", opacity: 0.7 }}>sec</span>
+                {fit === "square" && (
+                  <div style={{ marginTop: 14 }}>
+                    <label className="fieldlabel">Title text (top) — Shift+Enter for a new line</label>
+                    <textarea className="title-area" placeholder="Title shown over the square…&#10;Second line…" rows={2} maxLength={120}
+                      value={barText} onChange={(e) => setBarText(e.target.value)} />
+                    <div className="row" style={{ gap: 12, marginTop: 10, alignItems: "center" }}>
+                      <label className="swatch">Title colour<input type="color" value={barTextColor} onChange={(e) => setBarTextColor(e.target.value)} /></label>
+                      <div style={{ flex: 1 }}>
+                        <label className="fieldlabel">Animation</label>
+                        <select value={barTextAnim} onChange={(e) => setBarTextAnim(e.target.value)}>
+                          <option value="none">None</option>
+                          <option value="fade">Fade in</option>
+                          <option value="slide">Slide up</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 )}
-              </div>
-            </div>
-            {fit === "square" && (
-              <div style={{ marginTop: 14 }}>
-                <label className="fieldlabel">Title text (top) — Shift+Enter for a new line</label>
-                <textarea className="title-area" placeholder="Title shown over the square…&#10;Second line…" rows={2} maxLength={120}
-                  value={barText} onChange={(e) => setBarText(e.target.value)} />
-                <div className="row" style={{ gap: 12, marginTop: 10, alignItems: "center" }}>
-                  <label className="swatch">Title colour<input type="color" value={barTextColor} onChange={(e) => setBarTextColor(e.target.value)} /></label>
-                  <div style={{ flex: 1 }}>
-                    <label className="fieldlabel">Animation</label>
-                    <select value={barTextAnim} onChange={(e) => setBarTextAnim(e.target.value)}>
-                      <option value="none">None</option>
-                      <option value="fade">Fade in</option>
-                      <option value="slide">Slide up</option>
-                    </select>
-                  </div>
+                <div style={{ marginTop: 14, display: "grid", gap: 14 }}>
+                  <div><label className="fieldlabel">Caption language</label>
+                    <select value={language} onChange={(e) => changeLanguage(e.target.value)}>{LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+                  <div><label className="fieldlabel">Compute</label>
+                    <select value={device} onChange={(e) => setDevice(e.target.value)}>
+                      {["auto", ...devices.filter((d) => d !== "auto")].filter((v, i, a) => a.indexOf(v) === i).map((d) => <option key={d} value={d}>{d === "cuda" ? "GPU (CUDA)" : d.toUpperCase()}</option>)}
+                    </select></div>
                 </div>
-              </div>
+              </>
+            ) : (
+              <Music tracks={tracks} track={musicTrack} volume={musicVolume} duck={musicDuck} musicStart={musicStart} suggest={musicSuggest}
+                onTrack={(t) => { setMusicTrack(t); setMusicStart(0); }} onVolume={setMusicVolume} onDuck={setMusicDuck} onStart={setMusicStart}
+                onUpload={onMusicUpload} onRefresh={refreshMusic} />
             )}
-            <div style={{ marginTop: 14, display: "grid", gap: 14 }}>
-              <div><label className="fieldlabel">Caption language</label>
-                <select value={language} onChange={(e) => changeLanguage(e.target.value)}>{LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
-              <div><label className="fieldlabel">Compute</label>
-                <select value={device} onChange={(e) => setDevice(e.target.value)}>
-                  {["auto", ...devices.filter((d) => d !== "auto")].filter((v, i, a) => a.indexOf(v) === i).map((d) => <option key={d} value={d}>{d === "cuda" ? "GPU (CUDA)" : d.toUpperCase()}</option>)}
-                </select></div>
-            </div>
-          </details>
-        </div>
+          </div>
+        </aside>
+      </div>
 
-        {/* RIGHT — background music (with beat analysis) lives up here on the right */}
-        <div className="editor-musiccol">
-          <Music tracks={tracks} track={musicTrack} volume={musicVolume} duck={musicDuck} musicStart={musicStart} suggest={musicSuggest}
-            onTrack={(t) => { setMusicTrack(t); setMusicStart(0); }} onVolume={setMusicVolume} onDuck={setMusicDuck} onStart={setMusicStart}
-            onUpload={onMusicUpload} onRefresh={refreshMusic} />
-        </div>
+      {/* BOTTOM — timeline */}
+      <div className="cc-timeline-wrap">
+        <Timeline duration={effectiveDuration} currentTime={curTime} onSeek={seekTo} clips={clips} />
       </div>
 
       {/* BOTTOM — generated clips, full width */}

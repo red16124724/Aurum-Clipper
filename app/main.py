@@ -319,6 +319,25 @@ def generate(req: GenerateRequest) -> dict:
     return {"job_id": job.id}
 
 
+@app.get("/api/transcript/{source_id}")
+def get_transcript(source_id: str, language: Optional[str] = None) -> dict:
+    """Return the cached transcript's segments (timestamp + text) for the sidebar.
+
+    Mirrors ``/api/music-suggest``: reads whatever pretranscribe already cached,
+    falling back to the auto-detected-language transcript if a forced language
+    hasn't been (re)transcribed yet.
+    """
+    tr = pretranscribe.cached(source_id, language) or pretranscribe.cached(source_id, None)
+    if not tr:
+        return {"ready": False}
+    return {
+        "ready": True,
+        "language": tr.get("language"),
+        "duration": tr.get("duration"),
+        "segments": tr.get("segments") or [],
+    }
+
+
 @app.get("/api/music-suggest/{source_id}")
 def music_suggest(source_id: str, language: Optional[str] = None) -> dict:
     """Suggest a music mood (sad/happy/romantic/…) from the prepared transcript."""

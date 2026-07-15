@@ -4,6 +4,19 @@ import { captionLineStyle, captionSample, CINE_GRADE_CSS } from "../caption.js";
 // Clip region inside the 19.5:9 iPhone screen (matches the burned canvas), as
 // % of the SCREEN. 9:16 fills the width with thin bands; 16:9 is a centre strip;
 // square is a centred 1:1 card.
+// Same smoothstep easing as app/effects.py's _gradient_bands (the burned-in
+// render), so the CSS preview traces the same soft falloff shape instead of a
+// flat linear ramp that can read as a harder-edged band.
+function smoothstep(f) { return f * f * (3 - 2 * f); }
+function scrimGradient(strengthPct, side) {
+  const m = Math.max(0, Math.min(1, (strengthPct || 0) / 100));
+  const stops = [0, 0.25, 0.5, 0.75, 1].map((f) => {
+    const eased = side === "top" ? 1 - smoothstep(f) : smoothstep(f);
+    return `rgba(0,0,0,${(m * eased).toFixed(3)}) ${f * 100}%`;
+  });
+  return `linear-gradient(to bottom, ${stops.join(", ")})`;
+}
+
 function regions(aspect, fit) {
   if (fit === "square") return { box: { left: "2.78%", top: "28.2%", width: "94.4%", height: "43.6%", borderRadius: "14px" }, top: 28.2, height: 43.6 };
   if (aspect === "16:9") return { box: { left: 0, right: 0, top: "37%", height: "26%" }, top: 37, height: 26 };
@@ -39,7 +52,7 @@ function CaptionLine({ cfg, language, fontPx, scale }) {
   );
 }
 
-export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, signature, setSig, setOverride }) {
+export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, signature, setSig, setOverride, videoRef }) {
   const screenRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [screenW, setScreenW] = useState(224);
@@ -118,7 +131,7 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
         )}
 
         <div className="media-box" style={{ ...reg.box, filter: mediaFilter }}>
-          {media?.kind === "video" && <video src={media.src} muted loop autoPlay playsInline />}
+          {media?.kind === "video" && <video ref={videoRef} src={media.src} muted loop autoPlay playsInline />}
           {(!media || media.kind === "unknown") && (
             <div className="media-ph">
               {preparing
@@ -129,8 +142,8 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
             </div>
           )}
           {/* Cinematic overlay (inside the clip region, under captions) */}
-          {c.bottom_gradient && <div className="ov" style={{ left: 0, right: 0, bottom: 0, height: (c.bottom_gradient_height || 25) + "%", background: `linear-gradient(to top, rgba(0,0,0,${((c.bottom_gradient_strength || 0) / 100).toFixed(3)}), rgba(0,0,0,0))` }} />}
-          {c.top_gradient && <div className="ov" style={{ left: 0, right: 0, top: 0, height: (c.top_gradient_height || 20) + "%", background: `linear-gradient(to bottom, rgba(0,0,0,${((c.top_gradient_strength || 0) / 100).toFixed(3)}), rgba(0,0,0,0))` }} />}
+          {c.bottom_gradient && <div className="ov" style={{ left: 0, right: 0, bottom: 0, height: (c.bottom_gradient_height || 25) + "%", background: scrimGradient(c.bottom_gradient_strength, "bottom") }} />}
+          {c.top_gradient && <div className="ov" style={{ left: 0, right: 0, top: 0, height: (c.top_gradient_height || 20) + "%", background: scrimGradient(c.top_gradient_strength, "top") }} />}
           {c.vignette && <div className="ov" style={{ inset: 0, background: `radial-gradient(ellipse 75% 75% at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,${((c.vignette_strength || 0) / 100 * 0.9).toFixed(3)}) 115%)` }} />}
           {c.letterbox && <>
             <div className="ov" style={{ left: 0, right: 0, top: 0, height: barH + "%", background: "#000" }} />

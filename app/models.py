@@ -61,6 +61,13 @@ class FitMode(str, Enum):
     SQUARE = "square"
 
 
+class SquareCorners(str, Enum):
+    """Corner style of the centered square in ``square`` fit mode."""
+
+    ROUND = "round"
+    SQUARE = "square"
+
+
 class Device(str, Enum):
     """Which compute device runs the local Whisper transcription.
 
@@ -259,6 +266,10 @@ class GenerateRequest(BaseModel):
     )
     aspect_ratio: AspectRatio = AspectRatio.NINE_16
     fit_mode: FitMode = FitMode.CROP
+    square_corners: SquareCorners = Field(
+        default=SquareCorners.ROUND,
+        description="Corner style of the centered square (square fit mode only).",
+    )
     bar_text: Optional[str] = Field(
         default=None,
         description="Title text drawn over the top of the frame (square mode).",

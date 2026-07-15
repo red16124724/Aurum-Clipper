@@ -1,0 +1,15 @@
+{
+  "name": "clipforge-remotion-spike",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Timeboxed spike: can one composition drive both the ClipForge live preview and the frame-accurate export? Not part of the production build.",
+  "scripts": {
+    "render": "remotion render src/index.jsx CaptionDemo out/caption-demo.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.286",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.286"
+  }
+}

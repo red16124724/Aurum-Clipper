@@ -346,6 +346,7 @@ def _run_pipeline(job: Job) -> None:
             opts = ClipOptions(
                 aspect_ratio=req.aspect_ratio,
                 fit_mode=req.fit_mode,
+                square_corners=req.square_corners.value,
                 ass_path=ass_path,
                 clip_id=clip_id,
                 index=index,

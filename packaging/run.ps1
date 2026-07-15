@@ -1,4 +1,4 @@
-<#
+﻿<#
   run.ps1 — ClipForge one-file installer + launcher (GitHub par rehta hai)
 
   ClipForge.bat isko GitHub se download karke chalati hai. Yeh pehli baar sab kuch

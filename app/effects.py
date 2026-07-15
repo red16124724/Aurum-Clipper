@@ -33,9 +33,10 @@ COLOR_GRADES: dict[str, str] = {
 }
 
 # Strips used to fake a smooth gradient. Each is a thin, non-overlapping band
-# whose opacity steps linearly toward the dark edge — enough of them (and small
-# enough steps) that the ramp reads as smooth, not banded.
-_GRAD_BANDS = 48
+# whose opacity follows an eased (smoothstep) ramp toward the dark edge — enough
+# of them (and small enough steps) that it reads as a soft, photographic falloff
+# rather than a visible bar.
+_GRAD_BANDS = 64
 
 
 def _f(x: float, lo: float, hi: float) -> float:
@@ -84,9 +85,14 @@ def _gradient_bands(vw: int, vh: int, height_pct: float, strength: float, top: b
         if h <= 0:
             continue
         # Opacity ramps toward the dark edge: bottom-gradient darkens downward,
-        # top-gradient darkens upward.
+        # top-gradient darkens upward. Smoothstep (not linear) so both ends of
+        # the ramp ease in/out — no perceptible seam where the effect "starts",
+        # and no hard edge at the peak. This is the fix for the reported
+        # "visible black bar" look: a linear ramp reads as flat-then-a-wall;
+        # smoothstep reads as a continuous, photographic falloff.
         frac = (k + 0.5) / n
-        alpha = m * frac if not top else m * (1.0 - frac)
+        eased = frac * frac * (3.0 - 2.0 * frac)
+        alpha = m * eased if not top else m * (1.0 - eased)
         if alpha <= 0.002:
             continue
         boxes.append(f"drawbox=x=0:y={y}:w=iw:h={h}:color=black@{alpha:.4f}:t=fill")

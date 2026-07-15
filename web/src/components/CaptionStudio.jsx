@@ -115,11 +115,11 @@ export default function CaptionStudio({ studio, onFontUpload, signature, setSig 
       <summary className="studio-head sect-h"><span className="studio-title"><span className="dot" />Captions</span><span className="sect-x" /></summary>
 
       <div className="studio-tabs">
-        <button className={"studio-tab" + (tab === "style" ? " active" : "")} onClick={() => setTab("style")}><Icons.create /> Style</button>
-        <button className={"studio-tab" + (tab === "effects" ? " active" : "")} onClick={() => setTab("effects")}><Icons.film /> Effects</button>
-        <button className={"studio-tab" + (tab === "themes" ? " active" : "")} onClick={() => setTab("themes")}><Icons.library /> Themes</button>
-        <button className={"studio-tab" + (tab === "sign" ? " active" : "")} onClick={() => setTab("sign")}><Icons.bolt /> Sign</button>
-        <button className={"studio-tab" + (tab === "presets" ? " active" : "")} onClick={() => setTab("presets")}><Icons.download /> Presets</button>
+        <button className={"studio-tab" + (tab === "style" ? " active" : "")} onClick={() => setTab("style")} title="Style"><Icons.create /><span className="studio-tab-lbl">Style</span></button>
+        <button className={"studio-tab" + (tab === "effects" ? " active" : "")} onClick={() => setTab("effects")} title="Effects"><Icons.film /><span className="studio-tab-lbl">Effects</span></button>
+        <button className={"studio-tab" + (tab === "themes" ? " active" : "")} onClick={() => setTab("themes")} title="Themes"><Icons.library /><span className="studio-tab-lbl">Themes</span></button>
+        <button className={"studio-tab" + (tab === "sign" ? " active" : "")} onClick={() => setTab("sign")} title="Sign"><Icons.bolt /><span className="studio-tab-lbl">Sign</span></button>
+        <button className={"studio-tab" + (tab === "presets" ? " active" : "")} onClick={() => setTab("presets")} title="Presets"><Icons.download /><span className="studio-tab-lbl">Presets</span></button>
       </div>
 
       {tab === "sign" && (

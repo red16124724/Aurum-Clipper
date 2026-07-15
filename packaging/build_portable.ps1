@@ -1,4 +1,4 @@
-<#
+﻿<#
   build_portable.ps1  —  ClipForge v1 portable-ZIP builder (Windows, GPU + CPU)
 
   Isko Haris (tum) apne is PC par ek dafa chalao. Yeh ek self-contained folder
