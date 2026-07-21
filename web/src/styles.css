@@ -561,6 +561,25 @@ select { appearance: none; cursor: pointer;
 .music-prev { width: 100%; margin-top: 12px; height: 36px; border-radius: 8px; }
 .embed-fill { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; z-index: 1; background: #000; }
 
+/* ---- First-run model-load splash (App.jsx gates the whole app behind this
+   until /api/model-status reports "ready") ---- */
+.model-splash {
+  position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; gap: 4px;
+  padding: 40px 20px; max-width: 480px; margin: 0 auto;
+}
+.model-splash-mark {
+  width: 74px; height: 74px; border-radius: 22px; display: grid; place-items: center;
+  background: var(--accent-grad); color: var(--accent-ink);
+  box-shadow: 0 22px 50px -16px rgba(182, 255, 46, .45);
+  animation: mark-float 2.4s ease-in-out infinite;
+}
+.model-splash-mark svg { width: 36px; height: 36px; }
+.model-splash-title { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; margin-top: 10px; }
+.model-splash-msg { font-size: 14.5px; color: var(--text); font-weight: 600; margin-top: 14px; }
+.model-splash-detail { font-size: 12.5px; color: var(--muted-2); margin-top: 6px; }
+.model-splash-track { width: 260px; margin-top: 16px; }
+
 /* ==========================================================================
    Landing (Step 1)
    ========================================================================== */

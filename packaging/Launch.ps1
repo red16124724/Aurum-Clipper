@@ -9,8 +9,13 @@ $Root = $PSScriptRoot
 
 $env:PATH = "$Root\ffmpeg;$Root\python;$env:PATH"
 $env:HF_HOME = "$Root\models"
-$env:HF_HUB_OFFLINE = "1"
 $env:HF_HUB_DISABLE_TELEMETRY = "1"
+# No HF_HUB_OFFLINE here on purpose: the whisper model is NOT pre-bundled (it
+# alone is ~1.5GB, over GitHub's 2GB release-asset limit) — huggingface_hub
+# downloads it into $Root\models on first launch and reuses that cache on
+# every launch after. Everything else (Python, pip deps, CUDA libs, ffmpeg)
+# IS bundled, since that was the actual source of "no git/node/python"
+# install failures, not the model.
 
 $py = Join-Path $Root "python\python.exe"
 Start-Process -FilePath $py `
@@ -18,9 +23,11 @@ Start-Process -FilePath $py `
   -WorkingDirectory $Root -WindowStyle Hidden
 
 # Poll /health instead of a blind sleep, so the browser opens the moment the
-# server (and whisper model) are actually ready — not before, not late.
+# server is actually ready. Generous timeout on first run specifically: the
+# server doesn't start accepting requests until the whisper model finishes
+# downloading + loading, which can take a few minutes on a slow connection.
 $ready = $false
-for ($i = 0; $i -lt 90; $i++) {
+for ($i = 0; $i -lt 600; $i++) {
   try {
     $r = Invoke-WebRequest -Uri "http://127.0.0.1:8000/health" -UseBasicParsing -TimeoutSec 2
     if ($r.StatusCode -eq 200) { $ready = $true; break }

@@ -56,6 +56,8 @@ from faster_whisper import WhisperModel  # noqa: E402
 from .models import TranscriptionError  # noqa: E402
 from .paths import TRANSCRIPTS_DIR  # noqa: E402
 
+# Fallback when hardware can't be probed at all. Per-device auto-selection
+# (see _pick_model_size) normally overrides this — kept only as a last resort.
 MODEL_SIZE = "medium"
 
 # Per-device compute precision. float16 on the GPU, int8 on the CPU.
@@ -65,6 +67,7 @@ _COMPUTE_TYPE = {"cuda": "float16", "cpu": "int8"}
 # requests is cheap after the first load. `_device` records the most recently
 # used device (drives the /health badge); `_cuda_available` is a cached probe.
 _models: dict[str, WhisperModel] = {}
+_model_sizes: dict[str, str] = {}  # device -> whisper model size actually loaded
 _device: str = "uninitialised"
 _cuda_available: Optional[bool] = None
 
@@ -137,9 +140,168 @@ def gpu_name() -> Optional[str]:
     return _gpu_name
 
 
+def _gpu_vram_gb() -> Optional[float]:
+    """Best-effort total VRAM of the active CUDA GPU, in GB. None if unknown."""
+    if not cuda_available():
+        return None
+    try:
+        import subprocess
+
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        if out.returncode == 0:
+            lines = [ln.strip() for ln in out.stdout.splitlines() if ln.strip()]
+            if lines:
+                return float(lines[0]) / 1024.0  # MiB -> GiB
+    except Exception as exc:  # noqa: BLE001 - any failure -> unknown VRAM
+        logger.debug("Could not read GPU VRAM via nvidia-smi: %s", exc)
+    return None
+
+
+def _system_ram_gb() -> Optional[float]:
+    """Best-effort total system RAM, in GB. None if unknown.
+
+    No new dependency (e.g. psutil) needed: ``GlobalMemoryStatusEx`` on
+    Windows, ``sysconf`` on POSIX (Linux and macOS both support it) covers
+    every platform this app packages for.
+    """
+    try:
+        if os.name == "nt":
+            import ctypes
+
+            class _MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+
+            stat = _MEMORYSTATUSEX()
+            stat.dwLength = ctypes.sizeof(_MEMORYSTATUSEX)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+            return stat.ullTotalPhys / (1024**3)
+        return (os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")) / (1024**3)
+    except Exception as exc:  # noqa: BLE001 - any failure -> unknown RAM
+        logger.debug("Could not read system RAM: %s", exc)
+        return None
+
+
+# (min GB, model size) tiers, checked best-first. A modest GPU/CPU shouldn't
+# get stuck trying to load 'medium' (slow, or may not fit in VRAM) — and CPU
+# never defaults to 'medium' at all (impractically slow) unless told to.
+_GPU_TIERS: list[tuple[float, str]] = [(10.0, "large-v3"), (6.0, "medium"), (3.0, "small"), (0.0, "base")]
+_CPU_TIERS: list[tuple[float, str]] = [(16.0, "small"), (0.0, "base")]
+
+
+def _pick_model_size(device: str) -> str:
+    """Auto-select a whisper model size that actually fits this machine.
+
+    Cached per device in ``_model_sizes`` once loaded (see ``_load_on``), so
+    this probe runs at most once per device per process.
+    """
+    if device == "cuda":
+        avail, tiers, unknown_default = _gpu_vram_gb(), _GPU_TIERS, "medium"
+    else:
+        avail, tiers, unknown_default = _system_ram_gb(), _CPU_TIERS, "small"
+    if avail is None:
+        return unknown_default
+    for threshold, size in tiers:
+        if avail >= threshold:
+            return size
+    return tiers[-1][1]
+
+
+def get_model_size(device: Optional[str] = None) -> str:
+    """The whisper model size loaded (or that WOULD be picked) for a device.
+
+    With no argument, returns the size for the most-recently-used device
+    (falls back to a fresh auto-pick for 'cuda' if nothing has loaded yet) —
+    used by the startup log and the /api/devices response.
+    """
+    dev = device or (_device if _device != "uninitialised" else ("cuda" if cuda_available() else "cpu"))
+    return _model_sizes.get(dev) or _pick_model_size(dev)
+
+
 def is_loaded(device: str) -> bool:
     """True if a model for this concrete device is already cached (warm)."""
     return device in _models
+
+
+# ---------------------------------------------------------------------------
+# First-run download progress — the server used to block on load_model() at
+# startup, so the browser hit a refused connection (not a "loading" page)
+# while a multi-GB model downloaded, which is the "stuck / looks broken"
+# complaint. main.py now loads the model on a background thread instead and
+# polls this status via /api/model-status; this section just tracks it.
+# ---------------------------------------------------------------------------
+_status_lock = threading.Lock()
+_load_status: dict = {"status": "idle", "message": "", "progress": None, "model_size": None, "device": None}
+
+# Rough ctranslate2-quantized model sizes in bytes — only used to turn a
+# growing partial-download file into an approximate percentage, so these
+# don't need to be exact.
+_MODEL_BYTES_EST = {
+    "tiny": 75_000_000, "base": 145_000_000, "small": 484_000_000,
+    "medium": 1_500_000_000, "large-v3": 3_100_000_000,
+}
+
+
+def _set_status(**kwargs) -> None:
+    with _status_lock:
+        _load_status.update(kwargs)
+
+
+def model_status() -> dict:
+    """Snapshot of the background model load — polled by /api/model-status."""
+    with _status_lock:
+        return dict(_load_status)
+
+
+def _poll_download_progress(size: str, stop_event: threading.Event) -> None:
+    """Watch HuggingFace's partial-download file(s) and update progress.
+
+    huggingface_hub downloads to a `*.incomplete` file under the cache's
+    blobs/ dir, growing it to the final size before atomically renaming it —
+    so its current size vs. the known approximate model size is a good stand-in
+    for a real percentage, without needing to hook into their download internals.
+
+    Resolves the cache dir via huggingface_hub's own ``HF_HUB_CACHE`` constant
+    (accounts for HF_HOME / HUGGINGFACE_HUB_CACHE / the default ``~/.cache/
+    huggingface/hub`` all at once) rather than reading ``HF_HOME`` directly —
+    that env var isn't always set (e.g. a plain dev-server launch), and this
+    poller would otherwise silently do nothing and leave progress frozen at 0%.
+    """
+    total = _MODEL_BYTES_EST.get(size)
+    if not total:
+        return
+    try:
+        from huggingface_hub.constants import HF_HUB_CACHE
+    except ImportError:
+        return
+    pattern = os.path.join(HF_HUB_CACHE, f"models--Systran--faster-whisper-{size}", "blobs", "*.incomplete")
+    while not stop_event.is_set():
+        try:
+            got = sum(os.path.getsize(p) for p in glob.glob(pattern))
+            if got > 0:
+                frac = max(0.0, min(0.99, got / total))
+                _set_status(
+                    status="downloading", progress=frac,
+                    message=f"Downloading the '{size}' AI model (first time only)... {int(frac * 100)}%",
+                )
+        except OSError:
+            pass
+        stop_event.wait(1.0)
 
 
 def _load_on(device: str) -> WhisperModel:
@@ -150,11 +312,24 @@ def _load_on(device: str) -> WhisperModel:
             _device = device
             return _models[device]
         compute = _COMPUTE_TYPE[device]
-        logger.info("Loading whisper '%s' on %s (%s)...", MODEL_SIZE, device, compute)
-        model = WhisperModel(MODEL_SIZE, device=device, compute_type=compute)
+        size = _pick_model_size(device)
+        _model_sizes[device] = size
+        _set_status(status="downloading", message=f"Preparing the '{size}' AI model...",
+                    progress=0.0, model_size=size, device=device)
+        logger.info("Loading whisper '%s' on %s (%s)...", size, device, compute)
+
+        stop_event = threading.Event()
+        poller = threading.Thread(target=_poll_download_progress, args=(size, stop_event), daemon=True)
+        poller.start()
+        try:
+            model = WhisperModel(size, device=device, compute_type=compute)
+        finally:
+            stop_event.set()
+
         _models[device] = model
         _device = device
-        logger.info("Whisper '%s' loaded on %s.", MODEL_SIZE, device)
+        _set_status(status="ready", message="Ready", progress=1.0, model_size=size, device=device)
+        logger.info("Whisper '%s' loaded on %s.", size, device)
         return model
 
 
@@ -177,6 +352,7 @@ def load_model(device: str = "auto") -> WhisperModel:
             return _load_on("cuda")
         except Exception as exc:  # noqa: BLE001 - GPU absent or cuDNN mismatched
             logger.warning("CUDA load failed (%s).", exc)
+            _set_status(status="error", message=str(exc))
             raise TranscriptionError(
                 "Could not run on the GPU (CUDA). Check CUDA 12 + matching cuDNN, "
                 f"or choose CPU instead. Details: {exc}"
@@ -187,6 +363,7 @@ def load_model(device: str = "auto") -> WhisperModel:
             return _load_on("cpu")
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to load whisper on CPU.")
+            _set_status(status="error", message=str(exc))
             raise TranscriptionError(
                 f"Could not load the whisper model on CPU: {exc}"
             ) from exc
@@ -205,6 +382,7 @@ def load_model(device: str = "auto") -> WhisperModel:
         return _load_on("cpu")
     except Exception as exc:  # noqa: BLE001
         logger.exception("Failed to load whisper on CPU as well.")
+        _set_status(status="error", message=str(exc))
         raise TranscriptionError(
             f"Could not load the whisper model on GPU or CPU: {exc}"
         ) from exc

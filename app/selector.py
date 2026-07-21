@@ -28,6 +28,16 @@ MAX_CLIP_LEN = 90.0
 IDEAL_CLIP_LEN = 40.0
 _SENT_END = (".", "!", "?", "।", "…")  # incl. Urdu/Hindi danda
 
+# A clip can be a grammatically complete sentence and still end mid-THOUGHT —
+# "and that's when I realized..." is a full stop but leaves the story hanging.
+# These two signals (a real pause, or the next line sharing almost no
+# vocabulary with this one) are a local, no-model stand-in for "the topic
+# actually moved on" — used to prefer ending clips on a genuine story
+# boundary instead of just the first sentence-end past the target length.
+TOPIC_PAUSE_GAP = 0.6       # seconds of silence that reads as a natural beat
+TOPIC_OVERLAP_MAX = 0.25    # word-overlap with the next line below this -> topic shifted
+TOPIC_SLACK_FRAC = 0.35     # how much further past target_len to keep looking
+
 # Words that often mark hooks / strong or curiosity-driving statements.
 STRONG_WORDS = {
     "how", "why", "what", "when", "who", "where", "best", "worst", "never",
@@ -118,8 +128,12 @@ def _build_candidate_windows(
     candidates: List[dict] = []
     n = len(segments)
     min_len = max(6.0, min(MIN_CLIP_LEN, target_len * 0.6))
+    # Must comfortably exceed target_len * (1 + TOPIC_SLACK_FRAC): that's how far
+    # the topic-boundary search below is allowed to look past the first
+    # sentence-end, and a tighter cap here would cut it off before it gets the
+    # chance (silently making the boundary search a no-op).
     if max_len is None:
-        max_len = min(MAX_CLIP_LEN, max(target_len * 1.2, min_len + 6))
+        max_len = min(MAX_CLIP_LEN, max(target_len * (1.2 + TOPIC_SLACK_FRAC), min_len + 6))
     else:
         max_len = max(max_len, min_len + 6)
 
@@ -129,6 +143,7 @@ def _build_candidate_windows(
         end = start
         text_parts: List[str] = []
         j = i
+        fallback_j: int | None = None  # first sentence-end past target_len, just in case
         while j < n:
             seg = segments[j]
             end = float(seg["end"])
@@ -136,10 +151,21 @@ def _build_candidate_windows(
             text_parts.append(seg_text)
             j += 1
             length = end - start
-            # Past the target, stop at a sentence boundary; a hard cap stops runaways.
             if length >= target_len and seg_text.endswith(_SENT_END):
-                break
+                if fallback_j is None:
+                    fallback_j = j
+                if _is_topic_boundary(segments, j, text_parts):
+                    break  # a real story boundary, not just a complete sentence
+                if length >= target_len * (1 + TOPIC_SLACK_FRAC):
+                    # Kept looking for a cleaner boundary long enough — take the
+                    # first acceptable sentence-end rather than run further.
+                    j, end = fallback_j, float(segments[fallback_j - 1]["end"])
+                    text_parts = text_parts[: fallback_j - i]
+                    break
             if length >= max_len:
+                if fallback_j is not None:
+                    j, end = fallback_j, float(segments[fallback_j - 1]["end"])
+                    text_parts = text_parts[: fallback_j - i]
                 break
 
         i = j  # next window starts right after this one (contiguous, non-overlapping)
@@ -162,6 +188,33 @@ def _build_candidate_windows(
         )
 
     return candidates
+
+
+def _is_topic_boundary(segments: List[dict], j: int, window_text_parts: List[str]) -> bool:
+    """Local heuristic: is the cut at ``segments[j]`` a genuine story boundary?
+
+    True at the end of the transcript, across a real pause, or when the next
+    line's vocabulary is mostly NEW relative to everything said in the window
+    so far (the topic likely moved on) — as opposed to a sentence that's
+    merely grammatically complete but still mid-thought (e.g. "...and that's
+    when I realized"). Comparing against the WHOLE window (not just the one
+    adjacent line) avoids false positives from short lines that just happen
+    to phrase the same idea differently.
+    """
+    if j >= len(segments):
+        return True
+    prev_end = float(segments[j - 1]["end"])
+    nxt = segments[j]
+    if float(nxt["start"]) - prev_end >= TOPIC_PAUSE_GAP:
+        return True
+    window_words = set(re.findall(r"\b\w+\b", " ".join(window_text_parts).lower()))
+    next_words = set(re.findall(r"\b\w+\b", (nxt["text"] or "").lower()))
+    if not window_words or not next_words:
+        return False
+    # What fraction of the NEXT line's words are already-familiar (heard in
+    # this window)? Low -> mostly new vocabulary -> topic likely shifted.
+    familiar = len(window_words & next_words) / max(1, len(next_words))
+    return familiar < TOPIC_OVERLAP_MAX
 
 
 def _build_exact_windows(segments: List[dict], exact_len: float) -> List[dict]:

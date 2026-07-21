@@ -20,6 +20,7 @@ async function jpost(path, body) {
 
 export const api = {
   health: () => jget("/health"),
+  modelStatus: () => jget("/api/model-status"),
   devices: () => jget("/api/devices"),
   captionStyles: () => jget("/api/caption-styles"),
   fonts: () => jget("/api/fonts"),

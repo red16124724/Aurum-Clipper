@@ -14,6 +14,7 @@ import json
 import logging
 import subprocess
 import sys
+import threading
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -34,17 +35,33 @@ logging.basicConfig(
 logger = logging.getLogger("ai_video_clipper")
 
 
+def _load_model_background() -> None:
+    """Load whisper off the startup path (see lifespan() for why)."""
+    try:
+        transcriber.load_model()
+        logger.info(
+            "Startup complete. Whisper '%s' on %s. No external AI APIs are used.",
+            transcriber.get_model_size(),
+            transcriber.get_device(),
+        )
+    except Exception:  # noqa: BLE001 - status already recorded by transcriber
+        logger.exception("Background whisper model load failed.")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create dirs, ensure the font, and load whisper ONCE before serving."""
+    """Create dirs, ensure the font, and start loading whisper.
+
+    The model load runs on a background thread rather than blocking startup:
+    on first run it also downloads the model (up to ~3GB), and a server that
+    isn't accepting connections yet looks like a dead install rather than a
+    progress bar. Starting immediately lets the frontend poll
+    /api/model-status and show real download progress instead of a refused
+    connection.
+    """
     ensure_dirs()
     fonts.ensure_fonts()
-    transcriber.load_model()
-    logger.info(
-        "Startup complete. Whisper '%s' on %s. No external AI APIs are used.",
-        transcriber.MODEL_SIZE,
-        transcriber.get_device(),
-    )
+    threading.Thread(target=_load_model_background, daemon=True).start()
     yield
 
 
@@ -75,6 +92,14 @@ def health() -> dict:
     return {"status": "ok", "device": transcriber.get_device()}
 
 
+@app.get("/api/model-status")
+def model_status() -> dict:
+    """Whisper load/download progress — polled by the frontend's first-run
+    splash screen so a multi-GB model download reads as progress, not a
+    stuck/broken app."""
+    return transcriber.model_status()
+
+
 @app.get("/api/caption-styles")
 def caption_styles() -> list[dict]:
     """Return the caption style presets for the UI (chips + live preview)."""
@@ -92,6 +117,7 @@ def devices() -> dict:
         "default": transcriber.get_device(),
         "cuda_available": transcriber.cuda_available(),
         "gpu_name": transcriber.gpu_name(),
+        "model_size": transcriber.get_model_size(),
     }
 
 
@@ -109,6 +135,7 @@ def warmup(device: Device = Device.AUTO) -> dict:
         return {
             "status": "ready",
             "device": transcriber.get_device(),
+            "model_size": transcriber.get_model_size(),
             "cached": already,
         }
     except TranscriptionError as exc:

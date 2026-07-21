@@ -22,6 +22,38 @@ const THEMES = [
   { id: "light", label: "Light" },
 ];
 
+// First-run (and every relaunch, briefly) splash while the whisper model
+// loads. On a fresh install this can take a few minutes to download — this
+// screen is the fix for that looking "stuck": real progress instead of a
+// refused connection or a blank tab.
+function ModelSplash({ status }) {
+  const pct = status.progress != null ? Math.round(status.progress * 100) : null;
+  const failed = status.status === "error";
+  return (
+    <div className="model-splash">
+      <div className="model-splash-mark"><Icons.bolt /></div>
+      <div className="model-splash-title">ClipForge</div>
+      {failed ? (
+        <>
+          <div className="model-splash-msg" style={{ color: "var(--danger)" }}>Could not start the AI engine.</div>
+          <div className="model-splash-detail">{status.message}</div>
+          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => window.location.reload()}>Retry</button>
+        </>
+      ) : (
+        <>
+          <div className="model-splash-msg">{status.message || "Starting up…"}</div>
+          <div className="track model-splash-track">
+            <div className={"fill" + (pct == null ? " indeterminate" : "")} style={pct == null ? {} : { width: pct + "%" }} />
+          </div>
+          {status.status === "downloading" && (
+            <div className="model-splash-detail">One-time download — this machine won't need it again.</div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // Segmented light/dark switch. Writes the choice to <html data-theme> and
 // remembers it across reloads. "dark" is the CSS default, so we clear the attr.
 function ThemeSwitch({ theme, setTheme, fixed }) {
@@ -44,6 +76,25 @@ export default function App() {
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem("cf-theme") || "dark"; } catch { return "dark"; }
   });
+  const [modelStatus, setModelStatus] = useState({ status: "idle", message: "", progress: null });
+
+  // Poll until the whisper model is ready (or fails) — fast while it's
+  // loading/downloading, then stops (no need to keep polling afterward).
+  useEffect(() => {
+    let alive = true;
+    let timer;
+    async function tick() {
+      try {
+        const s = await api.modelStatus();
+        if (!alive) return;
+        setModelStatus(s);
+        if (s.status === "ready" || s.status === "error") return;
+      } catch { /* server still coming up — keep trying */ }
+      if (alive) timer = setTimeout(tick, 1000);
+    }
+    tick();
+    return () => { alive = false; clearTimeout(timer); };
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -70,6 +121,15 @@ export default function App() {
   const t = TITLES[page];
 
   const go = (id) => { setPage(id); if (id === "create") setStep(1); setNavOpen(false); };
+
+  if (modelStatus.status !== "ready") {
+    return (
+      <div className={"shell is-landing" + (navOpen ? " nav-open" : "")}>
+        <ThemeSwitch theme={theme} setTheme={setTheme} fixed />
+        <div className="content"><ModelSplash status={modelStatus} /></div>
+      </div>
+    );
+  }
 
   return (
     <div className={"shell" + (chromeless ? " is-landing" : "") + (navOpen ? " nav-open" : "")}>
