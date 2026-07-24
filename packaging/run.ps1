@@ -32,6 +32,33 @@ function Step($n, $total, $label, $already) {
   else { Write-Host "[$n/$total] $label -- downloading now..." -ForegroundColor Green }
 }
 
+# Downloads WITH a real, visible progress bar (% + speed) — plain
+# Invoke-WebRequest with $ProgressPreference=SilentlyContinue shows nothing
+# on screen for a big file, which looks exactly like a frozen/stuck window.
+# Retries once on failure (GitHub/codeload can be slow or blip) before giving
+# up with a clear message instead of hanging silently forever.
+function Get-FileWithProgress($Url, $OutFile, $Label) {
+  for ($attempt = 1; $attempt -le 2; $attempt++) {
+    try {
+      Write-Host "    Downloading $Label ..." -ForegroundColor DarkCyan
+      $prev = $ProgressPreference
+      $ProgressPreference = "Continue"
+      Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $OutFile -TimeoutSec 180
+      $ProgressPreference = $prev
+      return
+    } catch {
+      $ProgressPreference = $prev
+      if ($attempt -ge 2) {
+        Warn "Could not download $Label after 2 tries: $($_.Exception.Message)"
+        Warn "Check your internet connection and run ClipForge.bat again."
+        throw
+      }
+      Warn "$Label download failed once, retrying in 3s..."
+      Start-Sleep -Seconds 3
+    }
+  }
+}
+
 Write-Host ""
 Write-Host "  ============================================" -ForegroundColor Magenta
 Write-Host "   ClipForge  --  by Haris AI" -ForegroundColor Magenta
@@ -47,7 +74,7 @@ Step 1 $TOTAL_STEPS "Python (portable runtime)" (Test-Path $Py)
 if (-not (Test-Path $Py)) {
   Say "Portable Python $PyVer download (~10 MB)..."
   $z = Join-Path $env:TEMP "cf_py.zip"
-  Invoke-WebRequest -UseBasicParsing "https://www.python.org/ftp/python/$PyVer/python-$PyVer-embed-amd64.zip" -OutFile $z
+  Get-FileWithProgress "https://www.python.org/ftp/python/$PyVer/python-$PyVer-embed-amd64.zip" $z "Python $PyVer"
   Expand-Archive $z (Join-Path $Base "python") -Force
   # `import site` on karo taake pip aur libraries chalein
   $pth = Get-ChildItem (Join-Path $Base "python") -Filter "python*._pth" | Select-Object -First 1
@@ -57,16 +84,16 @@ if (-not (Test-Path $Py)) {
   }
   Say "pip bootstrap..."
   $gp = Join-Path $env:TEMP "cf_getpip.py"
-  Invoke-WebRequest -UseBasicParsing "https://bootstrap.pypa.io/get-pip.py" -OutFile $gp
+  Get-FileWithProgress "https://bootstrap.pypa.io/get-pip.py" $gp "pip installer"
   & $Py $gp --no-warn-script-location
 }
 
 # --- 2) App code GitHub se (har run par latest; fail ho to purana chalao) ---
 Step 2 $TOTAL_STEPS "ClipForge app code (latest from GitHub)" $false
 try {
-  Say "App code GitHub se laa rahe hain..."
+  Say "App code GitHub se laa rahe hain (~50 MB, dhyan se progress dekhein neeche)..."
   $z = Join-Path $env:TEMP "cf_app.zip"
-  Invoke-WebRequest -UseBasicParsing $ZipUrl -OutFile $z
+  Get-FileWithProgress $ZipUrl $z "ClipForge app code"
   $ex = Join-Path $env:TEMP "cf_app"; if (Test-Path $ex) { Remove-Item $ex -Recurse -Force }
   Expand-Archive $z $ex -Force
   $src = Get-ChildItem $ex -Directory | Select-Object -First 1     # clipping-tool-main
@@ -102,7 +129,7 @@ Step 4 $TOTAL_STEPS "ffmpeg" (Test-Path (Join-Path $Base "ffmpeg\ffmpeg.exe"))
 if (-not (Test-Path (Join-Path $Base "ffmpeg\ffmpeg.exe"))) {
   Say "ffmpeg download..."
   $z = Join-Path $env:TEMP "cf_ff.zip"
-  Invoke-WebRequest -UseBasicParsing "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile $z
+  Get-FileWithProgress "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" $z "ffmpeg"
   $fx = Join-Path $env:TEMP "cf_ff"; if (Test-Path $fx) { Remove-Item $fx -Recurse -Force }
   Expand-Archive $z $fx -Force
   New-Item -ItemType Directory -Force (Join-Path $Base "ffmpeg") | Out-Null
