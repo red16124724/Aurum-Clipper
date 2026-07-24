@@ -52,7 +52,7 @@ function CaptionLine({ cfg, language, fontPx, scale }) {
   );
 }
 
-export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, signature, setSig, setOverride, videoRef }) {
+export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef }) {
   const screenRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [screenW, setScreenW] = useState(224);
@@ -151,7 +151,15 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
           </>}
         </div>
 
-        {fit === "square" && barText && <div className="frame-title" style={{ top: "22%", whiteSpace: "pre-line" }}>{barText}</div>}
+        {fit === "square" && barText && (
+          <div
+            key={barText + barTextAnim}
+            className={"frame-title" + (barTextAnim === "fade" ? " ft-fade" : barTextAnim === "slide" ? " ft-slide" : "")}
+            style={{ top: "22%", whiteSpace: "pre-line", color: barTextColor || "#fff" }}
+          >
+            {barText}
+          </div>
+        )}
 
         <div className={"cap-preview" + (dragging ? " dragging" : "")}
           style={{ left: x + "%", top: y + "%", transform: `translate(-50%, ${squareBelow ? "0" : "-50%"})`, right: "auto", bottom: "auto", maxWidth: "92%" }}>

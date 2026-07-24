@@ -137,11 +137,13 @@ export const DEFAULT_CINEMATIC = {
   glow: false, glow_strength: 50,
   grain: false, grain_strength: 40,
   letterbox: false, letterbox_size: 50,
+  sharpen: false, sharpen_strength: 40,
+  chroma_shift: false, chroma_shift_strength: 40,
 };
 
 export function cineActive(c) {
   return (c.color_grade && c.color_grade !== "none") || c.bottom_gradient || c.top_gradient
-    || c.vignette || c.glow || c.grain || c.letterbox;
+    || c.vignette || c.glow || c.grain || c.letterbox || c.sharpen || c.chroma_shift;
 }
 
 // Embed parser for the URL source preview (YouTube / Vimeo → iframe; else <video>).

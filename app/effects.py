@@ -187,4 +187,14 @@ def cinematic_stages(
             f"drawbox=x=0:y=ih-{bh}:w=iw:h={bh}:color=black:t=fill"
         )
 
+    # 8) Sharpen / clarity (unsharp mask on the luma plane).
+    if _on(cfg, "sharpen"):
+        amt = _f(_num(cfg, "sharpen_strength", 40), 0.2, 1.6)
+        push(f"unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount={amt:.2f}")
+
+    # 9) Chromatic aberration — subtle RGB channel split for a lens/glitch look.
+    if _on(cfg, "chroma_shift"):
+        px = max(1, int(round(_f(_num(cfg, "chroma_shift_strength", 40), 1.0, 6.0))))
+        push(f"rgbashift=rh=-{px}:bh={px}:edge=smear")
+
     return stages, cur

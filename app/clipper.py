@@ -115,6 +115,7 @@ class ClipOptions:
     music_duck: float = 70.0           # 0-100, how hard music dips under the voice
     music_start: float = 0.0           # seconds into the track to start from (beat-aligned)
     signature: Optional[dict] = None   # burned-in watermark (see app.models.Signature)
+    reframe: Optional[list[dict]] = None  # manual crop keyframes (see app.models.ReframeKeyframe)
 
 
 def _rel_for_filter(target: Path, start_dir: Path) -> str:
@@ -192,11 +193,109 @@ def _finish_stages(in_label: str, vw: int, vh: int, opts: ClipOptions, work_dir:
     return cine_stages + sig_stages + [_caption_stage(sig_in, opts, work_dir)]
 
 
+def _piecewise_linear(pts: list[tuple[float, float]]) -> str:
+    """Build an ffmpeg ``if(lt(t,...),...)`` expression that linearly
+    interpolates between ``(time, value)`` points, holding the first/last
+    value outside their range. Shared by the pan and zoom expressions below."""
+    expr = f"{pts[-1][1]:.6f}"
+    for i in range(len(pts) - 2, -1, -1):
+        t0, v0 = pts[i]
+        t1, v1 = pts[i + 1]
+        seg = f"{v1:.6f}" if t1 <= t0 else f"({v0:.6f}+({v1:.6f}-{v0:.6f})*(t-{t0:.3f})/{(t1 - t0):.6f})"
+        expr = f"if(lt(t\\,{t1:.3f})\\,{seg}\\,{expr})"
+    if len(pts) > 1:
+        expr = f"if(lt(t\\,{pts[0][0]:.3f})\\,{pts[0][1]:.6f}\\,{expr})"
+    return expr
+
+
+def _pos_frac_expr(keyframes: list[dict], key: str) -> Optional[str]:
+    """ffmpeg eval expression for one pan axis's 0..1 fraction, or None if
+    there are no keyframes at all.
+
+    ``keyframes`` are ``{"time", "pos_x", "pos_y", "zoom"}`` dicts (see
+    ``app.models.ReframeKeyframe``); ``key`` picks ``pos_x``/``pos_y``.
+    Between keyframes the position is linearly interpolated (a smooth pan);
+    before the first / after the last, it holds.
+    """
+    if not keyframes:
+        return None
+    pts = sorted(
+        ((max(0.0, float(k.get("time", 0.0))), max(0.0, min(100.0, float(k.get(key, 50.0)))) / 100.0)
+         for k in keyframes),
+        key=lambda p: p[0],
+    )
+    if not pts:
+        return None
+    return _piecewise_linear(pts)
+
+
+def _zoom_expr(keyframes: list[dict]) -> Optional[str]:
+    """ffmpeg eval expression for the crop's zoom FACTOR (>=1), or None if every
+    keyframe is zoom=100 (or there are none) — the common case, where skipping
+    this stage keeps the render identical to a build with no zoom support.
+
+    ``zoom`` (see ``app.models.ReframeKeyframe``) is 40-100, the crop box's size
+    as a % of the default max-coverage box. This interpolates that percentage
+    the same piecewise-linear way as pan, then converts it to a scale factor
+    (100/zoom) applied to the pre-crop canvas: 100 -> 1x (no-op), 50 -> 2x
+    (scale the canvas up twice as much before cropping the same fixed WxH
+    window out of it — i.e. a tighter, more zoomed-in crop).
+    """
+    if not keyframes:
+        return None
+    pts = sorted(
+        ((max(0.0, float(k.get("time", 0.0))), max(40.0, min(100.0, float(k.get("zoom", 100.0)))))
+         for k in keyframes),
+        key=lambda p: p[0],
+    )
+    if not pts or all(abs(z - 100.0) < 0.05 for _, z in pts):
+        return None
+    return f"(100/({_piecewise_linear(pts)}))"
+
+
+def _crop_filter(width: int, height: int, reframe: Optional[list[dict]]) -> str:
+    """The reframe filter fragment for a cover-scaled frame: an optional zoom
+    pre-scale (only emitted when a keyframe actually zooms in) feeding a
+    ``crop=...`` that's keyframed if ``reframe`` is set, else ffmpeg's plain
+    centred crop (unchanged default behaviour)."""
+    kfs = reframe or []
+    xf = _pos_frac_expr(kfs, "pos_x")
+    yf = _pos_frac_expr(kfs, "pos_y")
+    zoom = _zoom_expr(kfs)
+
+    if xf is None and yf is None:
+        return f"crop={width}:{height}"
+    xf = xf or "0.5"
+    yf = yf or "0.5"
+
+    if zoom is not None:
+        # Scale the already-covering canvas up further by the zoom factor, then
+        # crop the same fixed W:H back out of it — a tighter, more zoomed-in
+        # view. The pan offset is computed from the KNOWN base width/height and
+        # this SAME zoom expression (not ffmpeg's in_w/in_h): crop does not
+        # reliably refresh in_w/in_h per frame when its upstream frame size is
+        # itself changing per frame — verified with a real render, where using
+        # in_w/in_h here produced an off-centre, runaway-looking zoom instead of
+        # a centred one.
+        prefix = f"scale=w='iw*{zoom}':h='ih*{zoom}':eval=frame,"
+        x_part = f"({width}*{zoom}-{width})*({xf})"
+        y_part = f"({height}*{zoom}-{height})*({yf})"
+    else:
+        prefix = ""
+        x_part = f"(in_w-out_w)*({xf})"
+        y_part = f"(in_h-out_h)*({yf})"
+
+    # crop's x/y expressions are re-evaluated every frame automatically when
+    # they reference time-varying variables like `t` — unlike drawbox/overlay,
+    # this filter has no separate `eval` option (passing one is a hard error).
+    return f"{prefix}crop={width}:{height}:x='{x_part}':y='{y_part}'"
+
+
 def _build_crop_filter_complex(width: int, height: int, opts: ClipOptions, work_dir: Path) -> str:
     """-filter_complex graph for crop mode: cover+crop, cinematic FX, then captions."""
     stages = [
         f"[0:v]scale={width}:{height}:force_original_aspect_ratio=increase,"
-        f"crop={width}:{height}[v0]"
+        f"{_crop_filter(width, height, opts.reframe)}[v0]"
     ]
     stages += _finish_stages("v0", width, height, opts, work_dir)
     return ";".join(stages)
@@ -221,7 +320,7 @@ def _build_square_filter_complex(opts: ClipOptions, work_dir: Path) -> str:
         f"[base]scale={w}:{h}:force_original_aspect_ratio=increase,"
         f"crop={w}:{h},drawbox=0:0:iw:ih:black:t=fill[bg]",
         f"[fg]scale={s}:{s}:force_original_aspect_ratio=increase,"
-        f"crop={s}:{s}[fgsq]",
+        f"{_crop_filter(s, s, opts.reframe)}[fgsq]",
     ]
 
     # Cinematic FX go on the SQUARE itself (vw=vh=s) — exactly the region the live

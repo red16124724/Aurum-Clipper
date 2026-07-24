@@ -26,13 +26,24 @@ $Py = Join-Path $Base "python\python.exe"
 
 function Say($m)  { Write-Host "==> $m" -ForegroundColor Cyan }
 function Warn($m) { Write-Host "!!  $m" -ForegroundColor Yellow }
+function Step($n, $total, $label, $already) {
+  Write-Host ""
+  if ($already) { Write-Host "[$n/$total] $label -- already installed, skipping" -ForegroundColor DarkGray }
+  else { Write-Host "[$n/$total] $label -- downloading now..." -ForegroundColor Green }
+}
 
 Write-Host ""
-Write-Host "  ClipForge — setup & launch" -ForegroundColor Magenta
+Write-Host "  ============================================" -ForegroundColor Magenta
+Write-Host "   ClipForge  --  by Haris AI" -ForegroundColor Magenta
+Write-Host "   100% local video clipper -- setup & launch" -ForegroundColor Magenta
+Write-Host "  ============================================" -ForegroundColor Magenta
 Write-Host "  Install folder: $Base"
 Write-Host ""
 
+$TOTAL_STEPS = 5
+
 # --- 1) Portable Python (agar nahi hai) ------------------------------------
+Step 1 $TOTAL_STEPS "Python (portable runtime)" (Test-Path $Py)
 if (-not (Test-Path $Py)) {
   Say "Portable Python $PyVer download (~10 MB)..."
   $z = Join-Path $env:TEMP "cf_py.zip"
@@ -51,6 +62,7 @@ if (-not (Test-Path $Py)) {
 }
 
 # --- 2) App code GitHub se (har run par latest; fail ho to purana chalao) ---
+Step 2 $TOTAL_STEPS "ClipForge app code (latest from GitHub)" $false
 try {
   Say "App code GitHub se laa rahe hain..."
   $z = Join-Path $env:TEMP "cf_app.zip"
@@ -73,6 +85,7 @@ if (-not (Test-Path (Join-Path $Base "web\dist\index.html"))) {
 
 # --- 3) Libraries (ek dafa; marker se re-run fast) -------------------------
 $marker = Join-Path $Base ".deps_ok"
+Step 3 $TOTAL_STEPS "Python libraries + GPU (CUDA) support" (Test-Path $marker)
 if (-not (Test-Path $marker)) {
   Say "Libraries install ho rahi hain — ek dafa ka kaam, thoda internet + waqt lagega..."
   & $Py -m pip install --no-warn-script-location -r (Join-Path $Base "requirements.txt")
@@ -85,6 +98,7 @@ if (-not (Test-Path $marker)) {
 }
 
 # --- 4) ffmpeg (agar nahi hai) ---------------------------------------------
+Step 4 $TOTAL_STEPS "ffmpeg" (Test-Path (Join-Path $Base "ffmpeg\ffmpeg.exe"))
 if (-not (Test-Path (Join-Path $Base "ffmpeg\ffmpeg.exe"))) {
   Say "ffmpeg download..."
   $z = Join-Path $env:TEMP "cf_ff.zip"
@@ -98,14 +112,17 @@ if (-not (Test-Path (Join-Path $Base "ffmpeg\ffmpeg.exe"))) {
 }
 
 # --- 5) Launch -------------------------------------------------------------
+Step 5 $TOTAL_STEPS "Starting ClipForge" $false
 $env:PATH = (Join-Path $Base "ffmpeg") + ";" + (Join-Path $Base "python") + ";" + $env:PATH
 $env:HF_HOME = Join-Path $Base "models"          # whisper model yahin cache hoga
 $env:HF_HUB_DISABLE_TELEMETRY = "1"
 
 Write-Host ""
-Say "ClipForge chal rahi hai..."
+Write-Host "  ============================================" -ForegroundColor Magenta
+Write-Host "   ClipForge by Haris AI -- ready" -ForegroundColor Magenta
+Write-Host "  ============================================" -ForegroundColor Magenta
 Write-Host "  Browser khud http://127.0.0.1:8000 par khulega."
-Write-Host "  PEHLI BAAR: whisper model (~1.5 GB) download hoga — 'Connecting...' dikhe to sabar karein."
+Write-Host "  PEHLI BAAR: whisper model app ke andar hi download + progress bar ke saath dikhega."
 Write-Host "  Band karne ke liye is window ko close kar dein."
 Write-Host ""
 

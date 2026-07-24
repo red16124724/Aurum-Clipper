@@ -15,17 +15,20 @@ import logging
 import subprocess
 import sys
 import threading
+import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from . import captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, transcriber, uploads
-from .models import Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
+from . import captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, reframe, transcriber, uploads
+from .clipper import ClipOptions, generate_clip
+from .models import ClipGenerationError, Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
 from .paths import CLIPS_DIR, FONTS_DIR, MUSIC_DIR, STATIC_DIR, WEB_DIST_DIR, ensure_dirs
 
 logging.basicConfig(
@@ -293,6 +296,69 @@ def delete_clip(clip_id: str, index: int) -> dict:
         raise HTTPException(status_code=400, detail="Invalid clip reference.")
     deleted = history.remove_clip(clip_id, index)
     return {"status": "ok", "deleted": deleted}
+
+
+class ReframeRequest(BaseModel):
+    """Body for POST /api/clip/{clip_id}/{index}/reframe."""
+
+    keyframes: list[dict] = Field(
+        default_factory=list,
+        description="Manual crop keyframes: [{time, pos_x, pos_y}, ...]. Empty "
+        "list resets to the default centred crop.",
+    )
+
+
+@app.get("/api/clip/{clip_id}/{index}/source")
+def clip_source(clip_id: str, index: int) -> FileResponse:
+    """Stream the ORIGINAL (uncropped) source segment behind one clip, for the
+    Reframe Editor — it needs the full frame to let the user reposition the
+    crop, not the already-cropped output."""
+    recipe = reframe.get_recipe(clip_id, index)
+    if recipe is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No render recipe for this clip (the server may have restarted since it was generated).",
+        )
+    return FileResponse(recipe["source_mp4"])
+
+
+@app.get("/api/clip/{clip_id}/{index}/reframe")
+def get_reframe_info(clip_id: str, index: int) -> dict:
+    """The clip's trim range (start/end, seconds into the source) — the
+    Reframe Editor needs this to know what span of the source video to show."""
+    recipe = reframe.get_recipe(clip_id, index)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail="No render recipe for this clip.")
+    return {"start": recipe["start"], "end": recipe["end"]}
+
+
+@app.post("/api/clip/{clip_id}/{index}/reframe")
+def reframe_clip(clip_id: str, index: int, req: ReframeRequest) -> dict:
+    """Re-render ONE clip with a manual crop-position path, in place.
+
+    Reuses the exact recipe (source file, trim range, captions, effects,
+    music, watermark) saved when the clip was first generated — only the crop
+    keyframes change, and only this one file is touched.
+    """
+    if history.clip_path(clip_id, index) is None:
+        raise HTTPException(status_code=400, detail="Invalid clip reference.")
+    recipe = reframe.get_recipe(clip_id, index)
+    if recipe is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No render recipe for this clip (the server may have restarted since it was generated).",
+        )
+    opts = ClipOptions(
+        clip_id=clip_id,
+        index=index,
+        reframe=req.keyframes or None,
+        **recipe["opts_kwargs"],
+    )
+    try:
+        generate_clip(Path(recipe["source_mp4"]), recipe["start"], recipe["end"], opts)
+    except ClipGenerationError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return {"status": "ok", "url": f"/clips/{clip_id}/{index}.mp4?v={uuid.uuid4().hex[:8]}"}
 
 
 @app.post("/api/reveal")

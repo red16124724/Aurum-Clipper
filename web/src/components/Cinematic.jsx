@@ -59,6 +59,17 @@ export default function Cinematic({ cinematic: c, setCine, resetCine }) {
         </FxRow>
       </div>
 
+      <div className="grouphd"><span>Detail &amp; lens</span></div>
+      <div className="ctl">
+        <FxRow label="Sharpen" on={c.sharpen} onToggle={() => setCine("sharpen", !c.sharpen)}>
+          <Slider label="Strength" unit="%" min={0} max={100} value={c.sharpen_strength} onChange={(n) => setCine("sharpen_strength", n)} />
+        </FxRow>
+        <FxRow label="Chromatic aberration" on={c.chroma_shift} onToggle={() => setCine("chroma_shift", !c.chroma_shift)}>
+          <Slider label="Strength" unit="%" min={0} max={100} value={c.chroma_shift_strength} onChange={(n) => setCine("chroma_shift_strength", n)} />
+          <div className="note">A subtle RGB channel split — a lens/glitch look. Only visible in the exported clip.</div>
+        </FxRow>
+      </div>
+
       <div className="cust-foot">
         <button type="button" className="btn btn-ghost" onClick={resetCine}><Icons.refresh /> Reset effects</button>
       </div>

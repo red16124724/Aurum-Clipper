@@ -18,4 +18,5 @@ export const Icons = {
   film: S(<><rect x="2" y="2" width="20" height="20" rx="3" /><path d="M2 7h20M2 17h20M7 2v20M17 2v20" /></>),
   refresh: S(<><polyline points="23 4 23 10 17 10" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></>),
   check: S(<polyline points="20 6 9 17 4 12" strokeWidth="3" />),
+  crop: S(<><path d="M6 2v14a2 2 0 0 0 2 2h14" /><path d="M18 22V8a2 2 0 0 0-2-2H2" /></>),
 };

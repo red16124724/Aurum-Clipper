@@ -38,6 +38,9 @@ export const api = {
     const r = await fetch(`/api/clip/${clipId}/${index}`, { method: "DELETE" });
     return r.ok;
   },
+  clipSourceUrl: (clipId, index) => `/api/clip/${clipId}/${index}/source`,
+  reframeInfo: (clipId, index) => jget(`/api/clip/${clipId}/${index}/reframe`),
+  reframeClip: (clipId, index, keyframes) => jpost(`/api/clip/${clipId}/${index}/reframe`, { keyframes }),
   music: () => jget("/api/music"),
   uploadMusic: async (file) => {
     const fd = new FormData();

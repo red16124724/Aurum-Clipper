@@ -227,6 +227,24 @@ class CinematicEffects(BaseModel):
     letterbox_size: Optional[float] = Field(default=50, ge=0, le=100)
 
 
+class ReframeKeyframe(BaseModel):
+    """One manual crop-position point on a clip's reframe timeline.
+
+    ``pos_x``/``pos_y`` are the crop window's CENTRE, as a % of the pannable
+    range within the source frame after it's been scaled to cover the output
+    box (0 = pinned to the left/top edge, 50 = centred — ffmpeg's default,
+    100 = pinned to the right/bottom edge). ``zoom`` is the crop box's SIZE as
+    a % of the default (max-coverage) box — 100 = today's default box, lower
+    = a tighter/more-zoomed-in crop. Between two keyframes every value is
+    linearly interpolated (a smooth pan/zoom), not a hard cut.
+    """
+
+    time: float = Field(ge=0, description="Seconds from the clip's own start (0 = first frame).")
+    pos_x: float = Field(default=50, ge=0, le=100)
+    pos_y: float = Field(default=50, ge=0, le=100)
+    zoom: float = Field(default=100, ge=40, le=100, description="Crop box size, 40-100% of the default max-coverage box (100 = no extra zoom).")
+
+
 class Signature(BaseModel):
     """A burned-in signature / watermark (your handle) over the footage."""
 

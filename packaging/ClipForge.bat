@@ -1,15 +1,20 @@
 @echo off
 REM =====================================================================
-REM  ClipForge — bas is file par double-click karein.
-REM  Pehli baar sab kuch (Python, libraries, ffmpeg, model) KHUD download
-REM  hota hai isi folder mein. Baad ki dafa seedha khul jata hai.
-REM  Kuch alag install karne ki zarurat NAHI.
+REM  ClipForge by Haris AI — bas is file par double-click karein.
+REM  Koi git/node/python pehle se install hona ZARURI NAHI — sab kuch
+REM  (Python, libraries, ffmpeg, AI model) is file ke andar hi khud
+REM  download ho jata hai, isi folder mein. Baad ki dafa seedha khul jata
+REM  hai — dobara download nahi hota.
 REM =====================================================================
 setlocal
 cd /d "%~dp0"
 
 echo.
-echo   ClipForge shuru ho rahi hai... (pehli baar setup mein waqt lagega)
+echo   ============================================
+echo    ClipForge  --  by Haris AI
+echo   ============================================
+echo.
+echo   Shuru ho rahi hai... (pehli baar setup mein 5-10 minute lag sakte hain)
 echo.
 
 REM Latest launcher GitHub se lao

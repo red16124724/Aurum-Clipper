@@ -19,7 +19,7 @@ import time
 import uuid
 from typing import Dict, List, Optional
 
-from . import captions, downloader, history, music, pretranscribe, selector, transcriber, uploads
+from . import captions, downloader, history, music, pretranscribe, reframe, selector, transcriber, uploads
 from .clipper import ClipOptions, generate_clip, target_size
 from .models import (
     LANGUAGE_NAMES,
@@ -361,6 +361,26 @@ def _run_pipeline(job: Job) -> None:
                 signature=req.signature.model_dump() if req.signature else None,
             )
             generate_clip(source_mp4, start, end, opts)
+
+            # So "Reframe" can later re-render just this one clip (see reframe.py).
+            reframe.save_recipe(
+                clip_id, index, source_mp4=source_mp4, start=start, end=end,
+                opts_kwargs={
+                    "aspect_ratio": opts.aspect_ratio,
+                    "fit_mode": opts.fit_mode,
+                    "square_corners": opts.square_corners,
+                    "ass_path": opts.ass_path,
+                    "bar_text": opts.bar_text,
+                    "bar_text_color": opts.bar_text_color,
+                    "bar_text_anim": opts.bar_text_anim,
+                    "cinematic": opts.cinematic,
+                    "music_path": opts.music_path,
+                    "music_volume": opts.music_volume,
+                    "music_duck": opts.music_duck,
+                    "music_start": opts.music_start,
+                    "signature": opts.signature,
+                },
+            )
 
             title = win.get("title") or f"Clip {index + 1}"
             clip = {

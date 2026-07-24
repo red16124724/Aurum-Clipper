@@ -16,7 +16,7 @@
 
 #define MyAppName "ClipForge"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "The Haris"
+#define MyAppPublisher "Haris AI"
 #define MyAppURL "https://github.com/Ai-Haris/clipping-tool"
 #define BundleDir "..\..\dist_portable\ClipForge"
 
