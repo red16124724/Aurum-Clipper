@@ -18,6 +18,8 @@ import os
 import re
 from typing import List
 
+from .config import get_gemini_api_key
+
 logger = logging.getLogger(__name__)
 
 # Candidate window length bounds (seconds) and the "ideal" length we score toward.
@@ -44,6 +46,60 @@ STRONG_WORDS = {
     "always", "secret", "mistake", "biggest", "important", "actually", "truth",
     "realize", "realise", "amazing", "incredible", "stop", "avoid", "must",
     "everyone", "nobody", "money", "free", "new", "first", "tip", "tips",
+}
+
+# High-energy Action, Explosions, Gunshots, Combat, Thrill
+ACTION_WORDS = {
+    "boom", "bang", "gun", "guns", "gunshot", "gunshots", "shoot", "shooting",
+    "shot", "fire", "firing", "blast", "blasting", "explosion", "explosions",
+    "explode", "exploded", "bomb", "bombs", "grenade", "missile", "tank", "bullet",
+    "bullets", "sniper", "fight", "fighting", "combat", "attack", "attacking",
+    "punch", "punching", "strike", "hit", "hitting", "kill", "killing", "die",
+    "dying", "death", "dead", "destroy", "destroying", "danger", "dangerous",
+    "run", "running", "fast", "escape", "escaping", "chase", "chasing", "crash",
+    "smash", "blood", "bloody", "war", "battle", "threat", "knife", "weapon",
+    "weapons", "screaming", "scream", "yelling", "shout", "shouting", "crazy",
+    "insane", "omg", "wtf", "stunt", "intense", "clash", "brawl", "ambush",
+    "survive", "survival", "emergency", "fatal", "lethal"
+}
+
+# Viral Comedy, Laughing, Gen-Z / Meme Relevance
+COMEDY_WORDS = {
+    "laugh", "laughing", "laughter", "hilarious", "joke", "jokes", "joking",
+    "funny", "haha", "hahaha", "lmao", "lol", "roast", "roasting", "prank",
+    "pranks", "humor", "comedy", "clown", "embarrassing", "cringe", "ridiculous",
+    "stupid", "dumb", "idiot", "mess", "nah", "bruh", "bro", "dead", "funniest",
+    "ironic", "sarcasm", "comedian", "meme", "wild", "awkward", "goofy",
+    "hysterical", "snicker", "giggle", "giggling", "chuckle", "parody"
+}
+
+# Sadness, Crying, Grief, Tragedy, Emotional Pain
+SAD_WORDS = {
+    "cry", "crying", "tears", "sad", "sadness", "depressed", "depression", "grief",
+    "grieving", "sorrow", "heartbroken", "heartbreak", "pain", "painful", "loss",
+    "lost", "alone", "lonely", "goodbye", "farewell", "miss", "missing", "suffer",
+    "suffering", "hurts", "hurt", "teardrop", "weep", "weeping", "tragic", "tragedy",
+    "hopeless", "broken", "funeral", "mourn", "mourning", "regret", "apologize",
+    "sorry", "forgive", "teary"
+}
+
+# Romance, Passion, Love, Intimacy
+ROMANTIC_WORDS = {
+    "love", "loved", "loving", "lover", "kiss", "kissing", "kisses", "marry",
+    "marriage", "heart", "hearts", "romantic", "romance", "passion", "passionate",
+    "forever", "beautiful", "gorgeous", "attractive", "crush", "date", "dating",
+    "feelings", "together", "hug", "hugging", "adore", "beloved", "sweetheart",
+    "darling", "soulmate", "couple", "intimate", "embrace", "holding", "cherish",
+    "proposal"
+}
+
+# Unemotional / Dry / Boring Conversation Filter (Penalty signals)
+DRY_CONVERSATION_WORDS = {
+    "agenda", "slide", "slides", "table", "column", "row", "item", "procedural",
+    "technically", "furthermore", "moreover", "essentially", "basically", "regarding",
+    "as i said", "moving on", "next point", "clicking", "click", "spreadsheet",
+    "interface", "settings", "documentation", "monotone", "so yeah", "anyway",
+    "um", "uh", "like i said", "just saying", "bullet point", "bullet points"
 }
 
 _OLLAMA_URL = "http://localhost:11434"
@@ -87,6 +143,14 @@ def select_clips(
 
     if not candidates:
         return _fallback_even_split(transcript, num_clips, clip_length)
+
+    # Optional Gemini scoring (takes precedence if API key is present).
+    gemini_key = get_gemini_api_key()
+    if gemini_key:
+        try:
+            return _select_with_gemini(candidates, num_clips)
+        except Exception as exc:
+            logger.warning("Gemini selection failed, falling back to next available option: %s", exc)
 
     # Optional local Ollama scoring (off unless explicitly enabled and available).
     if os.environ.get("USE_OLLAMA") == "1" and _ollama_available():
@@ -270,33 +334,83 @@ def _build_exact_windows(segments: List[dict], exact_len: float) -> List[dict]:
 
 
 def _score_window(text: str, length: float) -> float:
-    """Score a window from simple, explainable local signals (higher = better)."""
+    """Score a window prioritizing high-action, comedy, sadness/crying, and romance over dry conversations."""
     words = re.findall(r"\b\w+\b", text.lower())
     word_count = len(words)
     if word_count == 0:
         return 0.0
 
-    # 1) Word density: spoken-heavy windows make better clips than near-silence.
+    # 1) Spoken word density & pacing
     density = word_count / max(length, 1.0)
-    density_score = min(density / 3.0, 1.0)  # ~3 words/sec saturates
+    density_score = min(density / 3.0, 1.0)
 
-    # 2) Sentence completeness: rewards windows that end on a full stop.
+    # 2) Sentence completeness: rewards windows that end on a full stop
     completeness = 1.0 if text.rstrip().endswith((".", "!", "?")) else 0.4
 
-    # 3) Hook signals: questions and strong/curiosity words.
+    # 3) Hook signals: questions and curiosity words
     strong_hits = sum(1 for w in words if w in STRONG_WORDS)
-    question_bonus = 0.3 if "?" in text else 0.0
-    hook_score = min(strong_hits / 5.0, 1.0) + question_bonus
+    question_bonus = 0.5 if "?" in text else 0.0
+    hook_score = min(strong_hits / 4.0, 1.5) + question_bonus
 
-    # 4) Length fit: prefer windows close to the ideal length.
+    # 4) High-intensity Action (explosions, gunshots, combat, adrenaline, danger)
+    action_hits = sum(1 for w in words if w in ACTION_WORDS)
+    action_score = min(action_hits * 1.5, 6.0)
+
+    # 5) Comedy & Laughter (jokes, hilarious punchlines, memes, laughing)
+    comedy_hits = sum(1 for w in words if w in COMEDY_WORDS)
+    comedy_score = min(comedy_hits * 1.5, 6.0)
+
+    # 6) Sadness, Crying, Grief (tears, heartbreak, mourning, tragic scenes)
+    sad_hits = sum(1 for w in words if w in SAD_WORDS)
+    sad_score = min(sad_hits * 1.5, 6.0)
+
+    # 7) Romance, Passion, Love (confessions, intimacy, romance, kissing)
+    romantic_hits = sum(1 for w in words if w in ROMANTIC_WORDS)
+    romantic_score = min(romantic_hits * 1.5, 5.0)
+
+    # Emotional & Action peaks: the strongest dramatic/action/humor/grief hook
+    emotional_peaks = [action_score, comedy_score, sad_score, romantic_score]
+    max_emotion = max(emotional_peaks)
+    total_emotion_sum = sum(emotional_peaks)
+
+    # Exclamations & shouting (screaming, high energy, laughing, loud action)
+    exclamation_count = text.count("!")
+    exclamation_bonus = min(exclamation_count * 0.5, 2.5)
+
+    uppercase_words = [
+        w for w in re.findall(r"\b[A-Z]{2,}\b", text)
+        if len(w) > 1 and w.lower() not in ("ok", "tv", "id", "ai", "us", "uk", "am", "pm")
+    ]
+    shout_bonus = min(len(uppercase_words) * 0.5, 2.0)
+
+    # 8) Length fit
     length_fit = 1.0 - min(abs(length - IDEAL_CLIP_LEN) / IDEAL_CLIP_LEN, 1.0)
 
-    return (
-        2.0 * density_score
-        + 1.5 * completeness
-        + 1.5 * hook_score
-        + 1.0 * length_fit
+    # 9) Dry, Emotionless Small-Talk Penalty
+    dry_hits = sum(1 for w in words if w in DRY_CONVERSATION_WORDS)
+    dry_penalty = min(dry_hits * 1.0, 5.0)
+
+    # If the window has ZERO intense action, comedy, sadness, or romance markers,
+    # apply a severe penalty so dry conversations are demoted
+    if max_emotion == 0.0 and exclamation_count == 0 and len(uppercase_words) == 0:
+        emotionless_penalty = 3.0
+    else:
+        emotionless_penalty = 0.0
+
+    raw_score = (
+        (max_emotion * 2.5)
+        + (total_emotion_sum * 0.5)
+        + (2.0 * density_score)
+        + (1.5 * completeness)
+        + (1.2 * hook_score)
+        + exclamation_bonus
+        + shout_bonus
+        + (1.0 * length_fit)
+        - dry_penalty
+        - emotionless_penalty
     )
+
+    return max(0.0, raw_score)
 
 
 def _select_heuristic(candidates: List[dict], num_clips: int) -> List[dict]:
@@ -312,10 +426,11 @@ def _select_heuristic(candidates: List[dict], num_clips: int) -> List[dict]:
             continue
         chosen.append(cand)
 
-    # Pass 2 — fill: if we still need more, add any remaining non-overlapping
-    # windows in chronological order so a long video yields the count asked for.
+    # Pass 2 — fill: if we still need more, add remaining non-overlapping
+    # candidates prioritizing higher scores
     if len(chosen) < num_clips:
-        for cand in sorted(candidates, key=lambda c: c["start"]):
+        remaining = [c for c in ranked if c not in chosen]
+        for cand in remaining:
             if len(chosen) >= num_clips:
                 break
             if any(_overlaps(cand, c) for c in chosen):
@@ -355,8 +470,9 @@ def _fallback_even_split(
     transcript: dict, num_clips: int, clip_length: float | None = None
 ) -> List[dict]:
     """Last resort: split the duration into even windows (no segments available)."""
+    import math
     duration = float(transcript.get("duration") or 0.0)
-    if duration <= 0:
+    if duration <= 0 or math.isnan(duration) or math.isinf(duration):
         return []
 
     if clip_length and clip_length > 0:
@@ -371,7 +487,9 @@ def _fallback_even_split(
     idx = 1
     while cursor < duration and len(clips) < n:
         end = min(cursor + clip_len, duration)
-        if end - cursor < 3.0:  # skip a tiny tail
+        if end - cursor < 3.0 and len(clips) > 0:  # skip a tiny trailing remainder only if we already have clips
+            break
+        if end - cursor < 0.2:  # empty or negligible duration
             break
         clips.append(
             {"start": round(cursor, 2), "end": round(end, 2), "title": f"Clip {idx}"}
@@ -414,9 +532,11 @@ def _select_with_ollama(candidates: List[dict], num_clips: int) -> List[dict]:
     scored: List[dict] = []
     for cand in pre:
         prompt = (
-            "You are scoring short-video clip candidates. Given the transcript "
-            "snippet, reply with ONLY compact JSON: "
-            '{"score": <0-100 integer>, "title": "<<=8 word hook title>"}.\n\n'
+            "You are an elite short-form video clip curator. Score this candidate for viral clip generation.\n"
+            "Give high scores (85-100) to: intense action (explosions, gunshots, screams, fights), viral comedy & laughter, deep sadness/crying, or passionate romance.\n"
+            "Give very low scores (0-20) to: random unemotional conversations, dry small talk, monotone chatter.\n"
+            "Reply with ONLY compact JSON: "
+            '{"score": <0-100 integer>, "title": "<short hook title <= 8 words>"}.\n\n'
             f"Transcript:\n{cand['text'][:1200]}"
         )
         resp = requests.post(
@@ -441,6 +561,103 @@ def _select_with_ollama(candidates: List[dict], num_clips: int) -> List[dict]:
 
     if not scored:
         raise RuntimeError("Ollama returned no usable scores")
+
+    scored.sort(key=lambda c: c["score"], reverse=True)
+    chosen: List[dict] = []
+    for cand in scored:
+        if len(chosen) >= num_clips:
+            break
+        if any(_overlaps(cand, c) for c in chosen):
+            continue
+        chosen.append(cand)
+
+    chosen.sort(key=lambda c: c["start"])
+    return [
+        {"start": c["start"], "end": c["end"], "title": c["title"]} for c in chosen
+    ]
+
+
+# --------------------------------------------------------------------------- #
+# Optional Gemini Integration
+# --------------------------------------------------------------------------- #
+def _select_with_gemini(candidates: List[dict], num_clips: int) -> List[dict]:
+    """Score the top candidates with Google Gemini and title them."""
+    import json
+    from google import genai
+    from google.genai import types
+
+    # Pre-rank with the heuristic so we only ask the model about the best candidates
+    pre = sorted(candidates, key=lambda c: c["score"], reverse=True)[: num_clips * 3]
+
+    import concurrent.futures
+
+    client = genai.Client(api_key=get_gemini_api_key())
+    scored: List[dict] = []
+
+    def _score_cand(cand):
+        prompt = (
+            "You are an elite short-form video editor and virality curator. Your task is to select ONLY the most gripping, high-intensity, and emotionally engaging moments for viral short-form clips (Shorts, Reels, TikTok) from the transcript.\n\n"
+            "SCORING GUIDELINES (0 to 100):\n"
+            "- HIGH INTENSITY & ACTION (90-100): Explosions, gunshots, combat, intense arguments, screams, life-or-death drama, chases, extreme stunts, high adrenaline.\n"
+            "- COMEDIC & VIRAL GEN-Z HUMOR (85-100): Laugh-out-loud moments, hilarious punchlines, witty roasts, relatable meme-worthy reactions, infectious laughter.\n"
+            "- DEEP EMOTIONAL & ROMANTIC PEAKS (85-100): Heartbreaking sad scenes, genuine crying, grief, deep romantic confessions, passionate emotional encounters.\n"
+            "- STRICT REJECTION (0-20): Random monotone conversations, dry small talk, procedural or technical explanations, uninteresting conversational filler with no emotion.\n\n"
+            "STRICT REQUIREMENT: Do NOT select or give high scores to unemotional, mundane, or flat conversational filler.\n\n"
+            "Reply with ONLY compact JSON: "
+            '{"score": <0-100 integer>, "title": "<short viral hook title <= 8 words>"}.\n\n'
+            f"Transcript Snippet:\n{cand['text'][:1500]}"
+        )
+        try:
+            try:
+                resp = client.models.generate_content(
+                    model='gemini-3.8-flash',
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        thinking_config=types.ThinkingConfig(thinking_budget=4096)
+                    )
+                )
+            except Exception as err:
+                logger.debug("gemini-3.8-flash scoring failed, falling back to gemini-2.5-flash: %s", err)
+                resp = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        thinking_config=types.ThinkingConfig(thinking_budget=4096)
+                    )
+                )
+            match = re.search(r"\{.*\}", resp.text, re.DOTALL)
+            if match:
+                data = json.loads(match.group(0))
+                score_val = cand["score"]
+                if "score" in data:
+                    try:
+                        import math
+                        s = float(data["score"])
+                        if not math.isnan(s) and not math.isinf(s):
+                            score_val = max(0.0, min(100.0, s))
+                    except (ValueError, TypeError):
+                        pass
+                title_val = _derive_title(str(data.get("title") or cand["text"]))
+                return {
+                    "start": cand["start"],
+                    "end": cand["end"],
+                    "score": score_val,
+                    "title": title_val,
+                }
+        except Exception:
+            pass
+        return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        for res in executor.map(_score_cand, pre):
+            if res:
+                scored.append(res)
+
+
+    if not scored:
+        raise RuntimeError("Gemini returned no usable scores")
 
     scored.sort(key=lambda c: c["score"], reverse=True)
     chosen: List[dict] = []

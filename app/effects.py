@@ -15,8 +15,16 @@ of truth for what's available is ``COLOR_GRADES`` + the keys read in
 
 from __future__ import annotations
 
+import json
+import logging
 import math
-from typing import List, Optional, Tuple
+import os
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
+from .config import get_gemini_api_key
+
+logger = logging.getLogger(__name__)
 
 # Colour-grade presets -> the ffmpeg filter chain that produces the look.
 COLOR_GRADES: dict[str, str] = {
@@ -29,6 +37,7 @@ COLOR_GRADES: dict[str, str] = {
     ),
     "vintage": "curves=preset=vintage",
     "vibrant": "eq=saturation=1.35:contrast=1.08:brightness=0.01",
+    "high_contrast": "eq=contrast=1.35:saturation=1.15",
     "bw": "hue=s=0,eq=contrast=1.10",
 }
 
@@ -76,20 +85,10 @@ def _gradient_bands(vw: int, vh: int, height_pct: float, strength: float, top: b
 
     boxes: List[str] = []
     for k in range(n):
-        # Strips tile the region EXACTLY: each one runs from one rounded boundary
-        # to the next, so there's no gap (a bright seam) and — crucially — no
-        # overlap (where two semi-transparent blacks would stack into a dark line
-        # and re-introduce banding). k counts strips from the top of the region.
         y = base + int(round(k * step))
         h = base + int(round((k + 1) * step)) - y
         if h <= 0:
             continue
-        # Opacity ramps toward the dark edge: bottom-gradient darkens downward,
-        # top-gradient darkens upward. Smoothstep (not linear) so both ends of
-        # the ramp ease in/out — no perceptible seam where the effect "starts",
-        # and no hard edge at the peak. This is the fix for the reported
-        # "visible black bar" look: a linear ramp reads as flat-then-a-wall;
-        # smoothstep reads as a continuous, photographic falloff.
         frac = (k + 0.5) / n
         eased = frac * frac * (3.0 - 2.0 * frac)
         alpha = m * eased if not top else m * (1.0 - eased)
@@ -129,15 +128,7 @@ def cinematic_stages(
         push(grade)
 
     # 2) Glow / bloom — isolate the HIGHLIGHTS, blur those, screen-blend back, and
-    #    keep the bloom COLOUR-NEUTRAL. Three things have to be true or it looks
-    #    wrong:
-    #      a) threshold first (curves crush mids/shadows to black) so only bright
-    #         areas bloom — without it the whole frame lifts into a milky haze;
-    #      b) desaturate the bloom to grey (format=gray) so the glow adds soft
-    #         *light*, never colour — without it a magenta/purple-lit scene blooms
-    #         its own colour and washes the entire frame purple (the reported bug);
-    #      c) blend in RGB (gbrp) — on YUV the screen hits the chroma planes and
-    #         tints the frame purple no matter what. Back to yuv420p afterwards.
+    #    keep the bloom COLOUR-NEUTRAL.
     if _on(cfg, "glow"):
         s = _f(_num(cfg, "glow_strength", 50), 6.0, 22.0)       # blur sigma
         o = _f(_num(cfg, "glow_strength", 50), 0.35, 0.85)      # bloom opacity
@@ -198,3 +189,312 @@ def cinematic_stages(
         push(f"rgbashift=rh=-{px}:bh={px}:edge=smear")
 
     return stages, cur
+
+
+def _local_analyze_effects(words: List[Dict[str, Any]], clip_start: float) -> List[Dict[str, Any]]:
+    """Local offline heuristic for automatic sound and visual effects."""
+    if not words:
+        return []
+
+    effects: List[Dict[str, Any]] = []
+    
+    # Keyword sets for sound triggers
+    ding_words = {"how", "why", "what", "secret", "tip", "key", "idea", "remember", "rule", "learn", "truth", "important", "actually", "first", "million", "billion"}
+    boom_words = {"never", "always", "stop", "biggest", "worst", "best", "money", "free", "shocking", "danger", "destroy", "crazy", "boom", "insane", "dead", "zero", "hate", "love", "must"}
+    transition_words = {"but", "however", "suddenly", "then", "next", "finally", "instead", "meanwhile"}
+
+    used_times: List[float] = []
+    def can_add_at(t: float, min_gap: float = 3.0) -> bool:
+        return all(abs(t - u) >= min_gap for u in used_times)
+
+    for w in words:
+        token = re.sub(r"[^\w]", "", w.get("word", "").lower())
+        raw = w.get("word", "")
+        t_rel = round(max(0.0, float(w.get("start", 0.0)) - clip_start), 2)
+
+        # 1. Question / Key insight -> Ding
+        if (token in ding_words or raw.endswith("?")) and can_add_at(t_rel, min_gap=3.5):
+            effects.append({"time": t_rel, "effect": "sfx_ding"})
+            used_times.append(t_rel)
+        # 2. Strong shock / impact / exclamation -> Boom
+        elif (token in boom_words or raw.endswith("!")) and can_add_at(t_rel, min_gap=3.5):
+            effects.append({"time": t_rel, "effect": "sfx_boom"})
+            used_times.append(t_rel)
+        # 3. Transition words or sentence switch -> Whoosh
+        elif token in transition_words and can_add_at(t_rel, min_gap=4.0):
+            effects.append({"time": t_rel, "effect": "sfx_whoosh"})
+            used_times.append(t_rel)
+
+        if len(effects) >= 3:
+            break
+
+    # If transcript had few keywords, add sound effects at natural pacing
+    if not effects and len(words) >= 4:
+        first_t = round(max(0.1, float(words[0].get("start", 0.0)) - clip_start), 2)
+        mid_idx = len(words) // 2
+        mid_t = round(max(first_t + 2.0, float(words[mid_idx].get("start", 0.0)) - clip_start), 2)
+        effects.append({"time": first_t, "effect": "sfx_whoosh"})
+        effects.append({"time": mid_t, "effect": "sfx_ding"})
+
+    return effects
+
+
+def _local_analyze_template(words: List[Dict[str, Any]]) -> str:
+    """Local offline heuristic for video templates."""
+    if not words:
+        return "podcast_classic"
+    
+    text = " ".join(w.get("word", "").lower() for w in words)
+    if any(k in text for k in ["grind", "money", "hustle", "success", "discipline", "win", "focus", "work"]):
+        return "sigma_grindset"
+    if any(k in text for k in ["game", "gaming", "play", "kill", "insane", "crazy", "reaction", "hype", "lol"]):
+        return "hype_beast"
+    if any(k in text for k in ["story", "friend", "life", "remember", "day", "feel", "love", "home", "thought"]):
+        return "storytime_chill"
+    return "podcast_classic"
+
+
+def analyze_effects_with_gemini(words: List[Dict[str, Any]], clip_start: float) -> List[Dict[str, Any]]:
+    """
+    Uses Gemini to analyze the transcript and suggest SFX and VFX.
+    Falls back to a local heuristic if Gemini API key is not configured or fails.
+    """
+    if not words:
+        return []
+
+    gemini_key = get_gemini_api_key()
+    if not gemini_key:
+        return _local_analyze_effects(words, clip_start)
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        lines = []
+        current_line = []
+        line_start = None
+
+        for w in words:
+            rel_start = w['start'] - clip_start
+            if line_start is None:
+                line_start = rel_start
+
+            current_line.append(w['word'])
+            if len(current_line) >= 5 or w['word'].endswith(('.', '?', '!', ',')):
+                lines.append(f"[{line_start:.1f}s] {' '.join(current_line)}")
+                current_line = []
+                line_start = None
+
+        if current_line and line_start is not None:
+            lines.append(f"[{line_start:.1f}s] {' '.join(current_line)}")
+
+        transcript_text = "\n".join(lines)
+
+        prompt = f"""You are a video editor adding sound effects (SFX) and visual effects (VFX) to a short-form vertical video (like a TikTok or Reel).
+Here is the transcript with timestamps:
+{transcript_text}
+
+Choose from these exact effects:
+- sfx_ding (for a realization, idea, or positive point)
+- sfx_boom (for impact, shock, or a heavy statement)
+- sfx_whoosh (for a quick transition or gesture)
+- vfx_bw (flashes the screen black and white briefly for dramatic effect)
+
+Return a JSON array of objects, where each object has 'time' (float, matching the timestamp near where the effect should happen) and 'effect' (string, the exact name of the effect).
+Do not overuse them! 1 to 3 effects per clip is plenty.
+"""
+
+        client = genai.Client(api_key=gemini_key)
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_budget=4096)
+                )
+            )
+        except Exception as err:
+            logger.debug("gemini-3.8-flash failed in effects analysis, falling back to gemini-2.5-flash: %s", err)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_budget=4096)
+                )
+            )
+        text = response.text.strip() if response and response.text else ""
+        match = re.search(r"\[.*\]", text, re.DOTALL)
+        raw_effects = None
+        if match:
+            try:
+                raw_effects = json.loads(match.group(0))
+            except Exception:
+                pass
+        if raw_effects is None and text:
+            try:
+                raw_effects = json.loads(text)
+            except Exception:
+                pass
+
+        if isinstance(raw_effects, list) and raw_effects:
+            sanitized: List[Dict[str, Any]] = []
+            for item in raw_effects:
+                if isinstance(item, dict) and "effect" in item:
+                    try:
+                        t = float(item.get("time", 0.0))
+                        if not math.isnan(t) and not math.isinf(t):
+                            sanitized.append({
+                                "time": round(max(0.0, t), 2),
+                                "effect": str(item["effect"]),
+                            })
+                    except (ValueError, TypeError):
+                        continue
+            if sanitized:
+                return sanitized
+        return _local_analyze_effects(words, clip_start)
+    except Exception as e:
+        logger.warning("Gemini effects analysis fallback to local: %s", e)
+        return _local_analyze_effects(words, clip_start)
+
+
+def analyze_template_with_gemini(words: List[Dict[str, Any]]) -> str:
+    """
+    Analyzes the transcript and selects the best matching video template.
+    Falls back to a local heuristic if Gemini API key is not configured or fails.
+    """
+    if not words:
+        return "podcast_classic"
+
+    gemini_key = get_gemini_api_key()
+    if not gemini_key:
+        return _local_analyze_template(words)
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        lines = []
+        current_line = []
+
+        for w in words:
+            current_line.append(w['word'])
+            if len(current_line) >= 8 or w['word'].endswith(('.', '?', '!', ',')):
+                lines.append(' '.join(current_line))
+                current_line = []
+
+        if current_line:
+            lines.append(' '.join(current_line))
+
+        transcript_text = "\n".join(lines)
+
+        prompt = f"""You are an expert short-form video editor for TikTok/Reels. 
+Analyze the following transcript and choose the BEST editing template to match the vibe.
+
+Transcript:
+{transcript_text}
+
+Available templates:
+- sigma_grindset: High contrast, dramatic. Best for motivational speeches, tough talk, intense moments.
+- storytime_chill: Soft, engaging, friendly. Best for personal stories, casual talks, vlogs.
+- podcast_classic: Clean, standard, professional. Best for educational content, interviews, news.
+- hype_beast: Loud, colorful. Best for high-energy reactions, gaming, pranks.
+
+Return ONLY the exact template ID string (e.g. sigma_grindset) and nothing else.
+"""
+
+        client = genai.Client(api_key=gemini_key)
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    thinking_config=types.ThinkingConfig(thinking_budget=4096)
+                )
+            )
+        except Exception as err:
+            logger.debug("gemini-3.8-flash failed in template analysis, falling back to gemini-2.5-flash: %s", err)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    thinking_config=types.ThinkingConfig(thinking_budget=4096)
+                )
+            )
+        text = response.text.strip().lower() if response and response.text else ""
+        for tid in ["sigma_grindset", "storytime_chill", "podcast_classic", "hype_beast"]:
+            if tid in text:
+                return tid
+        return _local_analyze_template(words)
+    except Exception as e:
+        logger.warning("Gemini template analysis fallback to local: %s", e)
+        return _local_analyze_template(words)
+
+def spell_check_with_gemini(words: List[Dict[str, Any]], target_language: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Uses Gemini to correct spelling mistakes while preserving timestamps, and optionally filters out words not in the target language."""
+    if not words:
+        return words
+
+    gemini_key = get_gemini_api_key()
+    if not gemini_key:
+        return words
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        if target_language:
+            prompt = f"Fix ONLY spelling and grammatical mistakes in the 'word' fields of this JSON array. DO NOT TRANSLATE THE TEXT. You must maintain the original language. DO NOT change start/end timestamps. You MUST strictly REMOVE any objects/words that are NOT in the {target_language} language (drop words that belong to other languages). Return ONLY the corrected JSON array.\n\n" + json.dumps(words, ensure_ascii=False)
+        else:
+            prompt = "Fix ONLY spelling and grammatical mistakes in the 'word' fields of this JSON array. DO NOT TRANSLATE THE TEXT. You must maintain the original language. If the text is in Hinglish or a non-English language, leave it in that language. DO NOT change start/end timestamps. DO NOT add or remove any elements. Return ONLY the corrected JSON array.\n\n" + json.dumps(words, ensure_ascii=False)
+
+        client = genai.Client(api_key=gemini_key)
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_budget=4096)
+                )
+            )
+        except Exception as err:
+            logger.debug("gemini-3.8-flash failed in spell check, falling back to gemini-2.5-flash: %s", err)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_budget=4096)
+                )
+            )
+        text = response.text.strip() if response and response.text else ""
+        match = re.search(r"\[.*\]", text, re.DOTALL)
+        
+        parsed = []
+        if match:
+            try:
+                parsed = json.loads(match.group(0))
+            except Exception:
+                pass
+        elif text:
+            try:
+                parsed = json.loads(text)
+            except Exception:
+                pass
+            
+        if isinstance(parsed, list) and parsed:
+            sanitized_words = []
+            for item in parsed:
+                if isinstance(item, dict) and "word" in item and "start" in item and "end" in item:
+                    sanitized_words.append(item)
+            if target_language and sanitized_words:
+                return sanitized_words
+            elif len(sanitized_words) == len(words):
+                return sanitized_words
+            
+        return words
+    except Exception as e:
+        logger.warning("Gemini spell check failed: %s", e)
+        return words

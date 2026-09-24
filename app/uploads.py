@@ -66,6 +66,19 @@ def save_upload(filename: str, fileobj: BinaryIO) -> dict:
         dest.unlink(missing_ok=True)
         raise InvalidVideoURLError("The uploaded file was empty.")
 
+    # Validate that it is actually a readable video file using ffprobe
+    import subprocess
+    try:
+        proc = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(dest)],
+            capture_output=True, text=True, timeout=5
+        )
+        if proc.returncode != 0 or not proc.stdout.strip():
+            dest.unlink(missing_ok=True)
+            raise InvalidVideoURLError("The uploaded file is corrupted or not a valid video.")
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass # If ffprobe is missing or hangs, we just let it pass to transcriber
+
     logger.info("Saved upload %s -> %s (%d bytes)", filename, dest.name, dest.stat().st_size)
     return {"upload_id": upload_id, "filename": Path(filename or "video").name, "ext": ext}
 
@@ -78,7 +91,15 @@ def resolve_upload(upload_id: str) -> Path:
     """
     if not upload_id or not _ID_RE.match(upload_id):
         raise InvalidVideoURLError("Invalid upload reference.")
-    matches = sorted(DOWNLOADS_DIR.glob(f"{upload_id}.*"))
+    matches = sorted(
+        [
+            p for p in DOWNLOADS_DIR.glob(f"{upload_id}.*")
+            if not p.name.endswith((".part", ".ytdl", ".temp", ".tmp", ".crdownload"))
+            and p.is_file() and p.stat().st_size > 0
+        ],
+        key=lambda p: p.stat().st_size,
+        reverse=True,
+    )
     if not matches:
         raise InvalidVideoURLError(
             "The uploaded file could not be found. Please upload it again."

@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import BinaryIO, Optional
 
 from .models import InvalidVideoURLError
-from .paths import FONTS_DIR
+from .paths import BUNDLED_FONTS_DIR, FONTS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,20 @@ MULTILINGUAL_FONTS: dict[str, tuple[str, str]] = {
         "NotoSerifDevanagari-Regular.ttf",
         f"{_GF}/ofl/notoserifdevanagari/NotoSerifDevanagari%5Bwdth%2Cwght%5D.ttf",
     ),
+    # --- CJK ---
+    "Noto Sans JP": (
+        "NotoSansJP-Regular.ttf",
+        f"{_GF}/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf",
+    ),
+    "Noto Sans KR": (
+        "NotoSansKR-Regular.ttf",
+        f"{_GF}/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf",
+    ),
+    "Noto Sans SC": (
+        "NotoSansSC-Regular.ttf",
+        f"{_GF}/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
+    ),
+
 }
 
 # A sensible default caption font per non-Latin language code, so picking the
@@ -107,6 +121,9 @@ LANG_DEFAULT_FONT: dict[str, str] = {
     "hi": "Noto Sans Devanagari",  # Hindi
     "mr": "Noto Sans Devanagari",  # Marathi
     "ne": "Noto Sans Devanagari",  # Nepali
+    "ja": "Noto Sans JP",         # Japanese
+    "ko": "Noto Sans KR",         # Korean
+    "zh": "Noto Sans SC",         # Chinese
 }
 
 # Always-offered core families -> their file (so the UI can @font-face them too).
@@ -124,6 +141,18 @@ def _download(filename: str, url: str) -> bool:
     target = FONTS_DIR / filename
     if target.exists() and target.stat().st_size > 0:
         return True
+
+    # 1. Prefer copying from bundled fonts repository / frozen bundle (100% offline)
+    bundled = BUNDLED_FONTS_DIR / filename
+    if bundled.is_file() and bundled.stat().st_size > 0:
+        try:
+            import shutil
+            shutil.copy2(bundled, target)
+            logger.info("Copied bundled font %s to %s", filename, target)
+            return True
+        except Exception as exc:
+            logger.debug("Could not copy bundled font %s: %s", filename, exc)
+
     try:
         import requests
 

@@ -14,7 +14,7 @@ export default function Screen4Effects({
     <div className="wizard-screen">
       <div className="w3-grid">
         <div className="card w3-left">
-          <div className="card-h"><h2>Cinematic effects</h2></div>
+          <div className="card-h"><h2>Cinematic Effects &amp; VFX</h2></div>
           <div className="studio-pane" style={{ padding: "16px 0 0" }}>
             <Cinematic cinematic={studio.cinematic} setCine={studio.setCine} resetCine={studio.resetCine} />
           </div>

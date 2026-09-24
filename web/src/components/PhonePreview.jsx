@@ -52,7 +52,7 @@ function CaptionLine({ cfg, language, fontPx, scale }) {
   );
 }
 
-export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef }) {
+export default function PhonePreview({ cfg, cinematic, language, media, preparing, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig, setOverride, videoRef, subtitlesEnabled = true, subtitlesPosition = "bottom" }) {
   const screenRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [screenW, setScreenW] = useState(224);
@@ -67,6 +67,11 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
     return () => ro.disconnect();
   }, []);
 
+  const dragCleanup = useRef(null);
+  useEffect(() => {
+    return () => { if (dragCleanup.current) dragCleanup.current(); };
+  }, []);
+
   function sigDown(e) {
     if (!setSig) return;
     e.preventDefault(); e.stopPropagation();
@@ -77,13 +82,19 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
       const py = Math.max(0, Math.min(100, ((p.clientY - r.top) / r.height) * 100));
       setSig("pos_x", Math.round(px)); setSig("pos_y", Math.round(py));
     };
-    const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+    const up = () => { 
+      document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); 
+      document.removeEventListener("touchmove", move, { passive: false }); document.removeEventListener("touchend", up);
+      dragCleanup.current = null;
+    };
+    dragCleanup.current = up;
     document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+    document.addEventListener("touchmove", move, { passive: false }); document.addEventListener("touchend", up);
   }
 
   // Caption point (x%, y%) within the SCREEN, kept inside the clip region.
   const free = cfg.pos_x != null && cfg.pos_y != null;
-  const yFrac = free ? cfg.pos_y / 100 : ({ top: 0.12, center: 0.5, bottom: 0.88 }[cfg.position || "bottom"]);
+  const yFrac = free ? cfg.pos_y / 100 : ({ top: 0.12, center: 0.5, bottom: 0.88 }[subtitlesPosition || "bottom"]);
   const x = free ? cfg.pos_x : 50;
   // Square mode (un-dragged): caption sits in the black band JUST BELOW the square,
   // top-anchored — matching the burned render (title above, caption hugging below).
@@ -104,8 +115,15 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
       setOverride("pos_x", Math.round(px * 10) / 10);
       setOverride("pos_y", Math.round(py * 10) / 10);
     };
-    const up = () => { setDragging(false); document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+    const up = () => { 
+      setDragging(false); 
+      document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); 
+      document.removeEventListener("touchmove", move, { passive: false }); document.removeEventListener("touchend", up); 
+      dragCleanup.current = null;
+    };
+    dragCleanup.current = up;
     document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+    document.addEventListener("touchmove", move, { passive: false }); document.addEventListener("touchend", up);
   }
 
   const c = cinematic;
@@ -161,12 +179,14 @@ export default function PhonePreview({ cfg, cinematic, language, media, preparin
           </div>
         )}
 
-        <div className={"cap-preview" + (dragging ? " dragging" : "")}
-          style={{ left: x + "%", top: y + "%", transform: `translate(-50%, ${squareBelow ? "0" : "-50%"})`, right: "auto", bottom: "auto", maxWidth: "92%" }}>
-          <span className="cap-line-wrap" onMouseDown={onDown} onTouchStart={onDown}>
-            <CaptionLine cfg={cfg} language={language} fontPx={fontPx} scale={0.16} />
-          </span>
-        </div>
+        {subtitlesEnabled && (
+          <div className={"cap-preview" + (dragging ? " dragging" : "")}
+            style={{ left: x + "%", top: y + "%", transform: `translate(-50%, ${squareBelow ? "0" : "-50%"})`, right: "auto", bottom: "auto", maxWidth: "92%" }}>
+            <span className="cap-line-wrap" onMouseDown={onDown} onTouchStart={onDown}>
+              <CaptionLine cfg={cfg} language={language} fontPx={fontPx} scale={0.16} />
+            </span>
+          </div>
+        )}
 
         {signature?.enabled && (signature.text || "").trim() && (
           <div className="sig-preview" onMouseDown={sigDown}

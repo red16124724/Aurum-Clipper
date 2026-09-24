@@ -62,7 +62,19 @@ def _romanize_word(word: str) -> str:
     if not _DEVANAGARI.search(word):
         return word  # numbers / Latin / punctuation pass straight through
 
-    iast = transliterate(word, sanscript.DEVANAGARI, sanscript.IAST)
+    # Separate leading/trailing punctuation
+    import string
+    punct = re.escape(string.punctuation + '¿¡।|')
+    m = re.match(rf'^([{punct}]*)(.*?)([{punct}]*)$', word)
+    if not m:
+        return word
+    prefix, core, suffix = m.groups()
+    if not core:
+        return word
+        
+    core = core.replace("।", ".")
+
+    iast = transliterate(core, sanscript.DEVANAGARI, sanscript.IAST)
 
     for src, dst in _PRE_FOLD.items():
         iast = iast.replace(src, dst)
@@ -85,7 +97,10 @@ def _romanize_word(word: str) -> str:
     folded = "".join(
         c for c in unicodedata.normalize("NFKD", iast) if not unicodedata.combining(c)
     )
-    return folded.lower()
+    
+    # Re-attach punctuation
+    suffix = suffix.replace("|", ".").replace("।", ".")
+    return prefix + folded.lower() + suffix
 
 
 def to_roman(text: str) -> str:

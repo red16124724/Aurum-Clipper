@@ -2,16 +2,24 @@
 downloads/
 transcripts/
 clips/
+dist/
+build/
+config.json
+
+# Node & Frontend
+node_modules/
+web/node_modules/
 
 # Bundled fonts are auto-downloaded on first run
 assets/fonts/*.ttf
 
-# Python
+# Python & Testing
 __pycache__/
 *.pyc
 .venv/
 venv/
 env/
+.pytest_cache/
 
 # Model cache (faster-whisper / huggingface)
 *.bin

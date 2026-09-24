@@ -9,7 +9,7 @@ select ho jata hai (yeh app mein pehle se hai).
 ## 1) Build karo (ek dafa, apne is PC par)
 
 ```powershell
-cd "e:\The Haris Hustle\Vibe code\Cliping\ai-video-clipper"
+cd "e:\The RED4724 Hustle\Vibe code\Cliping\ai-video-clipper"
 
 # frontend fresh build (agar UI mein koi change kiya ho)
 cd web ; npm run build ; cd ..

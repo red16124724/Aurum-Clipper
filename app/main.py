@@ -26,10 +26,10 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import captions, fonts, history, jobs, mood, music, prefetch, pretranscribe, reframe, transcriber, uploads
+from . import captions, config, fonts, history, jobs, mood, music, prefetch, pretranscribe, reframe, transcriber, uploads
 from .clipper import ClipOptions, generate_clip
 from .models import ClipGenerationError, Device, GenerateRequest, InvalidVideoURLError, TranscriptionError
-from .paths import CLIPS_DIR, FONTS_DIR, MUSIC_DIR, STATIC_DIR, WEB_DIST_DIR, ensure_dirs
+from .paths import CLIPS_DIR, DOWNLOADS_DIR, FONTS_DIR, MUSIC_DIR, STATIC_DIR, WEB_DIST_DIR, ensure_dirs
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,7 +43,7 @@ def _load_model_background() -> None:
     try:
         transcriber.load_model()
         logger.info(
-            "Startup complete. Whisper '%s' on %s. No external AI APIs are used.",
+            "Startup complete. Whisper '%s' on %s. Local pipeline ready.",
             transcriber.get_model_size(),
             transcriber.get_device(),
         )
@@ -53,18 +53,22 @@ def _load_model_background() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create dirs, ensure the font, and start loading whisper.
-
-    The model load runs on a background thread rather than blocking startup:
-    on first run it also downloads the model (up to ~3GB), and a server that
-    isn't accepting connections yet looks like a dead install rather than a
-    progress bar. Starting immediately lets the frontend poll
-    /api/model-status and show real download progress instead of a refused
-    connection.
-    """
+    """Create dirs, ensure fonts exist, init config, and scan device for installed models."""
     ensure_dirs()
     fonts.ensure_fonts()
-    threading.Thread(target=_load_model_background, daemon=True).start()
+    config.init_config()
+    try:
+        installed = transcriber.scan_installed_models()
+        if installed:
+            logger.info(
+                "Device scan found %d installed Whisper model(s): %s",
+                len(installed),
+                ", ".join(f"{m['name']} ({m['id']})" for m in installed),
+            )
+        else:
+            logger.info("Device scan: No pre-existing Whisper models found in local caches.")
+    except Exception as e:
+        logger.debug("Model scanning on startup: %s", e)
     yield
 
 
@@ -95,12 +99,105 @@ def health() -> dict:
     return {"status": "ok", "device": transcriber.get_device()}
 
 
+@app.post("/api/cleanup")
+def cleanup_cache() -> dict:
+    freed = 0
+    try:
+        # Delete temp files (downloads and uploads)
+        if DOWNLOADS_DIR.exists():
+            for f in DOWNLOADS_DIR.glob("*"):
+                if f.is_file():
+                    try:
+                        size = f.stat().st_size
+                        f.unlink(missing_ok=True)
+                        freed += size
+                    except Exception as fe:
+                        logger.debug("Could not delete %s during cleanup (may be in use): %s", f, fe)
+        return {"status": "success", "freed_bytes": freed}
+    except Exception as e:
+        logger.error(f"Cleanup failed: {e}")
+        return {"status": "error", "message": str(e)}
+
 @app.get("/api/model-status")
 def model_status() -> dict:
-    """Whisper load/download progress — polled by the frontend's first-run
-    splash screen so a multi-GB model download reads as progress, not a
-    stuck/broken app."""
+    """Whisper load/download progress — polled by the frontend's setup and splash screens."""
     return transcriber.model_status()
+
+
+@app.get("/api/models-info")
+def models_info() -> dict:
+    """Return available Whisper models, system requirements, and local cache status."""
+    installed = transcriber.scan_installed_models()
+    installed_ids = {m["id"] for m in installed}
+
+    rec_installed = None
+    for priority_id in ["large-v3-turbo", "large-v3", "medium", "small", "base"]:
+        if priority_id in installed_ids:
+            rec_installed = priority_id
+            break
+
+    return {
+        "models": transcriber.get_models_info(),
+        "installed_models": installed,
+        "recommended_installed_model": rec_installed,
+        "system_ram_gb": transcriber.system_ram_gb(),
+        "cuda_available": transcriber.cuda_available(),
+        "gpu_name": transcriber.gpu_name(),
+        "default_device": transcriber.get_device(),
+        "active_model": transcriber.get_model_size() if transcriber.is_loaded(transcriber.get_device()) else None,
+    }
+
+
+class ApiKeyRequest(BaseModel):
+    """Body for setting or clearing the Google Gemini API key."""
+
+    api_key: Optional[str] = None
+
+
+class ValidateApiKeyRequest(BaseModel):
+    """Body for validating a Google Gemini API key."""
+
+    api_key: Optional[str] = None
+
+
+@app.get("/api/settings/api-key")
+def get_api_key_settings() -> dict:
+    """Return whether Gemini API key is configured and its masked display value."""
+    key = config.get_gemini_api_key()
+    return {
+        "configured": bool(key),
+        "masked_key": config.mask_api_key(key),
+    }
+
+
+@app.post("/api/settings/api-key")
+def set_api_key_settings(req: ApiKeyRequest) -> dict:
+    """Save or clear the Gemini API key in persistent config and active environment."""
+    configured = config.set_gemini_api_key(req.api_key)
+    active_key = config.get_gemini_api_key()
+    return {
+        "status": "ok",
+        "configured": configured,
+        "masked_key": config.mask_api_key(active_key),
+    }
+
+
+@app.post("/api/gemini/validate")
+def validate_gemini_key(req: ValidateApiKeyRequest) -> dict:
+    """Test connection to Google Gemini API using provided or currently saved key."""
+    return config.validate_gemini_api_key(req.api_key)
+
+
+@app.get("/api/gemini/status")
+def gemini_status() -> dict:
+    """Report Gemini configuration status and supported model family."""
+    key = config.get_gemini_api_key()
+    return {
+        "configured": bool(key),
+        "masked_key": config.mask_api_key(key),
+        "primary_model": config.PRIMARY_GEMINI_MODEL,
+        "fallback_model": config.FALLBACK_GEMINI_MODEL,
+    }
 
 
 @app.get("/api/caption-styles")
@@ -125,24 +222,34 @@ def devices() -> dict:
 
 
 @app.post("/api/warmup")
-def warmup(device: Device = Device.AUTO) -> dict:
+def warmup(device: Device = Device.AUTO, model_size: str = "large-v3-turbo") -> dict:
     """Load the Whisper model on the chosen device and report readiness.
 
-    The frontend calls this when the user changes the Compute dropdown so it can
-    show a live "loading / ready / failed" status. Loads are cached per device,
-    so re-selecting a warm device returns instantly.
+    The frontend calls this when the user chooses or changes the model or compute device.
     """
-    already = device.value != "auto" and transcriber.is_loaded(device.value)
-    try:
-        transcriber.load_model(device.value)
+    already = device.value != "auto" and transcriber.is_loaded(device.value) and transcriber.get_model_size(device.value) == model_size
+    if already:
         return {
             "status": "ready",
             "device": transcriber.get_device(),
             "model_size": transcriber.get_model_size(),
-            "cached": already,
+            "cached": True,
         }
-    except TranscriptionError as exc:
-        return {"status": "error", "device": device.value, "message": str(exc)}
+
+    # Start background load if not already loading
+    def _bg_load():
+        try:
+            transcriber.load_model(device.value, model_size)
+        except Exception as e:
+            logger.warning("Background warmup failed: %s", e)
+
+    threading.Thread(target=_bg_load, daemon=True).start()
+    return {
+        "status": "loading",
+        "device": device.value,
+        "model_size": model_size,
+        "cached": False,
+    }
 
 
 @app.post("/api/upload")
@@ -233,6 +340,7 @@ class PretranscribeRequest(BaseModel):
 
     source_id: str
     device: Device = Device.AUTO
+    model_size: str = "large-v3-turbo"
     language: Optional[str] = None
 
 
@@ -247,7 +355,7 @@ def pretranscribe_start(req: PretranscribeRequest) -> dict:
     source_id = (req.source_id or "").strip()
     if not source_id:
         raise HTTPException(status_code=400, detail="No source id was provided.")
-    job = pretranscribe.start(source_id, req.device.value, req.language)
+    job = pretranscribe.start(source_id, req.device.value, req.language, req.model_size)
     return {"pretranscribe_id": job.id, **job.snapshot()}
 
 
@@ -348,11 +456,13 @@ def reframe_clip(clip_id: str, index: int, req: ReframeRequest) -> dict:
             status_code=404,
             detail="No render recipe for this clip (the server may have restarted since it was generated).",
         )
+    recipe_kwargs = dict(recipe.get("opts_kwargs", {}))
+    recipe_kwargs.pop("reframe", None)
     opts = ClipOptions(
         clip_id=clip_id,
         index=index,
         reframe=req.keyframes or None,
-        **recipe["opts_kwargs"],
+        **recipe_kwargs,
     )
     try:
         generate_clip(Path(recipe["source_mp4"]), recipe["start"], recipe["end"], opts)
@@ -413,14 +523,14 @@ def generate(req: GenerateRequest) -> dict:
 
 
 @app.get("/api/transcript/{source_id}")
-def get_transcript(source_id: str, language: Optional[str] = None) -> dict:
+def get_transcript(source_id: str, language: Optional[str] = None, model_size: str = "large-v3-turbo") -> dict:
     """Return the cached transcript's segments (timestamp + text) for the sidebar.
 
     Mirrors ``/api/music-suggest``: reads whatever pretranscribe already cached,
     falling back to the auto-detected-language transcript if a forced language
     hasn't been (re)transcribed yet.
     """
-    tr = pretranscribe.cached(source_id, language) or pretranscribe.cached(source_id, None)
+    tr = pretranscribe.cached(source_id, language, model_size) or pretranscribe.cached(source_id, None, model_size)
     if not tr:
         return {"ready": False}
     return {
@@ -432,9 +542,9 @@ def get_transcript(source_id: str, language: Optional[str] = None) -> dict:
 
 
 @app.get("/api/music-suggest/{source_id}")
-def music_suggest(source_id: str, language: Optional[str] = None) -> dict:
+def music_suggest(source_id: str, language: Optional[str] = None, model_size: str = "large-v3-turbo") -> dict:
     """Suggest a music mood (sad/happy/romantic/…) from the prepared transcript."""
-    tr = pretranscribe.cached(source_id, language) or pretranscribe.cached(source_id, None)
+    tr = pretranscribe.cached(source_id, language, model_size) or pretranscribe.cached(source_id, None, model_size)
     if not tr:
         return {"ready": False}
     segs = tr.get("segments") or []
@@ -467,7 +577,7 @@ async def progress(job_id: str) -> StreamingResponse:
             if snap["rev"] != last_rev:
                 last_rev = snap["rev"]
                 yield f"data: {json.dumps(snap)}\n\n"
-            if snap["status"] in ("done", "error"):
+            if snap["status"] in ("done", "error", "cancelled") or snap.get("cancelled"):
                 break
             await asyncio.sleep(0.3)
 

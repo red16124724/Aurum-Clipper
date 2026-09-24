@@ -19,4 +19,11 @@ export const Icons = {
   refresh: S(<><polyline points="23 4 23 10 17 10" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></>),
   check: S(<polyline points="20 6 9 17 4 12" strokeWidth="3" />),
   crop: S(<><path d="M6 2v14a2 2 0 0 0 2 2h14" /><path d="M18 22V8a2 2 0 0 0-2-2H2" /></>),
+  split: S(<><rect x="3" y="3" width="18" height="18" rx="2.5" /><line x1="3" y1="12" x2="21" y2="12" /><circle cx="12" cy="7.5" r="1.8" /></>),
+  captions: S(<><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M8 9h8" /><path d="M8 13h5" /></>),
+  music: S(<><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></>),
+  wand: S(<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" />),
+  timeline: S(<><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /><line x1="7" y1="5" x2="7" y2="10" /><line x1="12" y1="5" x2="12" y2="10" /><line x1="17" y1="5" x2="17" y2="10" /><line x1="10" y1="14" x2="16" y2="14" /></>),
+  video: S(<><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></>),
+  export: S(<><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></>),
 };

@@ -45,13 +45,31 @@ export default function Create({ step, setStep }) {
   const [numClips, setNumClips] = useState(3);
   const [clipLen, setClipLen] = useState(null);   // target clip length in seconds; null = Auto (adaptive)
   const [language, setLanguage] = useState("auto");
+  const [strictLanguage, setStrictLanguage] = useState(false);
+  const [faceZone, setFaceZone] = useState(4);
   const [device, setDevice] = useState("auto");
+  const [cinematic, setCinematic] = useState("none");
+  const [jumpCut, setJumpCut] = useState(false);
+  const [autoEffects, setAutoEffects] = useState(false);
+  const [autoTemplate, setAutoTemplate] = useState(false);
+  const [hevc, setHevc] = useState(false);
+  const [useIgpu, setUseIgpu] = useState(false);
+  const [modelSize, setModelSize] = useState(() => localStorage.getItem("cf-model-size") || localStorage.getItem("whisperModel") || "large-v3-turbo");
   const [squareCorners, setSquareCorners] = useState("round");
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
+  const [subtitlesPosition, setSubtitlesPosition] = useState("bottom");
 
   const outputAspect = fit === "square" ? "1:1" : aspect;
   function setOutputAspect(v) {
     if (v === "1:1") setFit("square");
-    else { setFit("crop"); setAspect(v); }
+    else {
+      if (v === "9:16" && (fit === "static_split" || fit === "dynamic_split" || fit === "auto_reframe")) {
+        setAspect(v);
+      } else {
+        setFit(v === "9:16" ? fit : "crop");
+        setAspect(v);
+      }
+    }
   }
 
   // Background music
@@ -63,7 +81,7 @@ export default function Create({ step, setStep }) {
   const [musicSuggest, setMusicSuggest] = useState(null);
 
   // Signature / watermark
-  const [signature, setSignature] = useState({ enabled: false, text: "@theharis.ai", pos_x: 50, pos_y: 92, size: 34, color: "#FFFFFF", opacity: 75 });
+  const [signature, setSignature] = useState({ enabled: false, text: "@RED4724", pos_x: 50, pos_y: 92, size: 34, color: "#FFFFFF", opacity: 75 });
   const setSig = (k, v) => setSignature((s) => ({ ...s, [k]: v }));
 
   // Generate
@@ -87,7 +105,7 @@ export default function Create({ step, setStep }) {
   const [transcript, setTranscript] = useState({ ready: false, loading: false, segments: [], duration: null });
 
   const studio = useStudio(presets, fonts, language);
-  const prep = usePrep(device, language);
+  const prep = usePrep(device, language, modelSize);
 
   function startPrep() {
     if (source === "url" && url.trim()) prep.startUrl(url.trim());
@@ -131,21 +149,21 @@ export default function Create({ step, setStep }) {
   useEffect(() => {
     if (!srcId) { setMusicSuggest(null); return; }
     let alive = true;
-    api.musicSuggest(srcId, language === "auto" ? null : language)
+    api.musicSuggest(srcId, language === "auto" ? null : language, modelSize)
       .then((m) => { if (alive && m && m.ready) setMusicSuggest(m); })
       .catch(() => {});
     return () => { alive = false; };
-  }, [srcId, language, prep.prep?.phase]);
+  }, [srcId, language, prep.prep?.phase, modelSize]);
 
   useEffect(() => {
     if (!srcId) { setTranscript({ ready: false, loading: false, segments: [], duration: null }); return; }
     let alive = true;
     setTranscript((t) => ({ ...t, loading: true }));
-    api.transcript(srcId, language === "auto" ? null : language)
+    api.transcript(srcId, language === "auto" ? null : language, modelSize)
       .then((d) => { if (alive) setTranscript({ ready: !!d.ready, loading: false, segments: d.segments || [], duration: d.duration ?? null }); })
       .catch(() => { if (alive) setTranscript((t) => ({ ...t, loading: false })); });
     return () => { alive = false; };
-  }, [srcId, language, prep.prep?.phase]);
+  }, [srcId, language, prep.prep?.phase, modelSize]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -182,6 +200,7 @@ export default function Create({ step, setStep }) {
   }
 
   function changeLanguage(v) { setLanguage(v); studio.onLanguageChange(v); prep.relang(v); }
+  function changeModelSize(v) { setModelSize(v); localStorage.setItem("cf-model-size", v); localStorage.setItem("whisperModel", v); prep.retranscribe(v); }
 
   const sourceReady = source === "upload" ? !!(upload || objUrl) : !!url.trim();
 
@@ -200,7 +219,17 @@ export default function Create({ step, setStep }) {
       bar_text_color: barTextColor, bar_text_anim: barTextAnim,
       num_clips: numClips, device, caption_style: studio.styleId,
       language: language === "auto" ? null : language,
+      strict_language: strictLanguage,
+      face_zone: faceZone,
       square_corners: squareCorners,
+      jump_cut: jumpCut,
+      auto_effects: autoEffects,
+      auto_template: autoTemplate,
+      hevc: hevc,
+      use_igpu: useIgpu,
+      model_size: modelSize,
+      subtitles_enabled: subtitlesEnabled,
+      subtitles_position: subtitlesPosition,
     };
     if (clipLen != null) payload.clip_length = clipLen;
     if (Object.keys(studio.overrides).length) payload.caption_overrides = studio.overrides;
@@ -226,11 +255,24 @@ export default function Create({ step, setStep }) {
         if (sn.clip_id) setClipId(sn.clip_id);
         if (sn.status === "done" || sn.status === "error" || sn.status === "cancelled") {
           setBusy(false);
-          if (sn.status === "error") setError(sn.error || sn.message || "Pipeline failed.");
+          if (sn.status === "error") {
+            setError(sn.error || sn.message || "Pipeline failed.");
+            generatedRef.current = false;
+          } else if (sn.status === "cancelled") {
+            generatedRef.current = false;
+          }
           closeRef.current && closeRef.current();
         }
-      }, () => { setBusy(false); setError("Lost connection to the progress stream."); });
-    } catch (e) { setBusy(false); setError(e.message); }
+      }, () => {
+        setBusy(false);
+        setError("Lost connection to the progress stream.");
+        generatedRef.current = false;
+      });
+    } catch (e) {
+      setBusy(false);
+      setError(e.message);
+      generatedRef.current = false;
+    }
   }
 
   function cancelGenerate() {
@@ -242,12 +284,12 @@ export default function Create({ step, setStep }) {
 
   // Screen 6 (Review) — auto-render every clip the instant this screen is entered.
   useEffect(() => {
-    if (step === 6 && !generatedRef.current && !busy && clips.length === 0) {
+    if (step === 6 && sourceReady && !generatedRef.current && !busy && clips.length === 0) {
       generatedRef.current = true;
       generate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, sourceReady]);
 
   function openReframe(clip) {
     setReframeTarget(clip);
@@ -300,22 +342,31 @@ export default function Create({ step, setStep }) {
         <Screen2Settings
           media={media} sourceReady={sourceReady} prepView={prepView}
           outputAspect={outputAspect} setOutputAspect={setOutputAspect}
+          fit={fit} setFit={setFit} jumpCut={jumpCut} setJumpCut={setJumpCut}
+          autoEffects={autoEffects} setAutoEffects={setAutoEffects}
+          autoTemplate={autoTemplate} setAutoTemplate={setAutoTemplate}
+          hevc={hevc} setHevc={setHevc} useIgpu={useIgpu} setUseIgpu={setUseIgpu}
           squareCorners={squareCorners} setSquareCorners={setSquareCorners}
           barText={barText} setBarText={setBarText} barTextColor={barTextColor} setBarTextColor={setBarTextColor}
           barTextAnim={barTextAnim} setBarTextAnim={setBarTextAnim}
           language={language} changeLanguage={changeLanguage}
+          strictLanguage={strictLanguage} setStrictLanguage={setStrictLanguage}
+          faceZone={faceZone} setFaceZone={setFaceZone}
           device={device} setDevice={setDevice} devices={devices}
+          modelSize={modelSize} setModelSize={changeModelSize}
           numClips={numClips} setNumClips={setNumClips} clipLen={clipLen} setClipLen={setClipLen}
-          studio={studio} fonts={fonts} aspect={aspect} fit={fit} signature={signature} setSig={setSig} videoRef={videoRef}
+          studio={studio} fonts={fonts} aspect={aspect} signature={signature} setSig={setSig} videoRef={videoRef}
           onBack={() => setStep(1)}
           onNext={() => setStep(3)}
-          nextEnabled={!["downloading", "idle"].includes(prepView.phase)}
+          nextEnabled={sourceReady && prepView.phase !== "error"}
         />
       )}
 
       {step === 3 && (
         <Screen3Captions
           studio={studio} language={language} onFontUpload={onFontUpload}
+          subtitlesEnabled={subtitlesEnabled} setSubtitlesEnabled={setSubtitlesEnabled}
+          subtitlesPosition={subtitlesPosition} setSubtitlesPosition={setSubtitlesPosition}
           media={media} prepView={prepView} sourceReady={sourceReady}
           transcript={transcript} curTime={curTime} seekTo={seekTo} videoRef={videoRef} duration={vidDuration}
           aspect={aspect} fit={fit} barText={barText} signature={signature} setSig={setSig}
@@ -344,15 +395,51 @@ export default function Create({ step, setStep }) {
       )}
 
       {step === 6 && (
-        <Screen6Review
-          busy={busy} snap={snap} clips={clips} error={error}
-          onCancel={cancelGenerate} onOpenReframe={openReframe}
-          onBack={() => setStep(5)} onNext={() => setStep(7)}
-        />
+        sourceReady ? (
+          <Screen6Review
+            busy={busy} snap={snap} clips={clips} error={error}
+            onCancel={cancelGenerate} onOpenReframe={openReframe}
+            onRetry={() => { setError(""); generatedRef.current = false; generate(); }}
+            onBack={() => setStep(5)} onNext={() => setStep(7)}
+          />
+        ) : (
+          <div className="wizard-screen">
+            <div className="card" style={{ textAlign: "center", padding: "48px 24px", maxWidth: 640, margin: "20px auto" }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>🎬</div>
+              <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>No Video Loaded Yet</h2>
+              <p style={{ color: "var(--muted)", maxWidth: 460, margin: "0 auto 20px", fontSize: "0.95rem" }}>
+                Provide a YouTube / social media link or upload a video file in the <b>Source Video</b> menu to generate your vertical clips.
+              </p>
+              <button className="btn btn-primary" onClick={() => setStep(1)} style={{ margin: "0 auto" }}>
+                ← Go to Source Video
+              </button>
+            </div>
+          </div>
+        )
       )}
 
       {step === 7 && (
-        <Screen7Export clips={clips} onBack={() => setStep(6)} onRestart={restart} />
+        clips.length > 0 ? (
+          <Screen7Export clips={clips} onBack={() => setStep(6)} onRestart={restart} />
+        ) : (
+          <div className="wizard-screen">
+            <div className="card" style={{ textAlign: "center", padding: "48px 24px", maxWidth: 640, margin: "20px auto" }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>📦</div>
+              <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>No Clips Rendered Yet</h2>
+              <p style={{ color: "var(--muted)", maxWidth: 460, margin: "0 auto 20px", fontSize: "0.95rem" }}>
+                Configure your framing, captions, and effects from the sidebar, then render your clips in <b>Timeline &amp; Review</b> to view master exports here.
+              </p>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                <button className="btn" onClick={() => setStep(1)}>
+                  Source Video
+                </button>
+                <button className="btn btn-primary" onClick={() => setStep(2)}>
+                  Layout &amp; Dynamic Split →
+                </button>
+              </div>
+            </div>
+          </div>
+        )
       )}
 
       {showStepper && (

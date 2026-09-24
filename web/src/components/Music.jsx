@@ -30,7 +30,7 @@ export default function Music({ tracks, track, volume, duck, musicStart, suggest
   return (
     <details className="card sect music-card" open>
       <summary className="card-h sect-h">
-        <h2><span className="music-ico"><Icons.film /></span>Background music{track ? <span className="sect-badge">On</span> : null}</h2>
+        <h2><span className="music-ico"><Icons.music /></span>Background Music &amp; Audio{track ? <span className="sect-badge">On</span> : null}</h2>
         <span className="sect-h-r">
           <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12 }}
             onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRefresh(); }}><Icons.refresh /> Refresh</button>

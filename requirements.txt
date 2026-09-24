@@ -6,3 +6,8 @@ yt-dlp
 faster-whisper
 requests
 indic-transliteration
+pywebview
+psutil
+opencv-contrib-python
+mediapipe
+google-genai

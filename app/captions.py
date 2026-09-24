@@ -170,9 +170,12 @@ def _hex_to_ass(hex_color: str, alpha: int = 0) -> str:
     return f"&H{a:02X}{b}{g}{r}".upper()
 
 
+import math
+
+
 def _fmt_time(seconds: float) -> str:
     """Format seconds as ASS time H:MM:SS.cs (centiseconds)."""
-    if seconds < 0:
+    if seconds < 0 or math.isnan(seconds) or math.isinf(seconds):
         seconds = 0.0
     cs_total = int(round(seconds * 100))
     cs = cs_total % 100
@@ -186,7 +189,8 @@ def _fmt_time(seconds: float) -> str:
 def _ass_escape(text: str) -> str:
     """Escape characters that are special inside an ASS Dialogue field."""
     return (
-        text.replace("\\", "\\\\")
+        text.replace("\r", "")
+        .replace("\\", "\\\\")
         .replace("{", "(")
         .replace("}", ")")
         .replace("\n", " ")
@@ -553,7 +557,7 @@ def _build_active_word_text(ev: dict, cfg: dict, uppercase: bool) -> str:
             t0 = max(0, int(round((w["start"] - ev_start) * 1000)))
             t1 = max(t0 + 1, int(round((w["end"] - ev_start) * 1000)))
             toks.append(
-                f"{{\\1c{base}\\t({t0},{t0},\\1c{hi})\\t({t1},{t1},\\1c{base})}}"
+                f"{{\\1c{base}\\t({t0},{t0+1},\\1c{hi})\\t({t1},{t1+1},\\1c{base})}}"
                 f"{_tok(w['word'], uppercase)}"
             )
         line_strs.append(" ".join(toks))

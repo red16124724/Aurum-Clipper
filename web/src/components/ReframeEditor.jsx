@@ -26,11 +26,14 @@ function interpAt(keyframes, t) {
 function upsertKeyframe(keyframes, time, pos) {
   const EPS = 0.05;
   const idx = keyframes.findIndex((k) => Math.abs(k.time - time) < EPS);
+  const px = Number.isFinite(pos.pos_x) ? pos.pos_x : 50;
+  const py = Number.isFinite(pos.pos_y) ? pos.pos_y : 50;
+  const pz = Number.isFinite(pos.zoom) ? pos.zoom : 100;
   const kf = {
-    time: Math.max(0, +time.toFixed(2)),
-    pos_x: Math.round(pos.pos_x * 10) / 10,
-    pos_y: Math.round(pos.pos_y * 10) / 10,
-    zoom: Math.round(Math.max(40, Math.min(100, pos.zoom ?? 100)) * 10) / 10,
+    time: Math.max(0, Number.isFinite(time) ? +time.toFixed(2) : 0),
+    pos_x: Math.round(Math.max(0, Math.min(100, px)) * 10) / 10,
+    pos_y: Math.round(Math.max(0, Math.min(100, py)) * 10) / 10,
+    zoom: Math.round(Math.max(10, Math.min(100, pz)) * 10) / 10,
   };
   const next = idx >= 0 ? keyframes.map((k, i) => (i === idx ? kf : k)) : [...keyframes, kf];
   return next.sort((a, b) => a.time - b.time);
@@ -113,30 +116,39 @@ export default function ReframeEditor({ clipId, clip, targetAspect, initialKeyfr
     return { left, top, width, height };
   }, [natural, targetAspect, current]);
 
+  useEffect(() => {
+    return () => {
+      if (dragRef.current) dragRef.current();
+      if (resizeRef.current) resizeRef.current();
+    };
+  }, []);
+
   function onBoxPointerDown(e) {
     if (!box || !stageRef.current) return;
     e.preventDefault();
     const rect = stageRef.current.getBoundingClientRect();
-    dragRef.current = { rect, box, zoom: current.zoom ?? 100, startX: e.clientX, startY: e.clientY };
-    window.addEventListener("pointermove", onBoxPointerMove);
-    window.addEventListener("pointerup", onBoxPointerUp);
-  }
-  function onBoxPointerMove(e) {
-    const d = dragRef.current;
-    if (!d) return;
-    const dxPct = ((e.clientX - d.startX) / d.rect.width) * 100;
-    const dyPct = ((e.clientY - d.startY) / d.rect.height) * 100;
-    const spanX = 100 - d.box.width, spanY = 100 - d.box.height;
-    const newLeft = Math.max(0, Math.min(spanX, d.box.left + dxPct));
-    const newTop = Math.max(0, Math.min(spanY, d.box.top + dyPct));
-    const pos_x = spanX > 0.01 ? (newLeft / spanX) * 100 : 50;
-    const pos_y = spanY > 0.01 ? (newTop / spanY) * 100 : 50;
-    setKeyframes((kfs) => upsertKeyframe(kfs, curTime, { pos_x, pos_y, zoom: d.zoom }));
-  }
-  function onBoxPointerUp() {
-    dragRef.current = null;
-    window.removeEventListener("pointermove", onBoxPointerMove);
-    window.removeEventListener("pointerup", onBoxPointerUp);
+    const d = { rect, box, zoom: current.zoom ?? 100, startX: e.clientX, startY: e.clientY };
+    
+    const move = (ev) => {
+      const dxPct = ((ev.clientX - d.startX) / d.rect.width) * 100;
+      const dyPct = ((ev.clientY - d.startY) / d.rect.height) * 100;
+      const spanX = 100 - d.box.width, spanY = 100 - d.box.height;
+      const newLeft = Math.max(0, Math.min(spanX, d.box.left + dxPct));
+      const newTop = Math.max(0, Math.min(spanY, d.box.top + dyPct));
+      const pos_x = spanX > 0.01 ? (newLeft / spanX) * 100 : 50;
+      const pos_y = spanY > 0.01 ? (newTop / spanY) * 100 : 50;
+      setKeyframes((kfs) => upsertKeyframe(kfs, curTime, { pos_x, pos_y, zoom: d.zoom }));
+    };
+    
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      dragRef.current = null;
+    };
+    
+    dragRef.current = up;
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   }
 
   // Corner handles resize the box (zoom) around its OWN centre — dragging
@@ -149,32 +161,27 @@ export default function ReframeEditor({ clipId, clip, targetAspect, initialKeyfr
     const centerX = rect.left + ((box.left + box.width / 2) / 100) * rect.width;
     const centerY = rect.top + ((box.top + box.height / 2) / 100) * rect.height;
     const startDist = Math.max(1, Math.hypot(e.clientX - centerX, e.clientY - centerY));
-    resizeRef.current = {
+    const d = {
       centerX, centerY, startDist,
       startZoom: current.zoom ?? 100, pos_x: current.pos_x, pos_y: current.pos_y,
     };
-    window.addEventListener("pointermove", onCornerPointerMove);
-    window.addEventListener("pointerup", onCornerPointerUp);
+    
+    const move = (ev) => {
+      const dist = Math.hypot(ev.clientX - d.centerX, ev.clientY - d.centerY);
+      const zoom = Math.max(40, Math.min(100, d.startZoom * (dist / d.startDist)));
+      setKeyframes((kfs) => upsertKeyframe(kfs, curTime, { pos_x: d.pos_x, pos_y: d.pos_y, zoom }));
+    };
+    
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      resizeRef.current = null;
+    };
+    
+    resizeRef.current = up;
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   }
-  function onCornerPointerMove(e) {
-    const d = resizeRef.current;
-    if (!d) return;
-    const dist = Math.hypot(e.clientX - d.centerX, e.clientY - d.centerY);
-    const zoom = Math.max(40, Math.min(100, d.startZoom * (dist / d.startDist)));
-    setKeyframes((kfs) => upsertKeyframe(kfs, curTime, { pos_x: d.pos_x, pos_y: d.pos_y, zoom }));
-  }
-  function onCornerPointerUp() {
-    resizeRef.current = null;
-    window.removeEventListener("pointermove", onCornerPointerMove);
-    window.removeEventListener("pointerup", onCornerPointerUp);
-  }
-
-  useEffect(() => () => {
-    window.removeEventListener("pointermove", onBoxPointerMove);
-    window.removeEventListener("pointerup", onBoxPointerUp);
-    window.removeEventListener("pointermove", onCornerPointerMove);
-    window.removeEventListener("pointerup", onCornerPointerUp);
-  }, []);
 
   function addKeyframeHere() { setKeyframes((kfs) => upsertKeyframe(kfs, curTime, current)); }
   function removeKeyframe(time) { setKeyframes((kfs) => (kfs.length > 1 ? kfs.filter((k) => Math.abs(k.time - time) > 0.001) : kfs)); }

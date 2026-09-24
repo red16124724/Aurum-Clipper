@@ -37,16 +37,17 @@ _CACHE_LOCK = threading.Lock()
 _TRANSCRIBE_LOCK = threading.Lock()
 
 
-def _key(source_id: str, language: Optional[str]) -> str:
-    """Cache / transcript-file key for a source at a given language ('auto' = detect)."""
+def _key(source_id: str, language: Optional[str], model_size: str = "large-v3-turbo") -> str:
+    """Cache / transcript-file key for a source at a given language and model size."""
     lang = (language or "auto").strip().lower() or "auto"
-    return f"{source_id}__{lang}"
+    msize = (model_size or "large-v3-turbo").strip().lower().replace("/", "--")
+    return f"{source_id}__{lang}__{msize}"
 
 
-def cached(source_id: str, language: Optional[str] = None) -> Optional[dict]:
-    """Return an in-memory cached transcript for this source+language, if any."""
+def cached(source_id: str, language: Optional[str] = None, model_size: str = "large-v3-turbo") -> Optional[dict]:
+    """Return an in-memory cached transcript for this source+language+model, if any."""
     with _CACHE_LOCK:
-        return _CACHE.get(_key(source_id, language))
+        return _CACHE.get(_key(source_id, language, model_size))
 
 
 def get_or_transcribe(
@@ -55,6 +56,8 @@ def get_or_transcribe(
     device: str,
     progress: Optional[Callable[[float, str], None]] = None,
     language: Optional[str] = None,
+    model_size: str = "large-v3-turbo",
+    is_cancelled: Optional[Callable[[], bool]] = None,
 ) -> dict:
     """Return a cached transcript for this source+language, or transcribe + cache it.
 
@@ -64,14 +67,14 @@ def get_or_transcribe(
     restarts / in-memory cache misses). The chosen ``language`` is part of the
     cache identity, so the same video can hold a separate transcript per language.
     """
-    key = _key(source_id, language)
-    hit = cached(source_id, language)
+    key = _key(source_id, language, model_size)
+    hit = cached(source_id, language, model_size)
     if hit is not None:
         return hit
 
     with _TRANSCRIBE_LOCK:
         # Re-check now that we hold the lock — a concurrent run may have finished.
-        hit = cached(source_id, language)
+        hit = cached(source_id, language, model_size)
         if hit is not None:
             return hit
 
@@ -88,7 +91,8 @@ def get_or_transcribe(
                 logger.warning("Ignoring unreadable transcript %s", tpath, exc_info=True)
 
         result = transcriber.transcribe_video(
-            source_path, key, progress=progress, device=device, language=language
+            source_path, key, progress=progress, device=device, language=language, model_size=model_size,
+            is_cancelled=is_cancelled,
         )
         with _CACHE_LOCK:
             _CACHE[key] = result
@@ -101,11 +105,12 @@ def get_or_transcribe(
 class TranscriptJob:
     """A single background pre-transcription with thread-safe progress state."""
 
-    def __init__(self, source_id: str, device: str, language: Optional[str] = None) -> None:
+    def __init__(self, source_id: str, device: str, language: Optional[str] = None, model_size: str = "large-v3-turbo") -> None:
         self.id = uuid.uuid4().hex
         self.source_id = source_id
         self.device = device
         self.language = language
+        self.model_size = model_size
         self.status = "running"  # running | done | error
         self.progress = 0.0
         self.message = "Preparing transcription..."
@@ -140,7 +145,7 @@ def get(job_id: str) -> Optional[TranscriptJob]:
         return _JOBS.get(job_id)
 
 
-def find_running(source_id: str) -> Optional[TranscriptJob]:
+def find_running(source_id: str, language: Optional[str] = None, model_size: str = "large-v3-turbo") -> Optional[TranscriptJob]:
     """Return a still-running background transcription for this source, if any.
 
     Lets the Generate pipeline mirror an in-flight pre-transcription's live
@@ -148,26 +153,26 @@ def find_running(source_id: str) -> Optional[TranscriptJob]:
     """
     with _JOBS_LOCK:
         for job in _JOBS.values():
-            if job.source_id == source_id and job.status == "running":
+            if job.source_id == source_id and job.language == language and job.model_size == model_size and job.status == "running":
                 return job
     return None
 
 
-def start(source_id: str, device: str, language: Optional[str] = None) -> TranscriptJob:
+def start(source_id: str, device: str, language: Optional[str] = None, model_size: str = "large-v3-turbo") -> TranscriptJob:
     """Begin pre-transcribing `source_id` on a daemon thread."""
-    job = TranscriptJob(source_id, device, language)
+    job = TranscriptJob(source_id, device, language, model_size)
     with _JOBS_LOCK:
         _JOBS[job.id] = job
     threading.Thread(target=_run, args=(job,), daemon=True).start()
     logger.info(
-        "[%s] pretranscribe started: source=%s device=%s language=%s",
-        job.id, source_id, device, language or "auto",
+        "[%s] pretranscribe started: source=%s device=%s language=%s model_size=%s",
+        job.id, source_id, device, language or "auto", model_size
     )
     return job
 
 
 def _run(job: TranscriptJob) -> None:
-    if cached(job.source_id, job.language) is not None:
+    if cached(job.source_id, job.language, job.model_size) is not None:
         job.update(status="done", progress=1.0, message="Transcript ready.")
         return
     try:
@@ -181,7 +186,12 @@ def _run(job: TranscriptJob) -> None:
 
     try:
         get_or_transcribe(
-            path, job.source_id, job.device, progress=on_progress, language=job.language
+            path,
+            job.source_id,
+            job.device,
+            progress=on_progress,
+            language=job.language,
+            model_size=job.model_size,
         )
         job.update(status="done", progress=1.0, message="Transcript ready.")
         logger.info("[%s] pretranscribe done", job.id)

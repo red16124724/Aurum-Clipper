@@ -3,6 +3,7 @@ import { captionLineStyle, effectiveCfg } from "../../caption.js";
 import Customizer from "../../components/Customizer.jsx";
 import PhonePreview from "../../components/PhonePreview.jsx";
 import Transcript from "../../components/Transcript.jsx";
+import Timeline from "../../components/Timeline.jsx";
 import { Icons } from "../../components/Icons.jsx";
 
 function Chip({ label, cfg, active, trending, custom, onClick, onDelete }) {
@@ -40,8 +41,8 @@ function SaveBlock({ s, open, setOpen }) {
 // surfaces its progress alongside the full style picker (built-in themes,
 // live customizer, and saveable custom presets — unchanged from before).
 export default function Screen3Captions({
-  studio, language, onFontUpload, media, prepView, sourceReady,
-  transcript, curTime, seekTo, videoRef, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig,
+  studio, language, onFontUpload, subtitlesEnabled, setSubtitlesEnabled, subtitlesPosition, setSubtitlesPosition, media, prepView, sourceReady,
+  transcript, curTime, seekTo, videoRef, duration, aspect, fit, barText, barTextColor, barTextAnim, signature, setSig,
   onBack, onNext,
 }) {
   const [tab, setTab] = useState("themes");
@@ -54,7 +55,23 @@ export default function Screen3Captions({
     <div className="wizard-screen">
       <div className="w3-grid">
         <div className="card w3-left">
-          <div className="card-h"><h2>Caption style</h2></div>
+          <div className="card-h" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2>Captions &amp; Subtitles</h2>
+            <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+              <select className="input" value={subtitlesPosition} onChange={(e) => {
+                setSubtitlesPosition(e.target.value);
+                s.setOverride("pos_x", null);
+                s.setOverride("pos_y", null);
+              }} style={{ padding: "4px", fontSize: "12px", borderRadius: "4px" }}>
+                <option value="top">Top</option>
+                <option value="center">Middle</option>
+                <option value="bottom">Bottom</option>
+              </select>
+              <label className="tg" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                <input type="checkbox" checked={subtitlesEnabled} onChange={(e) => setSubtitlesEnabled(e.target.checked)} /> Show Subtitles
+              </label>
+            </div>
+          </div>
           <div className="studio-tabs">
             <button className={"studio-tab" + (tab === "themes" ? " active" : "")} onClick={() => setTab("themes")}><Icons.library /><span className="studio-tab-lbl">Themes</span></button>
             <button className={"studio-tab" + (tab === "style" ? " active" : "")} onClick={() => setTab("style")}><Icons.create /><span className="studio-tab-lbl">Customize</span></button>
@@ -114,7 +131,8 @@ export default function Screen3Captions({
             preparing={!media && sourceReady} aspect={aspect} fit={fit} barText={barText}
             barTextColor={barTextColor} barTextAnim={barTextAnim}
             signature={signature} setSig={setSig} videoRef={videoRef}
-            overrides={studio.overrides} setOverride={studio.setOverride} />
+            overrides={studio.overrides} setOverride={studio.setOverride}
+            subtitlesEnabled={subtitlesEnabled} subtitlesPosition={subtitlesPosition} />
           <div className={"prep prep-" + (prepView.phase || "idle")}>
             <div className="prep-row">
               <span className="prep-msg">
@@ -126,6 +144,9 @@ export default function Screen3Captions({
               {prepView.pct != null && <span className="prep-pct">{prepView.pct}%</span>}
             </div>
             <div className="track"><div className={"fill" + (prepView.pct == null ? " indeterminate" : "")} style={prepView.pct == null ? {} : { width: prepView.pct + "%" }} /></div>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <Timeline duration={duration} currentTime={curTime} onSeek={seekTo} videoRef={videoRef} />
           </div>
         </div>
       </div>

@@ -1,10 +1,10 @@
-ï»¿<#
-  run.ps1 â€” ClipForge one-file installer + launcher (GitHub par rehta hai)
+<#
+  run.ps1 — ClipForge one-file installer + launcher (GitHub par rehta hai)
 
   ClipForge.bat isko GitHub se download karke chalati hai. Yeh pehli baar sab kuch
   KHUD download karta hai (portable Python, saari libraries + GPU CUDA, ffmpeg),
   phir app chalata hai. Model + fonts app khud pehli transcription/run par le aata
-  hai. Dobara chalane par (kuch already maujood) seedha launch â€” fast.
+  hai. Dobara chalane par (kuch already maujood) seedha launch — fast.
 
   Sab kuch usi folder mein install hota hai jahan ClipForge.bat rakhi hai.
   Card (NVIDIA) hua to app "Auto" par khud GPU use karti hai, warna CPU.
@@ -16,7 +16,7 @@ $ProgressPreference = "SilentlyContinue"
 
 # --- Config ----------------------------------------------------------------
 $PyVer  = "3.11.9"
-$Repo   = "Ai-Haris/clipping-tool"
+$Repo   = "RED4724/clipping-tool"
 $Branch = "main"
 $ZipUrl = "https://github.com/$Repo/archive/refs/heads/$Branch.zip"
 
@@ -32,7 +32,7 @@ function Step($n, $total, $label, $already) {
   else { Write-Host "[$n/$total] $label -- downloading now..." -ForegroundColor Green }
 }
 
-# Downloads WITH a real, visible progress bar (% + speed) â€” plain
+# Downloads WITH a real, visible progress bar (% + speed) — plain
 # Invoke-WebRequest with $ProgressPreference=SilentlyContinue shows nothing
 # on screen for a big file, which looks exactly like a frozen/stuck window.
 # Retries once on failure (GitHub/codeload can be slow or blip) before giving
@@ -61,7 +61,7 @@ function Get-FileWithProgress($Url, $OutFile, $Label) {
 
 Write-Host ""
 Write-Host "  ============================================" -ForegroundColor Magenta
-Write-Host "   ClipForge  --  by Haris AI" -ForegroundColor Magenta
+Write-Host "   ClipForge  --  by RED4724" -ForegroundColor Magenta
 Write-Host "   100% local video clipper -- setup & launch" -ForegroundColor Magenta
 Write-Host "  ============================================" -ForegroundColor Magenta
 Write-Host "  Install folder: $Base"
@@ -102,21 +102,21 @@ try {
     if (Test-Path $s) { Copy-Item $s $Base -Recurse -Force }
   }
 } catch {
-  if (Test-Path (Join-Path $Base "app\main.py")) { Warn "GitHub se update na ho saka â€” pehle wala code use kar rahe hain." }
+  if (Test-Path (Join-Path $Base "app\main.py")) { Warn "GitHub se update na ho saka — pehle wala code use kar rahe hain." }
   else { throw }
 }
 
 if (-not (Test-Path (Join-Path $Base "web\dist\index.html"))) {
-  Warn "web\dist missing â€” GitHub par built frontend commit hona chahiye (packaging guide dekhein)."
+  Warn "web\dist missing — GitHub par built frontend commit hona chahiye (packaging guide dekhein)."
 }
 
 # --- 3) Libraries (ek dafa; marker se re-run fast) -------------------------
 $marker = Join-Path $Base ".deps_ok"
 Step 3 $TOTAL_STEPS "Python libraries + GPU (CUDA) support" (Test-Path $marker)
 if (-not (Test-Path $marker)) {
-  Say "Libraries install ho rahi hain â€” ek dafa ka kaam, thoda internet + waqt lagega..."
+  Say "Libraries install ho rahi hain — ek dafa ka kaam, thoda internet + waqt lagega..."
   & $Py -m pip install --no-warn-script-location -r (Join-Path $Base "requirements.txt")
-  Say "GPU (CUDA) libraries â€” card walon ke liye..."
+  Say "GPU (CUDA) libraries — card walon ke liye..."
   & $Py -m pip install --no-warn-script-location `
       "faster-whisper==1.2.1" "ctranslate2==4.8.0" `
       "nvidia-cublas-cu12==12.9.2.10" "nvidia-cuda-nvrtc-cu12==12.9.86" "nvidia-cudnn-cu12==9.23.2.1"
@@ -146,7 +146,7 @@ $env:HF_HUB_DISABLE_TELEMETRY = "1"
 
 Write-Host ""
 Write-Host "  ============================================" -ForegroundColor Magenta
-Write-Host "   ClipForge by Haris AI -- ready" -ForegroundColor Magenta
+Write-Host "   ClipForge by RED4724 -- ready" -ForegroundColor Magenta
 Write-Host "  ============================================" -ForegroundColor Magenta
 Write-Host "  Browser khud http://127.0.0.1:8000 par khulega."
 Write-Host "  PEHLI BAAR: whisper model app ke andar hi download + progress bar ke saath dikhega."

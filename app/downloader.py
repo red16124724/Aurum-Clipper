@@ -24,11 +24,46 @@ logger = logging.getLogger(__name__)
 # Strip ANSI colour codes yt-dlp sometimes embeds in its error strings.
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
-# Browsers we'll borrow cookies from (in order) when YouTube throws up a
-# sign-in / "confirm you're not a bot" wall. Override with env vars below.
-_DEFAULT_BROWSERS = ["chrome", "edge", "brave", "firefox", "opera", "vivaldi"]
+# Browsers we'll check for cookies when YouTube throws up a
+# sign-in / "confirm you're not a bot" wall.
 _COOKIE_FILE_ENV = "CLIPFORGE_COOKIES_FILE"       # path to a cookies.txt
 _COOKIE_BROWSER_ENV = "CLIPFORGE_COOKIES_BROWSER"  # force one browser, e.g. "chrome"
+
+
+def _installed_browsers() -> list[str]:
+    """Return only the browsers physically installed with user data on this machine."""
+    installed = []
+    candidates = [
+        ("brave", os.path.expandvars(r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data")),
+        ("chrome", os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\User Data")),
+        ("edge", os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\Edge\User Data")),
+        ("firefox", os.path.expandvars(r"%APPDATA%\Mozilla\Firefox\Profiles")),
+        ("opera", os.path.expandvars(r"%APPDATA%\Opera Software\Opera Stable")),
+        ("vivaldi", os.path.expandvars(r"%LOCALAPPDATA%\Vivaldi\User Data")),
+    ]
+    for name, path in candidates:
+        if os.path.isdir(path):
+            installed.append(name)
+    return installed
+
+
+def _find_cookie_file() -> Optional[str]:
+    """Auto-discover a user-supplied cookies.txt file in the app directory or env."""
+    env_file = os.environ.get(_COOKIE_FILE_ENV)
+    if env_file and os.path.isfile(env_file):
+        return env_file
+
+    search_dirs = [
+        Path.cwd(),
+        DOWNLOADS_DIR.parent,
+        DOWNLOADS_DIR,
+    ]
+    for d in search_dirs:
+        for name in ("cookies.txt", "youtube_cookies.txt", "cookies.netscape", "youtube.cookies"):
+            candidate = d / name
+            if candidate.is_file() and candidate.stat().st_size > 0:
+                return str(candidate)
+    return None
 
 
 def _needs_cookies(reason: str) -> bool:
@@ -38,7 +73,7 @@ def _needs_cookies(reason: str) -> bool:
     r = (reason or "").lower()
     return any(k in r for k in (
         "sign in", "not a bot", "cookie", "log in", "login", "consent",
-        "age", "members-only", "account", "authentication",
+        "age", "members-only", "account", "authentication", "bot",
     ))
 
 
@@ -54,22 +89,27 @@ def _is_terminal(reason: str) -> bool:
     ))
 
 
-# YouTube player clients to fall back through. Different clients are served by
-# different endpoints, and the cookie-free mobile/TV ones frequently slip past
-# the "confirm you're not a bot" wall the default web client trips.
-_PLAYER_CLIENTS = ["android", "ios", "tv", "mweb"]
+# YouTube player client fallback configurations to bypass bot/login walls
+_PLAYER_CLIENT_COMBOS = [
+    ["default", "web", "tv", "mweb", "android_vr", "ios", "android"],
+    ["mweb", "tv", "android", "ios"],
+    ["tv", "mweb"],
+    ["android", "ios"],
+    ["web_safari", "web_embedded"],
+]
 
 
 def _download_attempts(base_opts: dict) -> list[tuple[str, dict]]:
     """Ordered (label, ydl_opts) attempts.
 
-    Order is cheapest-and-most-likely first:
-      1. explicit cookies (only if the user configured a file/browser),
-      2. the plain default pass (fast for public videos),
-      3. cookie-free alternate YouTube player clients (dodge the bot wall),
-      4. browser cookies (needs the browser closed on Windows) as a last resort.
+    Order is fastest, cleanest, and most reliable first:
+      1. explicit/auto-discovered cookies file (highest reliability if present),
+      2. forced browser cookies (if user explicitly set CLIPFORGE_COOKIES_BROWSER),
+      3. default pass with JS challenge solver & highest quality format sorting,
+      4. alternate player client combinations (mweb, tv, android, ios),
+      5. installed browser cookies (fallback if bot check or login walls encountered).
     """
-    cookie_file = os.environ.get(_COOKIE_FILE_ENV)
+    cookie_file = _find_cookie_file()
     forced = os.environ.get(_COOKIE_BROWSER_ENV)
 
     attempts: list[tuple[str, dict]] = []
@@ -79,16 +119,18 @@ def _download_attempts(base_opts: dict) -> list[tuple[str, dict]]:
         b = forced.strip().lower()
         attempts.append((f"{b} cookies", {**base_opts, "cookiesfrombrowser": (b,)}))
 
+    # Clean, non-intrusive passes that do not touch locked browser SQLite databases
     attempts.append(("default", dict(base_opts)))
 
-    for client in _PLAYER_CLIENTS:
+    for i, clients in enumerate(_PLAYER_CLIENT_COMBOS, 1):
         attempts.append((
-            f"{client} client",
-            {**base_opts, "extractor_args": {"youtube": {"player_client": [client]}}},
+            f"client group {i} ({'+'.join(clients)})",
+            {**base_opts, "extractor_args": {"youtube": {"player_client": clients}}},
         ))
 
-    if not forced:  # auto-try common browsers unless the user pinned one
-        for b in _DEFAULT_BROWSERS:
+    # Fallback to local browser cookies only if no explicit cookie source was configured
+    if not cookie_file and not forced:
+        for b in _installed_browsers():
             attempts.append((f"{b} cookies", {**base_opts, "cookiesfrombrowser": (b,)}))
 
     return attempts
@@ -111,16 +153,34 @@ def _clean_ydl_error(raw: str) -> str:
     return line[:300]
 
 
+def _cleanup_partials(clip_uuid: str) -> None:
+    """Remove any leftover partial files for this download ID on cancellation or failure."""
+    try:
+        for p in DOWNLOADS_DIR.glob(f"{clip_uuid}.*"):
+            try:
+                p.unlink(missing_ok=True)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def download_video(
-    url: str, progress_hook: Optional[Callable[[dict], None]] = None
+    url: str,
+    progress_hook: Optional[Callable[[dict], None]] = None,
+    is_cancelled: Optional[Callable[[], bool]] = None,
 ) -> Path:
     """Download `url` to downloads/<uuid>.mp4 and return the file path.
+
+    Downloads the highest resolution video stream (8K, 4K, 1440p, 1080p, 720p, etc.)
+    and highest bitrate audio stream available on the source with zero quality loss.
 
     Args:
         url: source video URL.
         progress_hook: optional yt-dlp progress callback (receives the raw
             progress dict with ``status``/``downloaded_bytes``/``total_bytes``)
             so callers can surface live download progress.
+        is_cancelled: optional callable returning True if the download was cancelled.
 
     Raises:
         InvalidVideoURLError: on any download failure, with a readable message.
@@ -128,38 +188,56 @@ def download_video(
     if not url or not url.strip():
         raise InvalidVideoURLError("No video URL was provided.")
 
+    if is_cancelled and is_cancelled():
+        raise InvalidVideoURLError("Download cancelled by user.")
+
     clip_uuid = uuid.uuid4().hex
-    # yt-dlp fills in the real extension; we force a merge to mp4 below so the
-    # final file is downloads/<uuid>.mp4.
     out_template = str(DOWNLOADS_DIR / f"{clip_uuid}.%(ext)s")
     expected_path = DOWNLOADS_DIR / f"{clip_uuid}.mp4"
 
+    import shutil
+    import subprocess
+    ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
+    node_bin = shutil.which("node")
+
     base_opts = {
-        # Prefer the best stream up to 1080p (plenty for shorts, avoids slow 4K
-        # downloads). Container is normalised to mp4 by merge_output_format, so
-        # we don't restrict by extension - that was too strict and could fall
-        # back to a tiny stream when no progressive mp4 existed.
-        "format": (
-            "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
-        ),
+        # Always download the highest available video resolution and highest quality audio stream.
+        # Format selector sorts by maximum resolution, framerate, and bitrate losslessly.
+        "format": "bestvideo*+bestaudio/best",
+        "format_sort": ["quality", "res", "fps", "hdr:12", "vcodec", "channels", "acodec", "br"],
         "merge_output_format": "mp4",
+        "ffmpeg_location": ffmpeg_bin,
         "outtmpl": out_template,
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
-        # Be resilient: keep going if a single fragment hiccups.
         "ignoreerrors": False,
+        "retries": 10,
+        "fragment_retries": 10,
+        "file_access_retries": 5,
+        "socket_timeout": 30,
     }
-    if progress_hook is not None:
-        base_opts["progress_hooks"] = [progress_hook]
+    if node_bin:
+        base_opts["js_runtimes"] = {"node": {"path": node_bin}}
+        base_opts["remote_components"] = {"ejs:github"}
 
-    # Try in order: explicit cookies (if set) → plain → browser cookies. We only
-    # fall through to the cookie-based attempts when the failure looks like a
-    # sign-in / bot wall, so public videos still download on the first (fast) try.
+    def _safe_progress_hook(d: dict) -> None:
+        if is_cancelled and is_cancelled():
+            _cleanup_partials(clip_uuid)
+            raise InvalidVideoURLError("Download cancelled by user.")
+        if progress_hook is not None:
+            progress_hook(d)
+
+    base_opts["progress_hooks"] = [_safe_progress_hook]
+
+    primary_reason = ""
     last_reason = ""
     last_exc: Optional[Exception] = None
     ok = False
     for label, opts in _download_attempts(base_opts):
+        if is_cancelled and is_cancelled():
+            _cleanup_partials(clip_uuid)
+            raise InvalidVideoURLError("Download cancelled by user.")
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([url.strip()])
@@ -167,35 +245,77 @@ def download_video(
             if label != "default":
                 logger.info("Downloaded %s using %s", url, label)
             break
+        except InvalidVideoURLError:
+            _cleanup_partials(clip_uuid)
+            raise
         except Exception as exc:  # noqa: BLE001 - never let the server crash here
-            last_reason = _clean_ydl_error(str(exc))
+            if is_cancelled and is_cancelled():
+                _cleanup_partials(clip_uuid)
+                raise InvalidVideoURLError("Download cancelled by user.") from exc
+            clean_err = _clean_ydl_error(str(exc))
+            last_reason = clean_err
             last_exc = exc
-            logger.warning("yt-dlp [%s] failed for %s: %s", label, url, last_reason)
-            if _is_terminal(last_reason):
-                break  # dead/blocked link — no fallback can recover it
+            # Keep primary_reason from meaningful failures (e.g. bot checks, private video, unavailable)
+            # rather than internal browser database lookup issues.
+            if not primary_reason or ("could not find" not in clean_err.lower() and "cookies database" not in clean_err.lower()):
+                primary_reason = clean_err
+            logger.warning("yt-dlp [%s] failed for %s: %s", label, url, clean_err)
+            if _is_terminal(clean_err):
+                break
 
     if not ok:
+        display_reason = primary_reason or last_reason
         msg = ("Could not download that video. Check the URL is correct, public, "
                "and reachable from this machine.")
-        if last_reason:
-            msg += f"\nReason: {last_reason}"
-        if _needs_cookies(last_reason):
+        if display_reason:
+            msg += f"\nReason: {display_reason}"
+        if _needs_cookies(display_reason):
             msg += (
-                "\n\nThis video is behind YouTube's sign-in / bot check. Make sure "
-                "you're logged into YouTube in your browser, then close the browser "
-                "and try again. To pin a browser set CLIPFORGE_COOKIES_BROWSER "
-                "(chrome/edge/firefox), or point CLIPFORGE_COOKIES_FILE at a cookies.txt."
+                "\n\nYouTube requires verification / login for this video. To resolve this:\n"
+                "1. Export your YouTube cookies using a browser extension (like 'Get cookies.txt LOCALLY')\n"
+                "2. Save the file as 'cookies.txt' in your Aurum Clipper app folder\n"
+                "3. Or ensure you are logged into YouTube in your browser, close the browser, and try again."
             )
         raise InvalidVideoURLError(msg) from last_exc
 
-    if expected_path.exists():
+    if expected_path.exists() and expected_path.stat().st_size > 0:
         return expected_path
 
-    # Some sources may not produce exactly <uuid>.mp4 (e.g. a different
-    # container survived the merge). Fall back to any file with our uuid prefix.
-    candidates = sorted(DOWNLOADS_DIR.glob(f"{clip_uuid}.*"))
+    # Filter out temporary partial files and find valid downloaded media
+    candidates = sorted(
+        [
+            p for p in DOWNLOADS_DIR.glob(f"{clip_uuid}.*")
+            if not p.name.endswith((".part", ".ytdl", ".temp", ".tmp"))
+            and p.is_file() and p.stat().st_size > 0
+        ],
+        key=lambda p: p.stat().st_size,
+        reverse=True,
+    )
     if candidates:
-        return candidates[0]
+        primary = candidates[0]
+        if primary.suffix.lower() == ".mp4":
+            return primary
+        # Remux non-mp4 media (e.g. mkv/webm) losslessly into standard mp4 container
+        try:
+            subprocess.run(
+                [
+                    ffmpeg_bin, "-y", "-i", str(primary),
+                    "-c", "copy", "-movflags", "+faststart",
+                    str(expected_path)
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
+            if expected_path.exists() and expected_path.stat().st_size > 0:
+                try:
+                    primary.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                return expected_path
+        except Exception:
+            pass
+        return primary
 
     raise InvalidVideoURLError(
         "The download completed but no output file was produced. The video may "

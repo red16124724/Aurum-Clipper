@@ -55,10 +55,15 @@ class FitMode(str, Enum):
     - crop:   scale to *cover* the chosen aspect ratio, then center-crop (fills it).
     - square: force a 1:1 square frame and center-crop to fill it. The chosen
               aspect_ratio is IGNORED in this mode.
+    - static_split:  static split screen (top-left facecam, bottom-center game).
+    - dynamic_split: AI tracked facecam top, center-bottom game.
     """
 
     CROP = "crop"
     SQUARE = "square"
+    STATIC_SPLIT = "static_split"
+    DYNAMIC_SPLIT = "dynamic_split"
+    AUTO_REFRAME = "auto_reframe"
 
 
 class SquareCorners(str, Enum):
@@ -242,7 +247,7 @@ class ReframeKeyframe(BaseModel):
     time: float = Field(ge=0, description="Seconds from the clip's own start (0 = first frame).")
     pos_x: float = Field(default=50, ge=0, le=100)
     pos_y: float = Field(default=50, ge=0, le=100)
-    zoom: float = Field(default=100, ge=40, le=100, description="Crop box size, 40-100% of the default max-coverage box (100 = no extra zoom).")
+    zoom: float = Field(default=100, ge=10, le=100, description="Crop box size, 10-100% of the default max-coverage box (100 = no extra zoom).")
 
 
 class Signature(BaseModel):
@@ -288,6 +293,10 @@ class GenerateRequest(BaseModel):
         default=SquareCorners.ROUND,
         description="Corner style of the centered square (square fit mode only).",
     )
+    face_zone: int = Field(
+        default=4,
+        description="Zone index (0-8) for facecam placement in static_split mode.",
+    )
     bar_text: Optional[str] = Field(
         default=None,
         description="Title text drawn over the top of the frame (square mode).",
@@ -320,10 +329,22 @@ class GenerateRequest(BaseModel):
         "language helps when auto-detect confuses e.g. Urdu and Hindi, and also "
         "names the downloaded clip files in that language.",
     )
+    strict_language: bool = Field(
+        default=False,
+        description="If true, instructs the spell-checking AI to strictly remove any words that do not belong to the selected language.",
+    )
     caption_overrides: Optional[CaptionOverrides] = Field(
         default=None,
         description="Per-render tweaks (position, rotation, stroke, shadow, "
         "background) layered over the chosen preset.",
+    )
+    subtitles_enabled: bool = Field(
+        default=True,
+        description="If false, no subtitles are burned into the final video."
+    )
+    subtitles_position: str = Field(
+        default="bottom",
+        description="Global override for subtitle position ('top', 'center', 'bottom').",
     )
     cinematic: Optional[CinematicEffects] = Field(
         default=None,
@@ -357,6 +378,30 @@ class GenerateRequest(BaseModel):
     device: Device = Field(
         default=Device.AUTO,
         description="Compute device for transcription: auto, cuda (GPU), or cpu.",
+    )
+    model_size: str = Field(
+        default="large-v3-turbo",
+        description="Whisper model size to use for transcription.",
+    )
+    jump_cut: bool = Field(
+        default=False,
+        description="If true, removes silent gaps longer than 0.6 seconds from the clip.",
+    )
+    auto_effects: bool = Field(
+        default=False,
+        description="If true, uses Gemini to automatically insert SFX and VFX.",
+    )
+    auto_template: bool = Field(
+        default=False,
+        description="If true, uses Gemini to select the best layout and style based on the transcript.",
+    )
+    hevc: bool = Field(
+        default=False,
+        description="If true, exports using the H.265 (HEVC) codec instead of H.264.",
+    )
+    use_igpu: bool = Field(
+        default=False,
+        description="If true, prioritizes the integrated GPU (Intel QSV). Otherwise, prioritizes dGPU (NVENC/AMF).",
     )
 
     @model_validator(mode="after")

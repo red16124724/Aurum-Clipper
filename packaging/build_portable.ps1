@@ -1,9 +1,9 @@
-ï»¿<#
-  build_portable.ps1  â€”  ClipForge v1 portable-ZIP builder (Windows, GPU + CPU)
+<#
+  build_portable.ps1  —  ClipForge v1 portable-ZIP builder (Windows, GPU + CPU)
 
-  Isko Haris (tum) apne is PC par ek dafa chalao. Yeh ek self-contained folder
-  banata hai jismein sab kuch hota hai â€” embeddable Python, saari Python libraries
-  (GPU CUDA libs samet), ffmpeg.exe, aur pre-downloaded whisper 'medium' model â€”
+  Isko RED4724 (tum) apne is PC par ek dafa chalao. Yeh ek self-contained folder
+  banata hai jismein sab kuch hota hai — embeddable Python, saari Python libraries
+  (GPU CUDA libs samet), ffmpeg.exe, aur pre-downloaded whisper 'medium' model —
   phir usko ek .zip bana deta hai. Community wala bas extract karke Start.bat
   double-click karega. Koi install nahi. Card hua to Auto par GPU khud select.
 
@@ -55,7 +55,7 @@ foreach ($p in @($AppDir, $Assets, $Reqs)) {
   if (-not (Test-Path $p)) { throw "Nahi mila: $p" }
 }
 $ttf = Get-ChildItem -Path (Join-Path $Assets "fonts") -Filter *.ttf -ErrorAction SilentlyContinue
-if (-not $ttf) { Warn "assets\fonts mein koi .ttf nahi â€” app pehli run par fonts download karega (internet chahiye). Pehle app ek dafa chala ke fonts la lo taake offline bundle bane." }
+if (-not $ttf) { Warn "assets\fonts mein koi .ttf nahi — app pehli run par fonts download karega (internet chahiye). Pehle app ek dafa chala ke fonts la lo taake offline bundle bane." }
 
 if (Test-Path $Bundle) { Say "Purana bundle hata rahe hain"; Remove-Item $Bundle -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $Bundle, $PyDir, $FfDir, $Models | Out-Null
@@ -89,7 +89,7 @@ Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile $getpip
 Say "App dependencies install (yeh sabse lamba step hai)"
 & $Py -m pip install --no-warn-script-location -r $Reqs
 
-Say "GPU (CUDA) libraries install â€” card walon ke liye"
+Say "GPU (CUDA) libraries install — card walon ke liye"
 # Yeh wo exact versions hain jo is machine ke venv par verify hue. Inhi se
 # ctranslate2 GPU path chalta hai; inke bina sirf CPU chalega.
 & $Py -m pip install --no-warn-script-location `
@@ -147,7 +147,7 @@ Set-Content -Path $dlFile -Value $dl -Encoding Ascii
 Say "Start.bat likh rahe hain"
 $startBat = @'
 @echo off
-REM ===== ClipForge â€” double-click to run (koi install nahi) =====
+REM ===== ClipForge — double-click to run (koi install nahi) =====
 setlocal
 cd /d "%~dp0"
 set "ROOT=%~dp0"
@@ -155,7 +155,7 @@ set "ROOT=%~dp0"
 REM Bundled ffmpeg + python ko PATH par lao
 set "PATH=%ROOT%ffmpeg;%ROOT%python;%PATH%"
 
-REM Bundled whisper model use karo (offline â€” download ki koshish nahi)
+REM Bundled whisper model use karo (offline — download ki koshish nahi)
 set "HF_HOME=%ROOT%models"
 set "HF_HUB_OFFLINE=1"
 set "HF_HUB_DISABLE_TELEMETRY=1"
@@ -178,7 +178,7 @@ Set-Content -Path (Join-Path $Bundle "Start.bat") -Value $startBat -Encoding Asc
 
 # --- 8) End-user README ----------------------------------------------------
 $userReadme = @'
-ClipForge â€” v1 (Portable)
+ClipForge — v1 (Portable)
 =========================
 
 Chalane ka tareeqa:
@@ -186,7 +186,7 @@ Chalane ka tareeqa:
   2) "Start.bat" par double-click karein.
   3) Browser khud http://127.0.0.1:8000 par khul jayega. Bas.
 
-Kuch install karne ki zarurat NAHI â€” Python, ffmpeg, model sab andar hai.
+Kuch install karne ki zarurat NAHI — Python, ffmpeg, model sab andar hai.
 100% aapke PC par chalti hai; koi API key nahi.
 
 GPU (graphics card):
@@ -204,7 +204,7 @@ Masla aaye to:
     Redistributable (x64) install kar lein, phir dobara Start.bat.
   - Port 8000 busy ho to koi aur ClipForge/uvicorn pehle se chal raha hoga.
 
-Banaya: The Haris â€” 100% local pipeline (yt-dlp - faster-whisper - ffmpeg)
+Banaya: The RED4724 — 100% local pipeline (yt-dlp - faster-whisper - ffmpeg)
 '@
 Set-Content -Path (Join-Path $Bundle "READ ME FIRST.txt") -Value $userReadme -Encoding Ascii
 
@@ -212,7 +212,7 @@ Set-Content -Path (Join-Path $Bundle "READ ME FIRST.txt") -Value $userReadme -En
 $sizeGB = "{0:N2}" -f ((Get-ChildItem $Bundle -Recurse | Measure-Object Length -Sum).Sum / 1GB)
 Say "Bundle taiyaar: $Bundle  (~$sizeGB GB)"
 
-if ($SkipZip) { Say "SkipZip â€” .zip nahi banaya. Folder ready hai."; return }
+if ($SkipZip) { Say "SkipZip — .zip nahi banaya. Folder ready hai."; return }
 
 $zipPath = Join-Path $OutDir "ClipForge-v1-portable.zip"
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
@@ -222,7 +222,7 @@ if ($sevenZip) {
   Say "7-Zip se compress kar rahe hain (bade folder ke liye behtar)"
   & $sevenZip a -tzip -mx=5 "$zipPath" "$Bundle" | Out-Null
 } else {
-  Warn "7-Zip nahi mila â€” Compress-Archive use kar rahe hain (4GB+ par slow/na-mumkin ho sakta hai)."
+  Warn "7-Zip nahi mila — Compress-Archive use kar rahe hain (4GB+ par slow/na-mumkin ho sakta hai)."
   Warn "Behtar: 7-Zip install karke folder ko khud zip karein, ya -SkipZip de kar folder hi share karein."
   Compress-Archive -Path (Join-Path $Bundle '*') -DestinationPath $zipPath -CompressionLevel Optimal
 }

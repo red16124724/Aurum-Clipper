@@ -112,6 +112,8 @@ class Job:
         frac = min(1.0, max(0.0, frac))
         lo, hi = _STAGE_SPANS.get(stage, (0.0, 0.0))
         with self._lock:
+            if self.cancelled:
+                return
             self.status = "running"
             self.stage = stage
             self.stage_progress = frac
@@ -122,11 +124,15 @@ class Job:
     def add_clip(self, clip: dict) -> None:
         """Publish a finished clip so the UI can show it before the run ends."""
         with self._lock:
+            if self.cancelled:
+                return
             self.clips.append(clip)
             self._rev += 1
 
     def finish(self, clips: List[dict]) -> None:
         with self._lock:
+            if self.cancelled:
+                return
             self.status = "done"
             self.stage = "done"
             self.stage_progress = 1.0
@@ -137,6 +143,8 @@ class Job:
 
     def fail(self, message: str) -> None:
         with self._lock:
+            if self.cancelled:
+                return
             self.status = "error"
             self.stage = "error"
             self.error = message
@@ -158,6 +166,7 @@ class Job:
                 "error": self.error,
                 "clip_id": self.clip_id,
                 "rev": self._rev,
+                "cancelled": self.cancelled,
             }
 
 
@@ -235,7 +244,11 @@ def _run_pipeline(job: Job) -> None:
                 elif status == "finished":
                     job.set_stage("downloading", 1.0, "Download complete. Preparing...")
 
-            source_mp4 = downloader.download_video(req.video_url, progress_hook=on_download)
+            source_mp4 = downloader.download_video(
+                req.video_url,
+                progress_hook=on_download,
+                is_cancelled=lambda: job.cancelled,
+            )
 
         # 2) Transcribe locally (word timestamps) on the requested device. The
         # transcript is keyed by the source file id (its stem), so a transcript
@@ -250,7 +263,7 @@ def _run_pipeline(job: Job) -> None:
         def on_transcribe(frac: float, msg: str) -> None:
             job.set_stage("transcribing", frac, msg)
 
-        if pretranscribe.cached(source_id, req.language) is not None:
+        if pretranscribe.cached(source_id, req.language, req.model_size) is not None:
             job.set_stage(
                 "transcribing", 1.0, "Using transcript prepared while you set things up..."
             )
@@ -260,7 +273,7 @@ def _run_pipeline(job: Job) -> None:
             # bar while we block on that lock, mirror the background job's live
             # progress here so the user sees real movement; once it finishes,
             # get_or_transcribe returns its cached result instantly.
-            running = pretranscribe.find_running(source_id)
+            running = pretranscribe.find_running(source_id, language=req.language if req.language != "auto" else None, model_size=req.model_size)
             if running is not None:
                 while True:
                     snap = running.snapshot()
@@ -280,7 +293,9 @@ def _run_pipeline(job: Job) -> None:
 
         transcript = pretranscribe.get_or_transcribe(
             source_mp4, source_id, req.device.value,
-            progress=on_transcribe, language=req.language,
+            progress=on_transcribe, language=req.language if req.language != "auto" else None,
+            model_size=req.model_size,
+            is_cancelled=lambda: job.cancelled,
         )
         # The language the captions are actually in: what the user forced, or
         # what Whisper detected. Drives the per-clip download filename.
@@ -313,7 +328,6 @@ def _run_pipeline(job: Job) -> None:
                 music_path = music.resolve_track(req.music_track)
             except InvalidVideoURLError:
                 logger.warning("[%s] music track %r not found; skipping.", job.id, req.music_track)
-        width, height = target_size(req.aspect_ratio, req.fit_mode)
         clip_dir = CLIPS_DIR / clip_id
         clip_dir.mkdir(parents=True, exist_ok=True)
 
@@ -324,43 +338,142 @@ def _run_pipeline(job: Job) -> None:
                 logger.info("[%s] cancelled before clip %d", job.id, index)
                 return
             start, end = float(win["start"]), float(win["end"])
-            job.set_stage(
-                "rendering",
-                index / total,
-                f"Rendering clip {index + 1} of {total}...",
-            )
-
+            
             clip_words = [w for w in words if w["end"] > start and w["start"] < end]
-            ass_path = clip_dir / f"{index}.ass"
-            captions.build_ass(
-                words=clip_words,
-                style_preset=req.caption_style,
-                video_w=width,
-                video_h=height,
-                out_path=ass_path,
-                clip_start=start,
-                overrides=caption_overrides,
-                fit_mode=req.fit_mode.value,
-            )
+            if not clip_words:
+                segs = [s for s in (transcript.get("segments") or []) if s.get("end", 0) > start and s.get("start", 0) < end]
+                for s in segs:
+                    stext = (s.get("text") or "").strip()
+                    tokens = [t for t in stext.split() if t.strip()]
+                    if tokens:
+                        s_start = max(start, float(s.get("start", start)))
+                        s_end = min(end, float(s.get("end", end)))
+                        dur = max(0.1, s_end - s_start)
+                        step = dur / len(tokens)
+                        for i, tok in enumerate(tokens):
+                            clip_words.append({
+                                "word": tok,
+                                "start": round(s_start + i * step, 3),
+                                "end": round(s_start + (i + 1) * step, 3),
+                            })
+
+            keep_segments = None
+            if getattr(req, "jump_cut", False):
+                from .jumpcut import calculate_segments, remap_words
+                keep_segments = calculate_segments(clip_words, start, end, max_silence=0.6)
+                if not keep_segments or (len(keep_segments) == 1 and abs(keep_segments[0][0] - start) < 0.01 and abs(keep_segments[0][1] - end) < 0.01):
+                    keep_segments = None
+                else:
+                    clip_words = remap_words(clip_words, keep_segments)
+
+            clip_start_for_effects = start if not keep_segments else keep_segments[0][0]
+            
+            import concurrent.futures
+            from .models import FitMode
+            
+            clip_effects = None
+            active_fit_mode = req.fit_mode
+            active_caption_style = req.caption_style
+            active_cinematic = req.cinematic
+            reframe_kfs = None
+            
+            job.set_stage("rendering", index / total, f"AI processing (cloud & local) for clip {index + 1}...")
+            
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {}
+                
+                if getattr(req, "auto_effects", False):
+                    from .effects import analyze_effects_with_gemini
+                    futures['effects'] = executor.submit(analyze_effects_with_gemini, clip_words, clip_start_for_effects)
+                
+                if getattr(req, "auto_template", False):
+                    from .effects import analyze_template_with_gemini
+                    futures['template'] = executor.submit(analyze_template_with_gemini, clip_words)
+                    
+                from .effects import spell_check_with_gemini
+                from .models import LANGUAGE_NAMES
+                target_lang_name = LANGUAGE_NAMES.get(req.language, req.language) if (getattr(req, "strict_language", False) and getattr(req, "language", None) and req.language != "auto") else None
+                futures['spell_check'] = executor.submit(spell_check_with_gemini, clip_words, target_lang_name)
+                
+                if active_fit_mode in (FitMode.DYNAMIC_SPLIT, FitMode.AUTO_REFRAME):
+                    from .tracker import track_face
+                    futures['tracking'] = executor.submit(track_face, source_mp4, start, end)
+                
+                if 'effects' in futures:
+                    clip_effects = futures['effects'].result()
+                    
+                if 'template' in futures:
+                    template_name = futures['template'].result()
+                    from .templates import get_template
+                    tmpl = get_template(template_name)
+                    if tmpl:
+                        if "fit_mode" in tmpl and req.fit_mode == FitMode.CROP:
+                            active_fit_mode = FitMode(tmpl["fit_mode"])
+                        if "caption_style" in tmpl:
+                            active_caption_style = tmpl["caption_style"]
+                        if "cinematic" in tmpl:
+                            from .models import CinematicEffects
+                            active_cinematic = CinematicEffects(**tmpl["cinematic"])
+                            
+                if 'spell_check' in futures:
+                    clip_words = futures['spell_check'].result()
+                    
+                if 'tracking' in futures:
+                    try:
+                        reframe_kfs = futures['tracking'].result()
+                        if reframe_kfs and keep_segments:
+                            from .jumpcut import remap_keyframes
+                            reframe_kfs = remap_keyframes(reframe_kfs, keep_segments, clip_start=start)
+                    except Exception as exc:
+                        logger.warning("Subject tracking failed: %s", exc)
+
+            clip_caption_overrides = dict(caption_overrides) if caption_overrides is not None else None
+
+            if req.subtitles_enabled:
+                if req.subtitles_position:
+                    if clip_caption_overrides is None:
+                        clip_caption_overrides = {}
+                    clip_caption_overrides["position"] = req.subtitles_position
+
+                width, height = target_size(req.aspect_ratio, active_fit_mode)
+                ass_path = clip_dir / f"{index}.ass"
+                captions.build_ass(
+                    words=clip_words,
+                    style_preset=active_caption_style,
+                    video_w=width,
+                    video_h=height,
+                    out_path=ass_path,
+                    clip_start=clip_start_for_effects,
+                    overrides=clip_caption_overrides,
+                    fit_mode=active_fit_mode.value,
+                )
+            else:
+                ass_path = None
 
             opts = ClipOptions(
                 aspect_ratio=req.aspect_ratio,
-                fit_mode=req.fit_mode,
+                fit_mode=active_fit_mode,
                 square_corners=req.square_corners.value,
+                face_zone=getattr(req, "face_zone", 4),
                 ass_path=ass_path,
                 clip_id=clip_id,
                 index=index,
                 bar_text=req.bar_text,
                 bar_text_color=req.bar_text_color or "#FFFFFF",
                 bar_text_anim=req.bar_text_anim or "none",
-                cinematic=cinematic,
+                cinematic=active_cinematic.model_dump() if active_cinematic else None,
                 music_path=music_path,
-                music_volume=req.music_volume if req.music_volume is not None else 35.0,
-                music_duck=req.music_duck if req.music_duck is not None else 70.0,
-                music_start=req.music_start if req.music_start is not None else 0.0,
+                music_volume=req.music_volume if getattr(req, "music_volume", None) is not None else 35.0,
+                music_duck=req.music_duck if getattr(req, "music_duck", None) is not None else 70.0,
+                music_start=req.music_start if getattr(req, "music_start", None) is not None else 0.0,
                 signature=req.signature.model_dump() if req.signature else None,
+                reframe=reframe_kfs,
+                keep_segments=keep_segments,
+                effects=clip_effects,
+                hevc=getattr(req, "hevc", False),
+                use_igpu=getattr(req, "use_igpu", False),
             )
-            generate_clip(source_mp4, start, end, opts)
+            generate_clip(source_mp4, start, end, opts, cancel_check=lambda: job.cancelled)
 
             # So "Reframe" can later re-render just this one clip (see reframe.py).
             reframe.save_recipe(
@@ -369,6 +482,7 @@ def _run_pipeline(job: Job) -> None:
                     "aspect_ratio": opts.aspect_ratio,
                     "fit_mode": opts.fit_mode,
                     "square_corners": opts.square_corners,
+                    "face_zone": opts.face_zone,
                     "ass_path": opts.ass_path,
                     "bar_text": opts.bar_text,
                     "bar_text_color": opts.bar_text_color,
@@ -379,6 +493,11 @@ def _run_pipeline(job: Job) -> None:
                     "music_duck": opts.music_duck,
                     "music_start": opts.music_start,
                     "signature": opts.signature,
+                    "reframe": opts.reframe,
+                    "keep_segments": opts.keep_segments,
+                    "effects": opts.effects,
+                    "hevc": opts.hevc,
+                    "use_igpu": opts.use_igpu,
                 },
             )
 
