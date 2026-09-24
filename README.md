@@ -1,7 +1,8 @@
-# ClipForge — Local AI Video Clipper
+# Aurum Clipper — Local AI Video Clipper
 
-Turn any video URL into short, reframed, captioned clips — **entirely on your own
-machine**. No OpenAI/Anthropic/cloud AI calls. The only network use is:
+**Made by RED4724**
+
+Turn any video URL or file into short, reframed, captioned clips — **entirely on your own machine**. Powered by local Whisper speech recognition and Google Gemini AI virality analysis.
 
 1. **yt-dlp** fetching the source video, and
 2. a **one-time** download of the whisper model weights (~1.5 GB) and the caption font.

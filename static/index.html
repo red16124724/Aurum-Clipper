@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ClipForge — Local AI Shorts</title>
+<title>Aurum Clipper — Local AI Shorts · Made by RED4724</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -1089,7 +1089,7 @@
       <span class="mark">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
       </span>
-      <span>ClipForge</span>
+      <span>Aurum Clipper</span>
     </div>
     <div class="nav-right">
       <span class="nav-badge"><span class="dot"></span> Local · Whisper on <b id="deviceTag">…</b></span>
@@ -1521,7 +1521,7 @@
   </div>
   <div class="results" id="results"></div>
 
-  <footer>ClipForge · local pipeline: yt-dlp → faster-whisper → ffmpeg</footer>
+  <footer>Aurum Clipper · Made by RED4724 · local pipeline: yt-dlp → faster-whisper → ffmpeg</footer>
 </div>
 </main>
 
@@ -2151,11 +2151,12 @@ function styleCaptionEl(el, cfg, opts) {
 }
 
 // ---- Caption preset gallery (server presets + user-saved custom styles) ----
-const USER_PRESETS_LS = "clipforge_caption_presets_v1";
+const USER_PRESETS_LS = "aurum_clipper_caption_presets_v1";
 
 function loadUserPresets() {
-  try { state.userPresets = JSON.parse(localStorage.getItem(USER_PRESETS_LS)) || []; }
-  catch (e) { state.userPresets = []; }
+  try {
+    state.userPresets = JSON.parse(localStorage.getItem(USER_PRESETS_LS) || localStorage.getItem("clipforge_caption_presets_v1")) || [];
+  } catch (e) { state.userPresets = []; }
 }
 function persistUserPresets() {
   try { localStorage.setItem(USER_PRESETS_LS, JSON.stringify(state.userPresets)); } catch (e) { /* quota — non-fatal */ }

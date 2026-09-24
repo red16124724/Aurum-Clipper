@@ -117,5 +117,38 @@ def ensure_dirs() -> None:
                             pass
 
 
-# Create directories eagerly so importing any module is enough to get a working tree.
+def ensure_ffmpeg() -> Optional[Path]:
+    """Ensure ffmpeg and ffprobe are discoverable on PATH across frozen, local, and WinGet environments."""
+    if shutil.which("ffmpeg"):
+        return Path(shutil.which("ffmpeg"))
+
+    # 1. Local bundle / app directories
+    for candidate_dir in (
+        BUNDLE_DIR / "ffmpeg",
+        DATA_DIR / "ffmpeg",
+        Path("C:/ffmpeg/bin"),
+        Path("C:/tools/ffmpeg/bin"),
+    ):
+        if (candidate_dir / "ffmpeg.exe").is_file():
+            os.environ["PATH"] = str(candidate_dir) + os.pathsep + os.environ.get("PATH", "")
+            return candidate_dir / "ffmpeg.exe"
+
+    # 2. WinGet package directory on Windows
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        winget_pkg = Path(local_app_data) / "Microsoft" / "WinGet" / "Packages"
+        if winget_pkg.is_dir():
+            try:
+                for ff in winget_pkg.glob("**/ffmpeg.exe"):
+                    if ff.is_file():
+                        os.environ["PATH"] = str(ff.parent) + os.pathsep + os.environ.get("PATH", "")
+                        return ff
+            except Exception:
+                pass
+
+    return None
+
+
+# Create directories and ensure FFmpeg is in PATH eagerly so importing any module is enough.
 ensure_dirs()
+ensure_ffmpeg()

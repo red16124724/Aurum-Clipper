@@ -16,7 +16,7 @@ export default function Screen1Input({
         <div className="brand-hero">
           <span className="brand-mark"><Icons.bolt /></span>
           <span className="brand-word">Aurum Clipper</span>
-          <span className="brand-by-hero">By RED4724</span>
+          <span className="brand-by-hero">Made By RED4724</span>
         </div>
         <span className="eyebrow"><span className="eyebrow-dot" />Local Speech Engine · Google Gemini AI Powered</span>
         <h1 className="landing-title">Turn any video into <span className="grad">viral shorts</span></h1>

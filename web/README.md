@@ -1,4 +1,6 @@
-# ClipForge — React Dashboard
+# Aurum Clipper — React Dashboard
+
+**Made by RED4724**
 
 A modern React (Vite) frontend for the local AI Video Clipper. It talks to the
 existing FastAPI backend over the same API the vanilla UI uses, so nothing on the

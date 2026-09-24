@@ -1,4 +1,5 @@
-' ClipForge.vbs — the actual Start Menu / Desktop shortcut target.
+' AurumClipper.vbs - Made by RED4724
+' Start Menu / Desktop shortcut target.
 ' Hides the PowerShell launcher window completely so double-clicking this
 ' feels like opening a normal desktop app, not running a script.
 Set fso = CreateObject("Scripting.FileSystemObject")

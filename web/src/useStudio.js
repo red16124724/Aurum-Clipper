@@ -1,11 +1,20 @@
 import { useMemo, useState } from "react";
 import { effectiveCfg, DEFAULT_CINEMATIC, LANG_DEFAULT_FONT } from "./caption.js";
 
-const LS_KEY = "clipforge_caption_presets_v1";
+const LS_KEY = "aurum_clipper_caption_presets_v1";
 function loadUserPresets() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch { return []; }
+  try {
+    const data = localStorage.getItem(LS_KEY) || localStorage.getItem("clipforge_caption_presets_v1");
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
 }
-function saveLS(list) { try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch {} }
+function saveLS(list) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(list));
+  } catch {}
+}
 
 // Central caption/cinematic studio state + actions, shared by the studio UI and
 // the live preview. Mirrors the vanilla app's state model 1:1.

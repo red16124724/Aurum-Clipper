@@ -1,8 +1,9 @@
 {
-  "name": "clipforge-remotion-spike",
+  "name": "aurum-clipper-remotion-spike",
+  "author": "RED4724",
   "private": true,
   "version": "0.0.0",
-  "description": "Timeboxed spike: can one composition drive both the ClipForge live preview and the frame-accurate export? Not part of the production build.",
+  "description": "Timeboxed spike: can one composition drive both the Aurum Clipper live preview and the frame-accurate export? Not part of the production build.",
   "scripts": {
     "render": "remotion render src/index.jsx CaptionDemo out/caption-demo.mp4"
   },

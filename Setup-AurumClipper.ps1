@@ -1,4 +1,4 @@
-﻿Write-Host "Installing ClipForge AI Dependencies..." -ForegroundColor Cyan
+Write-Host "Installing Aurum Clipper AI Dependencies (Made by RED4724)..." -ForegroundColor Cyan
 
 # Install python dependencies
 pip install -r requirements.txt
@@ -17,7 +17,7 @@ Set-Content -Path $vbsPath -Value $vbsContent -Encoding Ascii
 
 # 2. Desktop Shortcut
 $desktop = [Environment]::GetFolderPath('Desktop')
-$shortcut = $WshShell.CreateShortcut("$desktop\ClipForge AI.lnk")
+$shortcut = $WshShell.CreateShortcut("$desktop\Aurum Clipper.lnk")
 $shortcut.TargetPath = "wscript.exe"
 $shortcut.Arguments = ""$vbsPath""
 $shortcut.WorkingDirectory = "$PSScriptRoot"
@@ -26,12 +26,13 @@ $shortcut.Save()
 
 # 3. Start Menu Shortcut
 $startMenu = [Environment]::GetFolderPath('Programs')
-$shortcutSM = $WshShell.CreateShortcut("$startMenu\ClipForge AI.lnk")
+$shortcutSM = $WshShell.CreateShortcut("$startMenu\Aurum Clipper.lnk")
 $shortcutSM.TargetPath = "wscript.exe"
 $shortcutSM.Arguments = ""$vbsPath""
 $shortcutSM.WorkingDirectory = "$PSScriptRoot"
 $shortcutSM.IconLocation = "shell32.dll,116"
 $shortcutSM.Save()
 
-Write-Host "Installation Complete! You can now launch ClipForge AI from your Desktop or Start Menu." -ForegroundColor Green
+Write-Host "Installation Complete! You can now launch Aurum Clipper (Made by RED4724) from your Desktop or Start Menu." -ForegroundColor Green
 Pause
+

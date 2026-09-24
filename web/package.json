@@ -1,5 +1,6 @@
 {
-  "name": "clipforge-dashboard",
+  "name": "aurum-clipper-dashboard",
+  "author": "RED4724",
   "private": true,
   "version": "1.0.0",
   "type": "module",

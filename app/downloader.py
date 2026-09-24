@@ -26,8 +26,8 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 # Browsers we'll check for cookies when YouTube throws up a
 # sign-in / "confirm you're not a bot" wall.
-_COOKIE_FILE_ENV = "CLIPFORGE_COOKIES_FILE"       # path to a cookies.txt
-_COOKIE_BROWSER_ENV = "CLIPFORGE_COOKIES_BROWSER"  # force one browser, e.g. "chrome"
+_COOKIE_FILE_ENV = "AURUM_CLIPPER_COOKIES_FILE"       # path to a cookies.txt
+_COOKIE_BROWSER_ENV = "AURUM_CLIPPER_COOKIES_BROWSER"  # force one browser, e.g. "chrome"
 
 
 def _installed_browsers() -> list[str]:
@@ -49,7 +49,7 @@ def _installed_browsers() -> list[str]:
 
 def _find_cookie_file() -> Optional[str]:
     """Auto-discover a user-supplied cookies.txt file in the app directory or env."""
-    env_file = os.environ.get(_COOKIE_FILE_ENV)
+    env_file = os.environ.get(_COOKIE_FILE_ENV) or os.environ.get("CLIPFORGE_COOKIES_FILE")
     if env_file and os.path.isfile(env_file):
         return env_file
 

@@ -238,7 +238,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <span className="logo"><Icons.bolt /></span>
-          <span className="brand-text">Aurum Clipper<span className="brand-by">By RED4724</span></span>
+          <span className="brand-text">Aurum Clipper<span className="brand-by">Made By RED4724</span></span>
         </div>
         <nav className="nav">
           <div className="nav-section">
