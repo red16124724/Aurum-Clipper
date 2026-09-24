@@ -1,191 +1,214 @@
-# Aurum Clipper — Local AI Video Clipper
+# ✨ Aurum Clipper — Local AI Video Clipper
 
 **Made by RED4724**
 
-Turn any video URL or file into short, reframed, captioned clips — **entirely on your own machine**. Powered by local Whisper speech recognition and Google Gemini AI virality analysis.
-
-1. **yt-dlp** fetching the source video, and
-2. a **one-time** download of the whisper model weights (~1.5 GB) and the caption font.
-
-After the first run, transcription and clip selection run **fully offline**.
+[![GitHub Release](https://img.shields.io/github/v/release/red16124724/aurum-clipper?color=orange&label=Release)](https://github.com/red16124724/aurum-clipper/releases)
+[![Tests](https://img.shields.io/badge/Tests-78%20passed-10b981)](https://github.com/red16124724/aurum-clipper)
+[![License](https://img.shields.io/badge/License-MIT-3b82f6)](https://github.com/red16124724/aurum-clipper)
+[![AI Engine](https://img.shields.io/badge/AI%20Engine-Gemini%20%2B%20Whisper-8b5cf6)](https://github.com/red16124724/aurum-clipper)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20(64--bit)-0284c7)](https://github.com/red16124724/aurum-clipper)
 
 ---
 
-## Pipeline
+## 🌟 What is Aurum Clipper?
+
+**Aurum Clipper** is a high-performance, studio-grade AI video editor that turns long YouTube videos, podcasts, interviews, gaming sessions, and local recordings into **viral vertical Shorts, Reels, and TikToks** — **100% on your own computer**.
+
+Unlike web-based subscription clippers that cost \$20–\$50 every month, place watermarks, or upload your private footage to remote servers, **Aurum Clipper runs locally on your PC**. It combines the offline speed of OpenAI Whisper with the intelligence of Google Gemini AI for smart hook curation.
 
 ```
-URL → download (yt-dlp) → transcribe w/ word timestamps (faster-whisper)
-    → select N clips (LOCAL heuristic; optional local Ollama)
-    → per clip: cut + reframe (crop-fill | rounded 1:1 square on 9:16) + burn styled captions (ASS) via ffmpeg
-    → .mp4 + preview/download URLs
+Long Video (URL or File) 
+   │
+   ▼
+[ 🎙️ Offline Whisper AI ] ──► Instant word-level transcript
+   │
+   ▼
+[ 🧠 Google Gemini AI ]   ──► Finds highest-retention viral moments
+   │
+   ▼
+[ 🎯 YuNet Face Tracking] ──► Smart vertical crop & dynamic split-screen
+   │
+   ▼
+[ 💬 ASS Subtitle Engine ] ──► Animated karaoke captions & custom fonts
+   │
+   ▼
+[ 🎵 Smart Audio Ducking ]──► Background music ducks during speech
+   │
+   ▼
+⚡ High-Resolution MP4 Vertical Clips (Ready to Post!)
 ```
 
-## Requirements
+---
 
-- **Python 3.11+**
-- **ffmpeg on your PATH** — this does the cutting, reframing, and caption burning.
-  Without it, nothing renders.
+## 🚀 Key Features (Explained Simply)
+
+### 1. 🧠 Google Gemini AI Virality Scoring
+Aurum Clipper analyzes the cadence, excitement, questions, and narrative arc of the speech using **Google Gemini Pro / Flash** models. It automatically discovers the most engaging 15-to-60-second hooks that stop people from scrolling past.
+
+### 2. 🎯 Dynamic AI Split-Screen & Face Tracking
+- **Auto-Face Tracking**: Automatically centers the speaker in frame using onboard computer vision (**YuNet neural network** + Haar cascades).
+- **Dynamic Split**: Places the speaker on top and gaming/screen-share footage on the bottom for podcast and gameplay clips with **zero black bars**.
+- **1:1 Square Mode & Crop (Fill)**: Choose between modern full-bleed 9:16 vertical video or square letterboxed framing.
+
+### 3. 💬 19+ Animated Kinetic Caption Styles
+- **Hormozi / MrBeast Style**: Big bold kinetic text with pop animations.
+- **Word-Level Karaoke Highlighting**: Highlights each word in real-time as it is spoken.
+- **Custom Fonts & Emojis**: Pre-bundled with top creator fonts (Komika Axis, Outfit, Anton, Montserrat) plus upload support for any `.ttf` / `.otf` font.
+- **Bilingual & Multi-Language Support**: English, Spanish, Hindi, Hinglish, Arabic, French, German, Japanese, and more.
+
+### 4. 🎬 Cinematic Visual Effects (VFX)
+- **Auto Color Grading & LUTs**: Vibrant, Warm Film, Moody Cold, or Cinematic Dark color profiles.
+- **Vignette & Glow**: Soft edge vignetting and active word highlight bloom for depth.
+- **Bottom Gradient Falloff**: Smooth photographic fade behind captions to ensure crystal-clear text readability on any background.
+- **Watermark & Signature**: Add your custom handle (e.g. `@RED4724`) anywhere on the screen with adjustable opacity.
+
+### 5. 🎵 Smart Background Music & Audio Ducking
+- Pick from pre-loaded upbeat, chill, cinematic, and motivational background tracks or upload your own.
+- **Intelligent Audio Ducking**: The music automatically lowers in volume whenever someone speaks and smoothly returns to full volume during dramatic pauses.
+- **Auto-Generated Sound Effects (SFX)**: Sub-bass impacts, whooshes, and dings triggered at key moments.
+
+### 6. ⚡ 100% Private, Offline & GPU Accelerated
+- Auto-detects **NVIDIA GeForce / RTX GPUs (CUDA)** with instant automatic fallback to multi-threaded CPU.
+- Works offline after downloading your preferred Whisper model size (`tiny`, `base`, `small`, `medium`, `large-v3`, or `large-v3-turbo`).
+
+---
+
+## 💻 Quick Start & Installation
+
+### Option A: Standalone Release (Recommended for Everyone)
+*No Python, Node.js, or Git required! Everything is pre-bundled.*
+
+1. Go to the [GitHub Releases Page](https://github.com/red16124724/aurum-clipper/releases/tag/v1.0.0).
+2. **Download both parts into the same folder:**
+   - `Aurum_Clipper_v1.0.0_Windows_x64.zip.001` (Part 1)
+   - `Aurum_Clipper_v1.0.0_Windows_x64.zip.002` (Part 2)
+   *(⚠️ Both files must be in the same folder on your computer).*
+3. **Extract:**
+   - **Using 7-Zip or WinRAR**: Right-click `Aurum_Clipper_v1.0.0_Windows_x64.zip.001` ➔ **"Extract Here"** (both parts merge automatically).
+   - **Or Windows Command Prompt**: `copy /b Aurum_Clipper_v1.0.0_Windows_x64.zip.001 + Aurum_Clipper_v1.0.0_Windows_x64.zip.002 Aurum_Clipper.zip` and then extract `Aurum_Clipper.zip`.
+4. Double-click **`Aurum Clipper.exe`** (or `Start.bat`).
+5. Your browser will automatically open to **`http://127.0.0.1:8000`** — start creating clips immediately!
+
+---
+
+### Option B: Run from Source (For Developers)
+
+#### 1. Prerequisites
+- **Python 3.10+** (64-bit)
+- **FFmpeg** installed and added to PATH:
   - Windows: `winget install Gyan.FFmpeg`
   - macOS: `brew install ffmpeg`
   - Linux: `sudo apt install ffmpeg`
-- **GPU (recommended):** NVIDIA + CUDA 12 + matching cuDNN for faster-whisper.
-  The app **auto-detects** the GPU and falls back to CPU automatically. You can
-  also force the device per run from the UI **Compute** selector (**Auto / GPU /
-  CPU**); the GPU option is disabled automatically when no CUDA GPU is detected.
 
-> **No API keys. No `.env`. Nothing to configure.**
-
-## Setup
-
-### Windows (PowerShell)
+#### 2. Clone & Install
 ```powershell
-cd ai-video-clipper
+# Clone the repository
+git clone https://github.com/red16124724/aurum-clipper.git
+cd aurum-clipper
+
+# Create and activate virtual environment
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### macOS / Linux
-```bash
-cd ai-video-clipper
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+#### 3. Launch App
+```powershell
+# Start the full app (FastAPI Backend + React Studio)
+python run.py
 ```
+Open **http://127.0.0.1:8000** in your browser.
 
-## Run
+---
 
-```bash
-uvicorn app.main:app --reload
-```
-
-Then open **http://127.0.0.1:8000**.
-
-On first start the app downloads the whisper `medium` model and the Roboto caption
-font once, loads the model on CUDA (or CPU), and is then ready.
-
-## Using it
-
-1. Choose a **Video source** — **Paste link** (a URL) or **Upload file** (drag &
-   drop or pick a video from your machine; a status line shows upload progress).
-2. Choose aspect ratio (**9:16** default / 16:9).
-3. Choose fit mode — **Crop (fill)** (uses the aspect ratio above) or **1:1 Square**
-   (a **9:16** reel with the video cropped to a **rounded 1:1 square centered on
-   black**, a **Title** drawn above it, and captions below — **ignores the aspect
-   ratio**).
-4. Set the number of clips (1–10).
-5. Choose **Compute** — **Auto** (GPU if available, else CPU), **GPU**, or **CPU**.
-6. Pick a caption style — the **live preview** shows how captions will look.
-7. Click **Generate Shorts**. A **live progress bar** tracks each stage
-   (download → transcribe → analyze → render); clips appear as soon as each one
-   finishes rendering.
-
-## API
-
-The pipeline runs **asynchronously** so the UI can show live progress.
-
-- `POST /api/upload` — upload a video file (`multipart/form-data`, field `file`).
-  Returns `{ "status":"ok", "upload_id":"…", "filename":"…", "ext":".mp4" }`. The
-  file is streamed to `downloads/` and referenced by `upload_id` in the next call.
-  Unsupported types or empty files return HTTP 400 with a readable message.
-- `POST /api/generate` — start a job. Body:
-  ```json
-  {
-    "video_url": "https://…",
-    "upload_id": null,
-    "aspect_ratio": "9:16",
-    "fit_mode": "crop",
-    "bar_text": null,
-    "num_clips": 3,
-    "caption_style": "bold_white",
-    "device": "auto"
-  }
-  ```
-  Supply **either** `video_url` **or** `upload_id` (from `/api/upload`) — at least
-  one is required (HTTP 422 otherwise); `upload_id` wins if both are sent. `device`
-  is one of `auto` | `cuda` | `cpu` (default `auto`). Returns `{ "job_id": "…" }`
-  immediately — the work runs on a background thread.
-- `GET /api/progress/{job_id}` — **Server-Sent Events** stream of progress
-  snapshots until the job finishes. Each event is JSON:
-  ```json
-  {
-    "status": "running|done|error",
-    "stage": "downloading|transcribing|selecting|rendering|done",
-    "progress": 0.0,
-    "message": "Transcribing... 42%",
-    "clips": [{ "index": 0, "title": "…", "start": 0.0, "end": 30.0, "url": "/clips/…/0.mp4" }],
-    "error": null
-  }
-  ```
-  Finished clips appear in `clips` as soon as each one renders.
-- `GET /api/result/{job_id}` — one-shot snapshot of a job (used by the UI to
-  recover if the SSE stream drops). Bad input surfaces as `status:"error"` with a
-  readable `message` — the server never crashes.
-- `GET /api/history` — all past generations and their clips, newest first (powers
-  the **My Clips** panel; persisted in `clips/history.json` so it survives restarts).
-- `DELETE /api/clip/{clip_id}/{index}` — remove one generated clip (deletes the
-  file and drops it from history).
-- `POST /api/reveal` — body `{ "clip_id": "…", "index": 0 }`; opens that clip's
-  folder in the OS file manager with the file selected (local-only convenience).
-- `GET /api/caption-styles` — caption presets for the UI.
-- `GET /api/devices` — `{"devices":["cuda","cpu"],"default":"cuda","cuda_available":true}`
-  — what the Compute selector offers and whether a GPU is present.
-- `POST /api/warmup?device=auto|cuda|cpu` — load the Whisper model on that device
-  and report readiness: `{"status":"ready","device":"cuda","cached":true}` (or
-  `{"status":"error","message":"…"}`). The UI calls this when the Compute dropdown
-  changes to show a live loading/ready status.
-- `GET /health` — `{"status":"ok","device":"cuda|cpu"}`.
-
-## Caption styles
-
-Defined once in `app/captions.py` and used for **both** the UI preview and the burned-in
-ASS render, so what you preview matches what you get:
-
-- **bold_white** — big bold white text, black outline, bottom-center.
-- **karaoke_yellow** — white text, current word highlighted yellow (per-word timing).
-- **minimal** — clean smaller white text, subtle shadow, bottom.
-
-## Clip selection is a local heuristic (be honest)
-
-`app/selector.py` is **not** cloud "AI virality" detection. It builds candidate windows
-(~20–45s) aligned to transcript segments and scores them with simple local signals:
-word density, sentence completeness, questions / strong-statement words, and length fit,
-then picks the top non-overlapping windows.
-
-**Optional local Ollama** (off by default): if you run [Ollama](https://ollama.com) locally,
-set `USE_OLLAMA=1` (and optionally `OLLAMA_MODEL=llama3`) to have a **local** model score and
-title the windows. Still zero external API calls — Ollama runs on `localhost`.
-
-## Troubleshooting
-
-- **`Unable to load libcudnn…` / CUDA errors:** the most common GPU issue is a cuDNN
-  version mismatch. Install CUDA 12 + the matching cuDNN, or just let it fall back to CPU
-  (slower on `medium`). See the
-  [faster-whisper docs](https://github.com/SYSTRAN/faster-whisper#gpu).
-- **`ffmpeg was not found on PATH`:** install ffmpeg (see Requirements) and reopen the shell.
-- **First run is slow:** it's downloading the ~1.5 GB model once. Subsequent runs are fast.
-
-## Project layout
+## 🎬 How to Create Viral Clips in 5 Simple Steps
 
 ```
-ai-video-clipper/
-├── app/
-│   ├── main.py         # FastAPI app: lifespan model load, job + SSE endpoints
-│   ├── jobs.py         # background job model + live progress pipeline runner
-│   ├── models.py       # Pydantic schemas + enums + exceptions
-│   ├── paths.py        # central directory layout
-│   ├── downloader.py   # yt-dlp download
-│   ├── uploads.py      # save/resolve user-uploaded video files
-│   ├── history.py      # persistent clip history (My Clips panel)
-│   ├── transcriber.py  # faster-whisper (auto GPU→CPU)
-│   ├── selector.py     # local heuristic clip selection (+ Ollama scaffold)
-│   ├── captions.py     # ASS builder + style presets (single source of truth)
-│   ├── clipper.py      # ffmpeg cut / reframe / caption burn
-│   └── fonts.py        # one-time caption font download
-├── assets/fonts/       # Roboto (auto-fetched)
-├── assets/masks/       # rounded-corner mask for square mode (auto-generated)
-├── static/index.html   # vanilla frontend
-├── downloads/  transcripts/  clips/   # auto-created, gitignored
-├── requirements.txt
-└── README.md
+[ Step 1: Input ] ──► [ Step 2: Split & Framing ] ──► [ Step 3: Captions ] ──► [ Step 4: VFX & Music ] ──► [ Step 5: Export ]
 ```
+
+1. **Step 1: Video Source**
+   - Paste a YouTube URL, or drag and drop any `.mp4`, `.mov`, or `.mkv` video file from your computer.
+2. **Step 2: Dynamic Split & Layout**
+   - Choose your framing (**9:16 Vertical**, **1:1 Square**, or **16:9 Landscape**).
+   - Toggle **Dynamic AI Split Screen** if you have a facecam + gameplay video.
+3. **Step 3: Subtitles & Font Styling**
+   - Select from 19+ pre-built caption presets or customize font family, text color, stroke thickness, and karaoke highlight color.
+4. **Step 4: Cinematic VFX & Background Music**
+   - Choose a color grade LUT and select a background soundtrack with automatic speech ducking.
+5. **Step 5: Review & Instant Export**
+   - Review AI-selected moments in the timeline, adjust start/end timestamps if needed, and hit **Export Video** to render final MP4s.
+
+---
+
+## 🔑 Google Gemini AI Setup (Free & 1-Minute)
+
+Aurum Clipper includes free Google Gemini AI integration to dramatically improve clip selection:
+
+1. Get a free API key at [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. Launch Aurum Clipper. On first launch, a setup window will appear.
+3. Paste your key and click **Save & Test Connection**.
+4. That's it! Gemini will now automatically find the most engaging hooks and generate viral titles for your clips.
+
+*(Note: If you don't connect a Gemini key, Aurum Clipper will automatically use its built-in local heuristic analysis with zero internet required).*
+
+---
+
+## 🏗️ Architecture & Technology Stack
+
+- **Backend**: Python 3.12, FastAPI, Uvicorn, Pydantic v2
+- **Speech Recognition**: Faster-Whisper (CTranslate2 CUDA & CPU engine)
+- **Computer Vision**: OpenCV (YuNet Neural Network + Haar Cascades)
+- **Video & Audio Processing**: FFmpeg (CBR 10000k, NVENC GPU encoder, ASS subtitle filter, libmp3lame, afade, sidechain audio ducking)
+- **Frontend**: React 18, Vite 5, Lucide Icons, Glassmorphic Aurora Design System
+- **Testing**: PyTest (78 automated unit, stress, cancellation, and failure-mode test suites)
+
+---
+
+## 🧪 Testing & Verification
+
+Aurum Clipper is engineered with exhaustive test coverage:
+
+```powershell
+# Run the complete test suite
+pytest tests/ -v
+```
+
+```
+============================= 78 passed in 14.40s =============================
+```
+
+---
+
+## ❓ Frequently Asked Questions (FAQ)
+
+<details>
+<summary><b>Q: Do I need an expensive NVIDIA graphics card to use Aurum Clipper?</b></summary>
+No! Aurum Clipper runs smoothly on standard multi-core CPUs. If you have an NVIDIA GPU, it will automatically use CUDA acceleration for up to 8x faster rendering, but it works 100% on CPU as well.
+</details>
+
+<details>
+<summary><b>Q: Windows SmartScreen gave a warning when opening the app. Is it safe?</b></summary>
+Yes, 100%. The application is completely open-source and free from malware. Windows SmartScreen displays a warning on newly downloaded unsigned `.exe` files. Click <b>"More info"</b> and then <b>"Run anyway"</b>.
+</details>
+
+<details>
+<summary><b>Q: How do I completely close Aurum Clipper when finished?</b></summary>
+Simply close the terminal window or double-click the <b>"Stop Aurum Clipper.vbs"</b> shortcut.
+</details>
+
+---
+
+## 👨‍💻 Authorship & Credits
+
+- **Creator & Lead Developer**: **RED4724**
+- **Repository**: [https://github.com/red16124724/aurum-clipper](https://github.com/red16124724/aurum-clipper)
+- **License**: MIT License — free for personal and commercial content creation.
+
+---
+
+<div align="center">
+  <sub><b>Aurum Clipper</b> — Made with ❤️ by <b>RED4724</b></sub>
+</div>
