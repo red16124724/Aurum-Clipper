@@ -40,7 +40,7 @@ Long Video (URL or File)
 
 ---
 
-## 🚀 Key Features (Explained Simply)
+## 🚀 Key Features 
 
 ### 1. 🧠 Google Gemini AI Virality Scoring
 Aurum Clipper analyzes the cadence, excitement, questions, and narrative arc of the speech using **Google Gemini Pro / Flash** models. It automatically discovers the most engaging 15-to-60-second hooks that stop people from scrolling past.
@@ -50,7 +50,7 @@ Aurum Clipper analyzes the cadence, excitement, questions, and narrative arc of 
 - **Dynamic Split**: Places the speaker on top and gaming/screen-share footage on the bottom for podcast and gameplay clips with **zero black bars**.
 - **1:1 Square Mode & Crop (Fill)**: Choose between modern full-bleed 9:16 vertical video or square letterboxed framing.
 
-### 3. 💬 19+ Animated Kinetic Caption Styles
+### 3. 💬 19+ Animated Dynamic Caption Styles
 - **Hormozi / MrBeast Style**: Big bold kinetic text with pop animations.
 - **Word-Level Karaoke Highlighting**: Highlights each word in real-time as it is spoken.
 - **Custom Fonts & Emojis**: Pre-bundled with top creator fonts (Komika Axis, Outfit, Anton, Montserrat) plus upload support for any `.ttf` / `.otf` font.
@@ -78,16 +78,16 @@ Aurum Clipper analyzes the cadence, excitement, questions, and narrative arc of 
 ### Option A: Standalone Release (Recommended for Everyone)
 *No Python, Node.js, or Git required! Everything is pre-bundled.*
 
-1. Go to the [GitHub Releases Page](https://github.com/red16124724/aurum-clipper/releases/tag/v1.0.0).
-2. **Download both parts into the same folder:**
-   - `Aurum_Clipper_v1.0.0_Windows_x64.zip.001` (Part 1)
-   - `Aurum_Clipper_v1.0.0_Windows_x64.zip.002` (Part 2)
+1. Go to the [GitHub Releases Page](https://github.com/red16124724/aurum-clipper/releases/).
+2. **Install the latest release**
+3. **Download both parts of the zip file into the same folder:**
+   - (Part 1) & (Part 2)
    *(⚠️ Both files must be in the same folder on your computer).*
-3. **Extract:**
-   - **Using 7-Zip or WinRAR**: Right-click `Aurum_Clipper_v1.0.0_Windows_x64.zip.001` ➔ **"Extract Here"** (both parts merge automatically).
-   - **Or Windows Command Prompt**: `copy /b Aurum_Clipper_v1.0.0_Windows_x64.zip.001 + Aurum_Clipper_v1.0.0_Windows_x64.zip.002 Aurum_Clipper.zip` and then extract `Aurum_Clipper.zip`.
-4. Double-click **`Aurum Clipper.exe`** (or `Start.bat`).
-5. Your browser will automatically open to **`http://127.0.0.1:8000`** — start creating clips immediately!
+4. **Extract:**
+   - **Using 7-Zip or WinRAR**: Right-click (Part 1) zip ➔ **"Extract Here"** (both parts merge automatically).
+   - **Or Windows Command Prompt**: `copy /b Path of (Part 1) + Path of (Part 2)` and then extract `Aurum_Clipper.zip`.
+5. Double-click **`Aurum Clipper.exe`** (or `Start.bat`).
+6. Your browser will automatically open to **`http://127.0.0.1:8000`** — start creating clips immediately!
 
 ---
 
@@ -147,7 +147,7 @@ Open **http://127.0.0.1:8000** in your browser.
 
 Aurum Clipper includes free Google Gemini AI integration to dramatically improve clip selection:
 
-1. Get a free API key at [Google AI Studio](https://aistudio.google.com/app/apikey).
+1. Get a free API key at [Google AI Studio](https://aistudio.google.com/app/apikey). If you have a hard time doing it just ask an AI assistant or watch a YT tutorial.
 2. Launch Aurum Clipper. On first launch, a setup window will appear.
 3. Paste your key and click **Save & Test Connection**.
 4. That's it! Gemini will now automatically find the most engaging hooks and generate viral titles for your clips.
